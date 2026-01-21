@@ -14,6 +14,7 @@ import (
 	"github.com/yourusername/gym-go/internal/infrastructure/http/middleware"
 	"github.com/yourusername/gym-go/internal/infrastructure/persistence"
 	"github.com/yourusername/gym-go/internal/infrastructure/persistence/migrations"
+	"github.com/yourusername/gym-go/internal/usecases"
 	"github.com/yourusername/gym-go/pkg/security"
 )
 
@@ -58,23 +59,20 @@ func main() {
 
 	// Initialize repositories
 	userRepo := persistence.NewSQLiteUserRepository(database.DB)
-	_ = persistence.NewSQLiteSubscriptionRepository(database.DB)
-	_ = persistence.NewSQLiteAccessLogRepository(database.DB)
+	subscriptionRepo := persistence.NewSQLiteSubscriptionRepository(database.DB)
+	_ = persistence.NewSQLiteAccessLogRepository(database.DB) // For future use
+	planRepo := persistence.NewSQLitePlanRepository(database.DB)
 
-	// Legacy repositories (for backward compatibility) - commented out for now
-	// memberRepo := persistence.NewInMemoryMemberRepository()
-	// membershipRepo := persistence.NewInMemoryMembershipRepository()
-	// classRepo := persistence.NewInMemoryClassRepository()
-	// instructorRepo := persistence.NewInMemoryInstructorRepository()
-	// attendanceRepo := persistence.NewInMemoryAttendanceRepository()
+	// Initialize use cases
+	userUseCase := usecases.NewUserUseCase(userRepo)
+	planUseCase := usecases.NewPlanUseCase(planRepo)
+	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, planRepo, userRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, jwtManager)
-
-	// Legacy handlers
-	// memberHandler := handlers.NewMemberHandler(memberUseCase)
-	// classHandler := handlers.NewClassHandler(classUseCase)
-	// attendanceHandler := handlers.NewAttendanceHandler(attendanceUseCase)
+	userHandler := handlers.NewUserHandler(userUseCase)
+	planHandler := handlers.NewPlanHandler(planUseCase)
+	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionUseCase)
 
 	// Setup Gin router
 	if cfg.Server.Environment == "production" {
@@ -131,16 +129,32 @@ func main() {
 		protected.POST("/auth/logout", authHandler.Logout)
 		protected.GET("/auth/me", authHandler.Me)
 
-		// User routes (future implementation)
-		// users := protected.Group("/users")
-		// users.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
-		// {
-		// 	users.GET("", userHandler.List)
-		// 	users.POST("", userHandler.Create)
-		// 	users.GET("/:id", userHandler.GetByID)
-		// 	users.PUT("/:id", userHandler.Update)
-		// 	users.DELETE("/:id", userHandler.Delete)
-		// }
+		// User routes - Only SUPER_ADMIN and ADMIN_GYM can manage users
+		users := protected.Group("/users")
+		users.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		{
+			users.GET("", userHandler.List)
+			users.POST("", userHandler.Create)
+			users.GET("/:id", userHandler.GetByID)
+		}
+
+		// Plan routes - Only SUPER_ADMIN and ADMIN_GYM can manage plans
+		plans := protected.Group("/plans")
+		plans.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		{
+			plans.GET("", planHandler.List)
+			plans.POST("", planHandler.Create)
+			plans.GET("/:id", planHandler.GetByID)
+		}
+
+		// Subscription routes - Multiple roles can access
+		subscriptions := protected.Group("/subscriptions")
+		subscriptions.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		{
+			subscriptions.GET("", subscriptionHandler.List)
+			subscriptions.POST("", subscriptionHandler.Create)
+			subscriptions.GET("/stats", subscriptionHandler.GetStats)
+		}
 	}
 
 	// Start server
