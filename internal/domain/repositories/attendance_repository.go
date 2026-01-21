@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"context"
-	"gym-go/internal/domain/entities"
+	"github.com/yourusername/gym-go/internal/domain/entities"
 	"time"
 )
 
@@ -25,3 +25,6 @@ type AttendanceFilters struct {
 	Limit     int
 	Offset    int
 }
+
+
+

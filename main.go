@@ -6,69 +6,180 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
-	"gym-go/config"
-	infrastructure "gym-go/internal/infrastructure/http"
-	"gym-go/internal/infrastructure/http/handlers"
-	"gym-go/internal/infrastructure/persistence"
-	"gym-go/internal/usecases"
+	"github.com/gin-gonic/gin"
+	"github.com/yourusername/gym-go/internal/config"
+	"github.com/yourusername/gym-go/internal/infrastructure/http/handlers"
+	"github.com/yourusername/gym-go/internal/infrastructure/http/middleware"
+	"github.com/yourusername/gym-go/internal/infrastructure/persistence"
+	"github.com/yourusername/gym-go/internal/infrastructure/persistence/migrations"
+	"github.com/yourusername/gym-go/pkg/security"
 )
 
 func main() {
-	// Cargar configuración
-	cfg := config.Load()
+	log.Println("🚀 Starting Gym-Go API Server...")
 
-	// Inicializar base de datos (comentado hasta que se configure)
-	// db := initDatabase(cfg)
-	// defer db.Close()
+	// Load configuration
+	cfg := config.LoadConfig()
 
-	// Inicializar repositorios
-	// Nota: Aquí usarías los repositorios reales con la base de datos
-	// memberRepo := persistence.NewPostgresMemberRepository(db)
-	// membershipRepo := persistence.NewPostgresMembershipRepository(db)
-	// classRepo := persistence.NewPostgresClassRepository(db)
-	// instructorRepo := persistence.NewPostgresInstructorRepository(db)
-	// attendanceRepo := persistence.NewPostgresAttendanceRepository(db)
+	// Initialize database
+	dbConfig := &config.DatabaseConfig{
+		DatabasePath: cfg.Database.DatabasePath,
+		MaxIdleConns: cfg.Database.MaxIdleConns,
+		MaxOpenConns: cfg.Database.MaxOpenConns,
+		MaxLifetime:  cfg.Database.MaxLifetime,
+	}
 
-	// Por ahora, usamos repositorios en memoria para demostración
-	memberRepo := persistence.NewInMemoryMemberRepository()
-	membershipRepo := persistence.NewInMemoryMembershipRepository()
-	classRepo := persistence.NewInMemoryClassRepository()
-	instructorRepo := persistence.NewInMemoryInstructorRepository()
-	attendanceRepo := persistence.NewInMemoryAttendanceRepository()
+	database, err := config.NewDatabase(dbConfig)
+	if err != nil {
+		log.Fatalf("❌ Failed to connect to database: %v", err)
+	}
+	defer database.Close()
 
-	// Inicializar casos de uso
-	memberUseCase := usecases.NewMemberUseCase(memberRepo, membershipRepo)
-	classUseCase := usecases.NewClassUseCase(classRepo, instructorRepo)
-	attendanceUseCase := usecases.NewAttendanceUseCase(attendanceRepo, memberRepo, classRepo)
+	// Run migrations
+	if err := migrations.Migrate(database.DB); err != nil {
+		log.Fatalf("❌ Failed to run migrations: %v", err)
+	}
 
-	// Inicializar handlers
-	memberHandler := handlers.NewMemberHandler(memberUseCase)
-	classHandler := handlers.NewClassHandler(classUseCase)
-	attendanceHandler := handlers.NewAttendanceHandler(attendanceUseCase)
+	// Seed database (optional)
+	if err := migrations.Seed(database.DB); err != nil {
+		log.Printf("⚠️ Warning: Failed to seed database: %v", err)
+	}
 
-	// Configurar router
-	router := infrastructure.NewRouter(memberHandler, classHandler, attendanceHandler)
-	engine := router.Setup()
+	// Initialize JWT manager
+	jwtManager := security.NewJWTManager(
+		cfg.JWT.AccessSecret,
+		cfg.JWT.RefreshSecret,
+		cfg.JWT.AccessExpiration,
+		cfg.JWT.RefreshExpiration,
+		cfg.JWT.Issuer,
+	)
 
-	// Iniciar servidor en una goroutine
+	// Initialize repositories
+	userRepo := persistence.NewSQLiteUserRepository(database.DB)
+	_ = persistence.NewSQLiteSubscriptionRepository(database.DB)
+	_ = persistence.NewSQLiteAccessLogRepository(database.DB)
+
+	// Legacy repositories (for backward compatibility) - commented out for now
+	// memberRepo := persistence.NewInMemoryMemberRepository()
+	// membershipRepo := persistence.NewInMemoryMembershipRepository()
+	// classRepo := persistence.NewInMemoryClassRepository()
+	// instructorRepo := persistence.NewInMemoryInstructorRepository()
+	// attendanceRepo := persistence.NewInMemoryAttendanceRepository()
+
+	// Initialize handlers
+	authHandler := handlers.NewAuthHandler(userRepo, jwtManager)
+
+	// Legacy handlers
+	// memberHandler := handlers.NewMemberHandler(memberUseCase)
+	// classHandler := handlers.NewClassHandler(classUseCase)
+	// attendanceHandler := handlers.NewAttendanceHandler(attendanceUseCase)
+
+	// Setup Gin router
+	if cfg.Server.Environment == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	router := gin.New()
+	router.Use(gin.Logger())
+	router.Use(gin.Recovery())
+	router.Use(corsMiddleware())
+
+	// Public routes
+	public := router.Group("/api/v1")
+	{
+		// Health check
+		public.GET("/health", func(c *gin.Context) {
+			c.JSON(200, gin.H{
+				"status":  "ok",
+				"version": cfg.App.Version,
+				"time":    time.Now().Format(time.RFC3339),
+			})
+		})
+
+		// Auth routes
+		auth := public.Group("/auth")
+		{
+			auth.POST("/login", authHandler.Login)
+			auth.POST("/refresh", authHandler.Refresh)
+
+			// Temporary endpoint to unlock admin account
+			auth.POST("/unlock-admin", func(c *gin.Context) {
+				user, err := userRepo.FindByEmail("admin@gym-go.com")
+				if err != nil {
+					c.JSON(404, gin.H{"error": "User not found"})
+					return
+				}
+
+				user.ResetFailedAttempts()
+				if err := userRepo.Update(user); err != nil {
+					c.JSON(500, gin.H{"error": "Failed to unlock account"})
+					return
+				}
+
+				c.JSON(200, gin.H{"message": "Admin account unlocked successfully"})
+			})
+		}
+	}
+
+	// Protected routes
+	protected := router.Group("/api/v1")
+	protected.Use(middleware.AuthMiddleware(jwtManager))
+	{
+		// Auth routes
+		protected.POST("/auth/logout", authHandler.Logout)
+		protected.GET("/auth/me", authHandler.Me)
+
+		// User routes (future implementation)
+		// users := protected.Group("/users")
+		// users.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		// {
+		// 	users.GET("", userHandler.List)
+		// 	users.POST("", userHandler.Create)
+		// 	users.GET("/:id", userHandler.GetByID)
+		// 	users.PUT("/:id", userHandler.Update)
+		// 	users.DELETE("/:id", userHandler.Delete)
+		// }
+	}
+
+	// Start server
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	go func() {
-		log.Printf("🚀 Servidor iniciado en http://%s:%s", cfg.Server.Host, cfg.Server.Port)
-		log.Printf("📊 Health check disponible en http://%s:%s/health", cfg.Server.Host, cfg.Server.Port)
-		if err := engine.Run(serverAddr); err != nil {
-			log.Fatalf("Error al iniciar servidor: %v", err)
+		log.Printf("✅ Server running on http://%s:%s", cfg.Server.Host, cfg.Server.Port)
+		log.Printf("📊 Health check: http://%s:%s/api/v1/health", cfg.Server.Host, cfg.Server.Port)
+		log.Printf("🔐 Auth endpoint: http://%s:%s/api/v1/auth/login", cfg.Server.Host, cfg.Server.Port)
+		log.Println("📝 Environment:", cfg.Server.Environment)
+
+		if err := router.Run(serverAddr); err != nil {
+			log.Fatalf("❌ Failed to start server: %v", err)
 		}
 	}()
 
-	// Esperar señal de interrupción para apagado graceful
+	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("🛑 Apagando servidor...")
+	log.Println("🛑 Shutting down server...")
+	log.Println("✅ Server stopped gracefully")
+}
 
-	log.Println("✅ Servidor detenido correctamente")
+// corsMiddleware provides basic CORS support
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
 }
 
 /*

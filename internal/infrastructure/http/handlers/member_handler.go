@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"gym-go/internal/domain/entities"
-	"gym-go/internal/infrastructure/http/dto"
-	"gym-go/internal/usecases"
+	"github.com/yourusername/gym-go/internal/domain/entities"
+	"github.com/yourusername/gym-go/internal/infrastructure/http/dto"
+	"github.com/yourusername/gym-go/internal/usecases"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -205,3 +205,6 @@ func mapMemberToResponse(member *entities.Member) *dto.MemberResponse {
 		UpdatedAt:    member.UpdatedAt,
 	}
 }
+
+
+

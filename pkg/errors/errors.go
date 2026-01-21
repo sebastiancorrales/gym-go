@@ -35,3 +35,6 @@ func NewAppError(err error, message string, code int) *AppError {
 		Code:    code,
 	}
 }
+
+
+

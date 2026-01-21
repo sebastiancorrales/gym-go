@@ -27,3 +27,6 @@ func (a *Attendance) GetDuration() *time.Duration {
 	duration := a.CheckOut.Sub(a.CheckIn)
 	return &duration
 }
+
+
+

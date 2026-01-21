@@ -55,3 +55,6 @@ func (c *Class) Complete() {
 	c.Status = ClassStatusCompleted
 	c.UpdatedAt = time.Now()
 }
+
+
+

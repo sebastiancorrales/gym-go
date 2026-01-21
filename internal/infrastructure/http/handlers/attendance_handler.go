@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"gym-go/internal/infrastructure/http/dto"
-	"gym-go/internal/usecases"
+	"github.com/yourusername/gym-go/internal/infrastructure/http/dto"
+	"github.com/yourusername/gym-go/internal/usecases"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -72,3 +72,6 @@ func (h *AttendanceHandler) CheckOut(c *gin.Context) {
 		Message: "Check-out exitoso",
 	})
 }
+
+
+

@@ -2,8 +2,8 @@ package persistence
 
 import (
 	"context"
-	"gym-go/internal/domain/entities"
-	"gym-go/internal/domain/repositories"
+	"github.com/yourusername/gym-go/internal/domain/entities"
+	"github.com/yourusername/gym-go/internal/domain/repositories"
 	"sync"
 	"time"
 )
@@ -181,3 +181,6 @@ func (r *InMemoryAttendanceRepository) List(ctx context.Context, filters reposit
 func (r *InMemoryAttendanceRepository) GetMemberAttendanceCount(ctx context.Context, memberID string, startDate, endDate time.Time) (int, error) {
 	return 0, nil
 }
+
+
+

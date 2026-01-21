@@ -1,8 +1,8 @@
 package infrastructure
 
 import (
-	"gym-go/internal/infrastructure/http/handlers"
-	"gym-go/internal/infrastructure/http/middleware"
+	"github.com/yourusername/gym-go/internal/infrastructure/http/handlers"
+	"github.com/yourusername/gym-go/internal/infrastructure/http/middleware"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -79,3 +79,6 @@ func (router *Router) Setup() *gin.Engine {
 
 	return r
 }
+
+
+

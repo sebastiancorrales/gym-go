@@ -3,8 +3,8 @@ package persistence
 import (
 	"context"
 	"database/sql"
-	"gym-go/internal/domain/entities"
-	"gym-go/internal/domain/repositories"
+	"github.com/yourusername/gym-go/internal/domain/entities"
+	"github.com/yourusername/gym-go/internal/domain/repositories"
 	"time"
 )
 
@@ -195,3 +195,6 @@ func (r *PostgresMemberRepository) Count(ctx context.Context, filters repositori
 	err := r.db.QueryRowContext(ctx, query).Scan(&count)
 	return count, err
 }
+
+
+

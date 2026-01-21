@@ -3,8 +3,8 @@ package usecases
 import (
 	"context"
 	"errors"
-	"gym-go/internal/domain/entities"
-	"gym-go/internal/domain/repositories"
+	"github.com/yourusername/gym-go/internal/domain/entities"
+	"github.com/yourusername/gym-go/internal/domain/repositories"
 	"time"
 
 	"github.com/google/uuid"
@@ -141,3 +141,6 @@ func (uc *ClassUseCase) CompleteClass(ctx context.Context, classID string) error
 func (uc *ClassUseCase) ListClasses(ctx context.Context, filters repositories.ClassFilters) ([]*entities.Class, error) {
 	return uc.classRepo.List(ctx, filters)
 }
+
+
+

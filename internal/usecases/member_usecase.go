@@ -3,8 +3,8 @@ package usecases
 import (
 	"context"
 	"errors"
-	"gym-go/internal/domain/entities"
-	"gym-go/internal/domain/repositories"
+	"github.com/yourusername/gym-go/internal/domain/entities"
+	"github.com/yourusername/gym-go/internal/domain/repositories"
 	"time"
 
 	"github.com/google/uuid"
@@ -140,3 +140,6 @@ func (uc *MemberUseCase) ActivateMember(ctx context.Context, memberID string) er
 	member.Activate()
 	return uc.memberRepo.Update(ctx, member)
 }
+
+
+

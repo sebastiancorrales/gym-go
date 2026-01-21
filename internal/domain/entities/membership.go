@@ -27,3 +27,6 @@ func (m *Membership) IsExpired(startDate time.Time) bool {
 func (m *Membership) GetExpirationDate(startDate time.Time) time.Time {
 	return startDate.AddDate(0, 0, m.DurationDays)
 }
+
+
+

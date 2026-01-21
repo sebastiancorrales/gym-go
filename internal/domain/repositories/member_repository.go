@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"context"
-	"gym-go/internal/domain/entities"
+	"github.com/yourusername/gym-go/internal/domain/entities"
 )
 
 // MemberRepository define las operaciones para persistencia de miembros
@@ -25,3 +25,6 @@ type MemberFilters struct {
 	Limit        int
 	Offset       int
 }
+
+
+

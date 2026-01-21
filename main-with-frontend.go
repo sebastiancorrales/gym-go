@@ -10,11 +10,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"gym-go/config"
-	infrastructure "gym-go/internal/infrastructure/http"
-	"gym-go/internal/infrastructure/http/handlers"
-	"gym-go/internal/infrastructure/persistence"
-	"gym-go/internal/usecases"
+	"github.com/yourusername/gym-go/config"
+	infrastructure "github.com/yourusername/gym-go/internal/infrastructure/http"
+	"github.com/yourusername/gym-go/internal/infrastructure/http/handlers"
+	"github.com/yourusername/gym-go/internal/infrastructure/persistence"
+	"github.com/yourusername/gym-go/internal/usecases"
 
 	"github.com/gin-gonic/gin"
 )
@@ -122,3 +122,6 @@ func initDatabase(cfg *config.Config) *sql.DB {
 	return db
 }
 */
+
+
+

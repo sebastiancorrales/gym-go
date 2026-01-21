@@ -55,3 +55,6 @@ func (m *Member) Deactivate() {
 func (m *Member) FullName() string {
 	return m.FirstName + " " + m.LastName
 }
+
+
+

@@ -18,3 +18,6 @@ type AttendanceResponse struct {
 	Duration  *string    `json:"duration,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
 }
+
+
+

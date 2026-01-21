@@ -37,3 +37,6 @@ type MemberResponse struct {
 type AssignMembershipRequest struct {
 	MembershipID string `json:"membership_id" validate:"required"`
 }
+
+
+
