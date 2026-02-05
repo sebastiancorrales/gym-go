@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import UsersManagement from './UsersManagement';
 import PlansManagement from './PlansManagement';
 import SubscriptionsManagement from './SubscriptionsManagement';
+import AccessManagement from './AccessManagement';
 
 export default function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -34,6 +35,41 @@ export default function Dashboard({ user, onLogout }) {
         setStats(prev => ({
           ...prev,
           activeSubscriptions: subsData?.data?.active_count || 0
+        }));
+      }
+
+      // Fetch all subscriptions for today's revenue calculation
+      const allSubsResponse = await fetch('http://localhost:8080/api/v1/subscriptions', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (allSubsResponse.ok) {
+        const allSubs = await allSubsResponse.json();
+        const today = new Date().toDateString();
+        const todayRevenue = (allSubs || [])
+          .filter(sub => new Date(sub.created_at).toDateString() === today)
+          .reduce((sum, sub) => sum + (sub.total_paid || 0), 0);
+        
+        setStats(prev => ({
+          ...prev,
+          todayRevenue: todayRevenue
+        }));
+      }
+
+      // Fetch today's access count
+      const accessResponse = await fetch('http://localhost:8080/api/v1/access/stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (accessResponse.ok) {
+        const accessData = await accessResponse.json();
+        setStats(prev => ({
+          ...prev,
+          todayAccess: accessData?.data?.today_count || 0
         }));
       }
 
@@ -171,6 +207,16 @@ export default function Dashboard({ user, onLogout }) {
             >
               Suscripciones
             </button>
+            <button
+              onClick={() => setActiveTab('access')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
+                activeTab === 'access'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Accesos
+            </button>
           </nav>
         </div>
       </div>
@@ -282,6 +328,7 @@ export default function Dashboard({ user, onLogout }) {
         {activeTab === 'users' && <UsersManagement />}
         {activeTab === 'plans' && <PlansManagement />}
         {activeTab === 'subscriptions' && <SubscriptionsManagement />}
+        {activeTab === 'access' && <AccessManagement />}
       </main>
     </div>
   );

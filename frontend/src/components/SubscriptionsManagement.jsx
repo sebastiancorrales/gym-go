@@ -29,8 +29,8 @@ export default function SubscriptionsManagement() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setSubscriptions(data.data || []);
+        const result = await response.json();
+        setSubscriptions(result.data || result || []);
       }
     } catch (error) {
       console.error('Error fetching subscriptions:', error);
@@ -49,8 +49,8 @@ export default function SubscriptionsManagement() {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setUsers(data.data || []);
+        const result = await response.json();
+        setUsers(result.data || result || []);
       }
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -68,7 +68,7 @@ export default function SubscriptionsManagement() {
 
       if (response.ok) {
         const data = await response.json();
-        setPlans(data.data || []);
+        setPlans(data || []);
       }
     } catch (error) {
       console.error('Error fetching plans:', error);
@@ -172,9 +172,9 @@ export default function SubscriptionsManagement() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
               >
                 <option value="">Seleccionar usuario...</option>
-                {users.filter(u => u.role === 'MEMBER').map(user => (
+                {users.map(user => (
                   <option key={user.id} value={user.id}>
-                    {user.first_name} {user.last_name} - {user.email}
+                    {user.first_name} {user.last_name} - {user.email} ({user.role})
                   </option>
                 ))}
               </select>
@@ -271,6 +271,9 @@ export default function SubscriptionsManagement() {
                       {sub.user?.first_name} {sub.user?.last_name}
                     </div>
                     <div className="text-xs text-gray-500">
+                      {sub.user?.document_type} {sub.user?.document_number}
+                    </div>
+                    <div className="text-xs text-gray-400">
                       {sub.user?.email}
                     </div>
                   </td>
@@ -285,11 +288,11 @@ export default function SubscriptionsManagement() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(sub.final_price)}
+                      {formatCurrency(sub.total_paid)}
                     </div>
-                    {sub.discount > 0 && (
+                    {sub.discount_applied > 0 && (
                       <div className="text-xs text-green-600">
-                        Descuento: {formatCurrency(sub.discount)}
+                        Descuento: {formatCurrency(sub.discount_applied)}
                       </div>
                     )}
                   </td>

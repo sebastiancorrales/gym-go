@@ -39,3 +39,7 @@ Thumbs.db
 # Temporal
 tmp/
 temp/
+
+# Uploaded files (keep directory but ignore images)
+uploads/*
+!uploads/.gitkeep

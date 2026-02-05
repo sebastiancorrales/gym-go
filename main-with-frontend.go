@@ -19,7 +19,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-//go:embed web/*
+//go:embed all:frontend/dist
 var webFS embed.FS
 
 func main() {
@@ -60,12 +60,29 @@ func main() {
 	engine := router.Setup()
 
 	// 🆕 Servir archivos estáticos del frontend (embedded)
-	webFiles, _ := fs.Sub(webFS, "web")
-	engine.StaticFS("/app", http.FS(webFiles))
+	webFiles, _ := fs.Sub(webFS, "frontend/dist")
+	fileServer := http.FileServer(http.FS(webFiles))
 
-	// Ruta raíz redirige a /app
+	// Servir archivos estáticos y manejar SPA routing
+	engine.NoRoute(func(c *gin.Context) {
+		// Si es una petición a la API, devolver 404
+		if len(c.Request.URL.Path) >= 4 && c.Request.URL.Path[:4] == "/api" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "endpoint not found"})
+			return
+		}
+		// Para cualquier otra ruta, intentar servir el archivo o devolver index.html
+		c.Request.URL.Path = "/"
+		fileServer.ServeHTTP(c.Writer, c.Request)
+	})
+
+	// Ruta raíz sirve el frontend
 	engine.GET("/", func(c *gin.Context) {
-		c.Redirect(http.StatusMovedPermanently, "/app/")
+		fileServer.ServeHTTP(c.Writer, c.Request)
+	})
+
+	// Servir assets
+	engine.GET("/assets/*filepath", func(c *gin.Context) {
+		fileServer.ServeHTTP(c.Writer, c.Request)
 	})
 
 	// Iniciar servidor en una goroutine
@@ -73,7 +90,7 @@ func main() {
 	go func() {
 		log.Printf("🚀 Servidor iniciado en http://%s:%s", cfg.Server.Host, cfg.Server.Port)
 		log.Printf("📊 Health check: http://%s:%s/health", cfg.Server.Host, cfg.Server.Port)
-		log.Printf("🌐 Frontend: http://%s:%s/app/", cfg.Server.Host, cfg.Server.Port)
+		log.Printf("🌐 Frontend: http://%s:%s/", cfg.Server.Host, cfg.Server.Port)
 		log.Printf("📚 API: http://%s:%s/api/v1/", cfg.Server.Host, cfg.Server.Port)
 		if err := engine.Run(serverAddr); err != nil {
 			log.Fatalf("Error al iniciar servidor: %v", err)
@@ -122,6 +139,3 @@ func initDatabase(cfg *config.Config) *sql.DB {
 	return db
 }
 */
-
-
-

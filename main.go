@@ -60,7 +60,7 @@ func main() {
 	// Initialize repositories
 	userRepo := persistence.NewSQLiteUserRepository(database.DB)
 	subscriptionRepo := persistence.NewSQLiteSubscriptionRepository(database.DB)
-	_ = persistence.NewSQLiteAccessLogRepository(database.DB) // For future use
+	accessLogRepo := persistence.NewSQLiteAccessLogRepository(database.DB)
 	planRepo := persistence.NewSQLitePlanRepository(database.DB)
 	gymRepo := persistence.NewSQLiteGymRepository(database.DB)
 
@@ -68,13 +68,16 @@ func main() {
 	userUseCase := usecases.NewUserUseCase(userRepo)
 	planUseCase := usecases.NewPlanUseCase(planRepo)
 	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, planRepo, userRepo)
+	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, jwtManager)
 	registerHandler := handlers.NewRegisterHandler(gymRepo, userRepo, jwtManager)
 	userHandler := handlers.NewUserHandler(userUseCase)
 	planHandler := handlers.NewPlanHandler(planUseCase)
-	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionUseCase)
+	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionUseCase, userUseCase, planUseCase)
+	accessHandler := handlers.NewAccessHandler(accessUseCase)
+	uploadHandler := handlers.NewUploadHandler("./uploads")
 
 	// Setup Gin router
 	if cfg.Server.Environment == "production" {
@@ -85,6 +88,9 @@ func main() {
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
 	router.Use(corsMiddleware())
+
+	// Serve static files (uploaded images)
+	router.Static("/uploads", "./uploads")
 
 	// Public routes
 	public := router.Group("/api/v1")
@@ -132,6 +138,13 @@ func main() {
 		protected.POST("/auth/logout", authHandler.Logout)
 		protected.GET("/auth/me", authHandler.Me)
 
+		// Upload routes - Accessible to all authenticated users
+		upload := protected.Group("/upload")
+		{
+			upload.POST("/image", uploadHandler.UploadImage)
+			upload.DELETE("/image/:filename", uploadHandler.DeleteImage)
+		}
+
 		// User routes - Only SUPER_ADMIN and ADMIN_GYM can manage users
 		users := protected.Group("/users")
 		users.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
@@ -139,6 +152,7 @@ func main() {
 			users.GET("", userHandler.List)
 			users.POST("", userHandler.Create)
 			users.GET("/:id", userHandler.GetByID)
+			users.PUT("/:id", userHandler.Update)
 		}
 
 		// Plan routes - Only SUPER_ADMIN and ADMIN_GYM can manage plans
@@ -157,6 +171,17 @@ func main() {
 			subscriptions.GET("", subscriptionHandler.List)
 			subscriptions.POST("", subscriptionHandler.Create)
 			subscriptions.GET("/stats", subscriptionHandler.GetStats)
+		}
+
+		// Access routes - Multiple roles can access
+		access := protected.Group("/access")
+		access.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		{
+			access.POST("/checkin", accessHandler.CheckIn)
+			access.POST("/checkout", accessHandler.CheckOut)
+			access.GET("/today", accessHandler.ListToday)
+			access.GET("/history", accessHandler.ListHistory)
+			access.GET("/stats", accessHandler.GetStats)
 		}
 	}
 

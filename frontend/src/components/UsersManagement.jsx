@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import ImageUpload from './ImageUpload';
 
 export default function UsersManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
@@ -17,6 +19,7 @@ export default function UsersManagement() {
     city: '',
     emergencyContactName: '',
     emergencyContactPhone: '',
+    photoURL: '',
     notes: '',
     password: '',
     role: 'MEMBER'
@@ -93,6 +96,7 @@ export default function UsersManagement() {
           city: formData.city || null,
           emergency_contact_name: formData.emergencyContactName || null,
           emergency_contact_phone: formData.emergencyContactPhone || null,
+          photo_url: formData.photoURL || null,
           notes: formData.notes || null,
           password: formData.password,
           role: formData.role
@@ -114,6 +118,7 @@ export default function UsersManagement() {
           city: '',
           emergencyContactName: '',
           emergencyContactPhone: '',
+          photoURL: '',
           notes: '',
           password: '',
           role: 'MEMBER'
@@ -129,6 +134,118 @@ export default function UsersManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = (user) => {
+    setEditingUser(user);
+    setFormData({
+      email: user.email || '',
+      firstName: user.first_name || '',
+      lastName: user.last_name || '',
+      documentType: user.document_type || 'CC',
+      documentNumber: user.document_number || '',
+      phone: user.phone || '',
+      dateOfBirth: user.date_of_birth ? user.date_of_birth.split('T')[0] : '',
+      gender: user.gender || '',
+      address: user.address || '',
+      city: user.city || '',
+      emergencyContactName: user.emergency_contact_name || '',
+      emergencyContactPhone: user.emergency_contact_phone || '',
+      photoURL: user.photo_url || '',
+      notes: user.notes || '',
+      password: '',
+      role: user.role || 'MEMBER'
+    });
+    setShowForm(true);
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const token = localStorage.getItem('access_token');
+      const payload = {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        document_type: formData.documentType,
+        document_number: formData.documentNumber,
+        phone: formData.phone,
+        date_of_birth: formData.dateOfBirth || null,
+        gender: formData.gender || null,
+        address: formData.address || null,
+        city: formData.city || null,
+        emergency_contact_name: formData.emergencyContactName || null,
+        emergency_contact_phone: formData.emergencyContactPhone || null,
+        photo_url: formData.photoURL || null,
+        notes: formData.notes || null,
+        role: formData.role
+      };
+
+      const response = await fetch(`http://localhost:8080/api/v1/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        setShowForm(false);
+        setEditingUser(null);
+        setFormData({
+          email: '',
+          firstName: '',
+          lastName: '',
+          documentType: 'CC',
+          documentNumber: '',
+          phone: '',
+          dateOfBirth: '',
+          gender: '',
+          address: '',
+          city: '',
+          emergencyContactName: '',
+          emergencyContactPhone: '',
+          photoURL: '',
+          notes: '',
+          password: '',
+          role: 'MEMBER'
+        });
+        fetchUsers();
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Error al actualizar usuario');
+      }
+    } catch (error) {
+      console.error('Error updating user:', error);
+      alert('Error al actualizar usuario');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setShowForm(false);
+    setEditingUser(null);
+    setFormData({
+      email: '',
+      firstName: '',
+      lastName: '',
+      documentType: 'CC',
+      documentNumber: '',
+      phone: '',
+      dateOfBirth: '',
+      gender: '',
+      address: '',
+      city: '',
+      emergencyContactName: '',
+      emergencyContactPhone: '',
+      photoURL: '',
+      notes: '',
+      password: '',
+      role: 'MEMBER'
+    });
   };
 
   const getRoleBadgeColor = (role) => {
@@ -150,7 +267,13 @@ export default function UsersManagement() {
           <p className="text-gray-600 mt-1">Administra los usuarios del gimnasio</p>
         </div>
         <button
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm && editingUser) {
+              handleCancelEdit();
+            } else {
+              setShowForm(!showForm);
+            }
+          }}
           className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg"
         >
           {showForm ? 'Cancelar' : '+ Nuevo Usuario'}
@@ -159,58 +282,106 @@ export default function UsersManagement() {
 
       {showForm && (
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-200">
-          <h3 className="text-lg font-semibold mb-6">Crear Nuevo Usuario</h3>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <h3 className="text-lg font-semibold mb-6">
+            {editingUser ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
+          </h3>
+          <form onSubmit={editingUser ? handleUpdate : handleSubmit} className="space-y-6">
             
-            {/* Información de Cuenta */}
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b">Información de Cuenta</h4>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  />
-                </div>
+            {/* Photo Upload */}
+            <ImageUpload
+              value={formData.photoURL}
+              onChange={(url) => setFormData({ ...formData, photoURL: url })}
+              label="Foto de Perfil"
+            />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Contraseña *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    minLength="8"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  />
-                </div>
+            {/* Información de Cuenta - Only show email and password when creating */}
+            {!editingUser && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b">Información de Cuenta</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rol *
-                  </label>
-                  <select
-                    value={formData.role}
-                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  >
-                    {roles.map(role => (
-                      <option key={role.value} value={role.value}>
-                        {role.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contraseña *
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      minLength="8"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Rol *
+                    </label>
+                    <select
+                      value={formData.role}
+                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                    >
+                      {roles.map(role => (
+                        <option key={role.value} value={role.value}>
+                          {role.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* For editing, show role in personal info section */}
+            {editingUser && (
+              <div>
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b">Información de Cuenta</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email (no editable)
+                    </label>
+                    <input
+                      type="email"
+                      disabled
+                      value={formData.email}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Rol *
+                    </label>
+                    <select
+                      value={formData.role}
+                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                    >
+                      {roles.map(role => (
+                        <option key={role.value} value={role.value}>
+                          {role.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Información Personal */}
             <div>
@@ -396,7 +567,7 @@ export default function UsersManagement() {
                 disabled={loading}
                 className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg disabled:opacity-50"
               >
-                {loading ? 'Creando...' : 'Crear Usuario'}
+                {loading ? (editingUser ? 'Actualizando...' : 'Creando...') : (editingUser ? 'Actualizar Usuario' : 'Crear Usuario')}
               </button>
             </div>
           </form>
@@ -425,18 +596,21 @@ export default function UsersManagement() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Estado
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {loading ? (
               <tr>
-                <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
                   Cargando usuarios...
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
                   No hay usuarios registrados
                 </td>
               </tr>
@@ -446,9 +620,17 @@ export default function UsersManagement() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-400 to-blue-400 flex items-center justify-center text-white font-bold">
-                          {user.first_name?.[0]}{user.last_name?.[0]}
-                        </div>
+                        {user.photo_url ? (
+                          <img
+                            src={user.photo_url}
+                            alt={`${user.first_name} ${user.last_name}`}
+                            className="h-10 w-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-400 to-blue-400 flex items-center justify-center text-white font-bold">
+                            {user.first_name?.[0]}{user.last_name?.[0]}
+                          </div>
+                        )}
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">
@@ -479,6 +661,16 @@ export default function UsersManagement() {
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                       {user.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button
+                      onClick={() => handleEdit(user)}
+                      className="text-indigo-600 hover:text-indigo-900 mr-3"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
                   </td>
                 </tr>
               ))

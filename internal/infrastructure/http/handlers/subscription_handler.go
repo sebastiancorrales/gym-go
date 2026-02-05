@@ -5,17 +5,32 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/yourusername/gym-go/internal/domain/entities"
 	"github.com/yourusername/gym-go/internal/usecases"
 )
 
 type SubscriptionHandler struct {
 	subscriptionUseCase *usecases.SubscriptionUseCase
+	userUseCase         *usecases.UserUseCase
+	planUseCase         *usecases.PlanUseCase
 }
 
-func NewSubscriptionHandler(subscriptionUseCase *usecases.SubscriptionUseCase) *SubscriptionHandler {
+func NewSubscriptionHandler(
+	subscriptionUseCase *usecases.SubscriptionUseCase,
+	userUseCase *usecases.UserUseCase,
+	planUseCase *usecases.PlanUseCase,
+) *SubscriptionHandler {
 	return &SubscriptionHandler{
 		subscriptionUseCase: subscriptionUseCase,
+		userUseCase:         userUseCase,
+		planUseCase:         planUseCase,
 	}
+}
+
+type SubscriptionResponse struct {
+	*entities.Subscription
+	User *entities.User `json:"user,omitempty"`
+	Plan *entities.Plan `json:"plan,omitempty"`
 }
 
 type CreateSubscriptionRequest struct {
@@ -73,7 +88,27 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, subscriptions)
+	// Enrich subscriptions with user and plan data
+	response := make([]*SubscriptionResponse, 0, len(subscriptions))
+	for _, sub := range subscriptions {
+		subResp := &SubscriptionResponse{
+			Subscription: sub,
+		}
+
+		// Load user
+		if user, err := h.userUseCase.GetUserByID(sub.UserID); err == nil {
+			subResp.User = user
+		}
+
+		// Load plan
+		if plan, err := h.planUseCase.GetPlanByID(sub.PlanID); err == nil {
+			subResp.Plan = plan
+		}
+
+		response = append(response, subResp)
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func (h *SubscriptionHandler) GetStats(c *gin.Context) {
@@ -91,6 +126,8 @@ func (h *SubscriptionHandler) GetStats(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"active_subscriptions": activeCount,
+		"data": gin.H{
+			"active_count": activeCount,
+		},
 	})
 }

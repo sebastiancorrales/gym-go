@@ -28,7 +28,7 @@ export default function PlansManagement() {
 
       if (response.ok) {
         const data = await response.json();
-        setPlans(data.data || []);
+        setPlans(data || []);
       }
     } catch (error) {
       console.error('Error fetching plans:', error);

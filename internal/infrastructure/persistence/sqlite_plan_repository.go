@@ -37,7 +37,7 @@ func (r *SQLitePlanRepository) FindByGymID(gymID uuid.UUID) ([]*entities.Plan, e
 
 func (r *SQLitePlanRepository) FindActiveByGymID(gymID uuid.UUID) ([]*entities.Plan, error) {
 	var plans []*entities.Plan
-	err := r.db.Where("gym_id = ? AND is_active = ?", gymID, true).Find(&plans).Error
+	err := r.db.Where("gym_id = ? AND status = ?", gymID, "ACTIVE").Find(&plans).Error
 	return plans, err
 }
 

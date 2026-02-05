@@ -2,13 +2,22 @@ import { useState, useEffect } from 'react';
 import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
+import CheckIn from './components/CheckIn';
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showRegister, setShowRegister] = useState(false);
+  const [showCheckIn, setShowCheckIn] = useState(false);
 
   useEffect(() => {
+    // Check if URL is /checkin
+    if (window.location.pathname === '/checkin') {
+      setShowCheckIn(true);
+      setLoading(false);
+      return;
+    }
+
     const token = localStorage.getItem('access_token');
     const savedUser = localStorage.getItem('user');
     
@@ -32,6 +41,11 @@ function App() {
   const handleLogout = () => {
     setUser(null);
   };
+
+  // Show CheckIn page if requested
+  if (showCheckIn) {
+    return <CheckIn />;
+  }
 
   if (loading) {
     return (
