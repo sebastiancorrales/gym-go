@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function Login({ onLoginSuccess }) {
+export default function Login({ onLoginSuccess, onShowRegister }) {
   const [email, setEmail] = useState('admin@gym-go.com');
   const [password, setPassword] = useState('admin123');
   const [error, setError] = useState('');
@@ -95,7 +95,20 @@ export default function Login({ onLoginSuccess }) {
             {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
           </button>
 
-          <div className="text-center text-sm text-gray-500 mt-4">
+          <div className="mt-6 text-center">
+            <p className="text-sm text-gray-600">
+              ¿No tienes una cuenta?{' '}
+              <button
+                type="button"
+                onClick={onShowRegister}
+                className="text-purple-600 hover:text-purple-700 font-semibold"
+              >
+                Registra tu gimnasio
+              </button>
+            </p>
+          </div>
+
+          <div className="text-center text-sm text-gray-500 mt-4 pt-4 border-t">
             <p>Credenciales de prueba:</p>
             <p className="font-mono text-xs mt-1">admin@gym-go.com / admin123</p>
           </div>

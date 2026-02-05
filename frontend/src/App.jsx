@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import Login from './components/Login';
+import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showRegister, setShowRegister] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -19,6 +21,12 @@ function App() {
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
+    setShowRegister(false);
+  };
+
+  const handleRegisterSuccess = (userData) => {
+    setUser(userData);
+    setShowRegister(false);
   };
 
   const handleLogout = () => {
@@ -37,7 +45,20 @@ function App() {
   }
 
   if (!user) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
+    if (showRegister) {
+      return (
+        <Register 
+          onRegisterSuccess={handleRegisterSuccess}
+          onBackToLogin={() => setShowRegister(false)}
+        />
+      );
+    }
+    return (
+      <Login 
+        onLoginSuccess={handleLoginSuccess}
+        onShowRegister={() => setShowRegister(true)}
+      />
+    );
   }
 
   return <Dashboard user={user} onLogout={handleLogout} />;

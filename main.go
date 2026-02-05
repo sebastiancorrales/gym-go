@@ -62,6 +62,7 @@ func main() {
 	subscriptionRepo := persistence.NewSQLiteSubscriptionRepository(database.DB)
 	_ = persistence.NewSQLiteAccessLogRepository(database.DB) // For future use
 	planRepo := persistence.NewSQLitePlanRepository(database.DB)
+	gymRepo := persistence.NewSQLiteGymRepository(database.DB)
 
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(userRepo)
@@ -70,6 +71,7 @@ func main() {
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, jwtManager)
+	registerHandler := handlers.NewRegisterHandler(gymRepo, userRepo, jwtManager)
 	userHandler := handlers.NewUserHandler(userUseCase)
 	planHandler := handlers.NewPlanHandler(planUseCase)
 	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionUseCase)
@@ -101,6 +103,7 @@ func main() {
 		{
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/refresh", authHandler.Refresh)
+			auth.POST("/register", registerHandler.Register)
 
 			// Temporary endpoint to unlock admin account
 			auth.POST("/unlock-admin", func(c *gin.Context) {
