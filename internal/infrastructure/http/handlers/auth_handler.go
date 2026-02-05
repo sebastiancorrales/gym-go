@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/yourusername/gym-go/internal/domain/repositories"
+	"github.com/yourusername/gym-go/internal/infrastructure/http/dto"
 	"github.com/yourusername/gym-go/pkg/security"
 )
 
@@ -32,19 +33,9 @@ type LoginRequest struct {
 
 // LoginResponse represents login response
 type LoginResponse struct {
-	AccessToken  string        `json:"access_token"`
-	RefreshToken string        `json:"refresh_token"`
-	User         *UserResponse `json:"user"`
-}
-
-// UserResponse represents user response
-type UserResponse struct {
-	ID        string `json:"id"`
-	Email     string `json:"email"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	Role      string `json:"role"`
-	GymID     string `json:"gym_id,omitempty"`
+	AccessToken  string            `json:"access_token"`
+	RefreshToken string            `json:"refresh_token"`
+	User         *dto.UserResponse `json:"user"`
 }
 
 // RefreshRequest represents refresh token request
@@ -123,7 +114,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		User: &UserResponse{
+		User: &dto.UserResponse{
 			ID:        user.ID.String(),
 			Email:     user.Email,
 			FirstName: user.FirstName,
@@ -202,7 +193,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 
 	gymID := user.GymID.String()
 
-	c.JSON(http.StatusOK, UserResponse{
+	c.JSON(http.StatusOK, dto.UserResponse{
 		ID:        user.ID.String(),
 		Email:     user.Email,
 		FirstName: user.FirstName,
@@ -220,6 +211,3 @@ func ExtractToken(c *gin.Context) string {
 	}
 	return ""
 }
-
-
-

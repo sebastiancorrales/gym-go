@@ -22,6 +22,8 @@ func Migrate(db *gorm.DB) error {
 		&entities.Payment{},
 		&entities.AccessLog{},
 		&entities.Device{},
+		&entities.Fingerprint{},
+		&entities.FingerprintVerification{},
 	)
 
 	if err != nil {

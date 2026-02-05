@@ -69,12 +69,14 @@ func main() {
 	accessLogRepo := persistence.NewSQLiteAccessLogRepository(database.DB)
 	planRepo := persistence.NewSQLitePlanRepository(database.DB)
 	gymRepo := persistence.NewSQLiteGymRepository(database.DB)
+	fingerprintRepo := persistence.NewSQLiteFingerprintRepository(database.DB)
 
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(userRepo)
 	planUseCase := usecases.NewPlanUseCase(planRepo)
 	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, planRepo, userRepo)
 	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo)
+	biometricService := usecases.NewBiometricService(fingerprintRepo, userRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, jwtManager)
@@ -84,6 +86,7 @@ func main() {
 	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionUseCase, userUseCase, planUseCase)
 	accessHandler := handlers.NewAccessHandler(accessUseCase)
 	uploadHandler := handlers.NewUploadHandler("./uploads")
+	biometricHandler := handlers.NewBiometricHandler(biometricService)
 
 	// Setup Gin router
 	if cfg.Server.Environment == "production" {
@@ -188,6 +191,18 @@ func main() {
 			access.GET("/today", accessHandler.ListToday)
 			access.GET("/history", accessHandler.ListHistory)
 			access.GET("/stats", accessHandler.GetStats)
+
+			// Biometric routes - Access to fingerprint functionality
+			biometric := protected.Group("/biometric")
+			biometric.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+			{
+				biometric.GET("/status", biometricHandler.GetStatus)
+				biometric.POST("/capture", biometricHandler.CaptureFingerprint)
+				biometric.POST("/enroll", biometricHandler.EnrollFingerprint)
+				biometric.POST("/verify", biometricHandler.VerifyFingerprint)
+				biometric.GET("/user/:user_id", biometricHandler.GetUserFingerprints)
+				biometric.DELETE("/:fingerprint_id", biometricHandler.DeleteFingerprint)
+			}
 		}
 	}
 

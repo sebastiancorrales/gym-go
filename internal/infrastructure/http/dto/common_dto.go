@@ -1,5 +1,13 @@
 package dto
 
+// APIResponse represents a standard API response
+type APIResponse struct {
+	Success bool        `json:"success"`
+	Error   string      `json:"error,omitempty"`
+	Message string      `json:"message,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
 // ErrorResponse representa una respuesta de error estándar
 type ErrorResponse struct {
 	Error   string            `json:"error"`
@@ -22,6 +30,3 @@ type PaginatedResponse struct {
 	PageSize   int         `json:"page_size"`
 	TotalPages int         `json:"total_pages"`
 }
-
-
-

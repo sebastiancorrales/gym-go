@@ -57,8 +57,8 @@ func LoadConfig() *Config {
 		JWT: JWTConfig{
 			AccessSecret:      getEnv("JWT_ACCESS_SECRET", "your-super-secret-access-key-change-in-production"),
 			RefreshSecret:     getEnv("JWT_REFRESH_SECRET", "your-super-secret-refresh-key-change-in-production"),
-			AccessExpiration:  getDurationEnv("JWT_ACCESS_EXPIRATION", 15*time.Minute),
-			RefreshExpiration: getDurationEnv("JWT_REFRESH_EXPIRATION", 7*24*time.Hour),
+			AccessExpiration:  getDurationEnv("JWT_ACCESS_EXPIRATION", 24*time.Hour),     // Cambiado a 24 horas
+			RefreshExpiration: getDurationEnv("JWT_REFRESH_EXPIRATION", 30*24*time.Hour), // Cambiado a 30 días
 			Issuer:            getEnv("JWT_ISSUER", "gym-go"),
 		},
 		App: AppConfig{
@@ -95,6 +95,3 @@ func getDurationEnv(key string, defaultValue time.Duration) time.Duration {
 	}
 	return defaultValue
 }
-
-
-
