@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import ImageUpload from './ImageUpload';
+import api from '../utils/api';
 
 export default function UsersManagement() {
   const [users, setUsers] = useState([]);
@@ -53,12 +54,7 @@ export default function UsersManagement() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8080/api/v1/users', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await api.get('/users');
 
       if (response.ok) {
         const data = await response.json();
@@ -66,6 +62,7 @@ export default function UsersManagement() {
       }
     } catch (error) {
       console.error('Error fetching users:', error);
+      alert(error.message);
     } finally {
       setLoading(false);
     }
@@ -76,31 +73,23 @@ export default function UsersManagement() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8080/api/v1/users', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          email: formData.email,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          document_type: formData.documentType,
-          document_number: formData.documentNumber,
-          phone: formData.phone,
-          date_of_birth: formData.dateOfBirth || null,
-          gender: formData.gender || null,
-          address: formData.address || null,
-          city: formData.city || null,
-          emergency_contact_name: formData.emergencyContactName || null,
-          emergency_contact_phone: formData.emergencyContactPhone || null,
-          photo_url: formData.photoURL || null,
-          notes: formData.notes || null,
-          password: formData.password,
-          role: formData.role
-        })
+      const response = await api.post('/users', {
+        email: formData.email,
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        document_type: formData.documentType,
+        document_number: formData.documentNumber,
+        phone: formData.phone,
+        date_of_birth: formData.dateOfBirth || null,
+        gender: formData.gender || null,
+        address: formData.address || null,
+        city: formData.city || null,
+        emergency_contact_name: formData.emergencyContactName || null,
+        emergency_contact_phone: formData.emergencyContactPhone || null,
+        photo_url: formData.photoURL || null,
+        notes: formData.notes || null,
+        password: formData.password,
+        role: formData.role
       });
 
       if (response.ok) {
@@ -130,7 +119,7 @@ export default function UsersManagement() {
       }
     } catch (error) {
       console.error('Error creating user:', error);
-      alert('Error al crear usuario');
+      alert(error.message || 'Error al crear usuario');
     } finally {
       setLoading(false);
     }
@@ -164,7 +153,6 @@ export default function UsersManagement() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('access_token');
       const payload = {
         first_name: formData.firstName,
         last_name: formData.lastName,
@@ -182,14 +170,7 @@ export default function UsersManagement() {
         role: formData.role
       };
 
-      const response = await fetch(`http://localhost:8080/api/v1/users/${editingUser.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      });
+      const response = await api.put(`/users/${editingUser.id}`, payload);
 
       if (response.ok) {
         setShowForm(false);

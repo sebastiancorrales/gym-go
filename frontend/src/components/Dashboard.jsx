@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import api from '../utils/api';
 import UsersManagement from './UsersManagement';
 import PlansManagement from './PlansManagement';
 import SubscriptionsManagement from './SubscriptionsManagement';
@@ -21,14 +22,8 @@ export default function Dashboard({ user, onLogout }) {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
-      
       // Fetch active subscriptions count
-      const subsResponse = await fetch('http://localhost:8080/api/v1/subscriptions/stats', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const subsResponse = await api.get('/subscriptions/stats');
 
       if (subsResponse.ok) {
         const subsData = await subsResponse.json();
@@ -39,11 +34,7 @@ export default function Dashboard({ user, onLogout }) {
       }
 
       // Fetch all subscriptions for today's revenue calculation
-      const allSubsResponse = await fetch('http://localhost:8080/api/v1/subscriptions', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const allSubsResponse = await api.get('/subscriptions');
 
       if (allSubsResponse.ok) {
         const allSubs = await allSubsResponse.json();
@@ -59,11 +50,7 @@ export default function Dashboard({ user, onLogout }) {
       }
 
       // Fetch today's access count
-      const accessResponse = await fetch('http://localhost:8080/api/v1/access/stats', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const accessResponse = await api.get('/access/stats');
 
       if (accessResponse.ok) {
         const accessData = await accessResponse.json();
@@ -74,11 +61,7 @@ export default function Dashboard({ user, onLogout }) {
       }
 
       // Fetch total users
-      const usersResponse = await fetch('http://localhost:8080/api/v1/users', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const usersResponse = await api.get('/users');
 
       if (usersResponse.ok) {
         const usersData = await usersResponse.json();
@@ -90,6 +73,7 @@ export default function Dashboard({ user, onLogout }) {
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
+      // El error de token expirado ya redirige automáticamente
     } finally {
       setLoading(false);
     }
@@ -97,13 +81,7 @@ export default function Dashboard({ user, onLogout }) {
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      await fetch('http://localhost:8080/api/v1/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await api.post('/auth/logout', {});
     } catch (error) {
       console.error('Error during logout:', error);
     } finally {
