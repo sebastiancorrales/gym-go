@@ -8,7 +8,7 @@ import (
 	"github.com/yourusername/gym-go/pkg/security"
 )
 
-func main() {
+func _main() {
 	log.Println("🔓 Unlocking admin account...")
 
 	// Initialize database

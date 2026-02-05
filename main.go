@@ -1,8 +1,11 @@
 package main
 
 import (
+	"embed"
 	"fmt"
+	"io/fs"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,6 +20,9 @@ import (
 	"github.com/yourusername/gym-go/internal/usecases"
 	"github.com/yourusername/gym-go/pkg/security"
 )
+
+//go:embed all:frontend/dist
+var webFS embed.FS
 
 func main() {
 	log.Println("🚀 Starting Gym-Go API Server...")
@@ -185,10 +191,36 @@ func main() {
 		}
 	}
 
+	// Serve frontend (embedded)
+	webFiles, err := fs.Sub(webFS, "frontend/dist")
+	if err != nil {
+		log.Printf("⚠️ Warning: Could not load frontend files: %v", err)
+	} else {
+		fileServer := http.FileServer(http.FS(webFiles))
+
+		// Serve assets
+		router.GET("/assets/*filepath", func(c *gin.Context) {
+			fileServer.ServeHTTP(c.Writer, c.Request)
+		})
+
+		// SPA routing - serve index.html for non-API routes
+		router.NoRoute(func(c *gin.Context) {
+			// Si es una petición a la API, devolver 404
+			if len(c.Request.URL.Path) >= 4 && c.Request.URL.Path[:4] == "/api" {
+				c.JSON(http.StatusNotFound, gin.H{"error": "endpoint not found"})
+				return
+			}
+			// Para cualquier otra ruta, devolver index.html
+			c.Request.URL.Path = "/"
+			fileServer.ServeHTTP(c.Writer, c.Request)
+		})
+	}
+
 	// Start server
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	go func() {
 		log.Printf("✅ Server running on http://%s:%s", cfg.Server.Host, cfg.Server.Port)
+		log.Printf("🌐 Frontend: http://%s:%s/", cfg.Server.Host, cfg.Server.Port)
 		log.Printf("📊 Health check: http://%s:%s/api/v1/health", cfg.Server.Host, cfg.Server.Port)
 		log.Printf("🔐 Auth endpoint: http://%s:%s/api/v1/auth/login", cfg.Server.Host, cfg.Server.Port)
 		log.Println("📝 Environment:", cfg.Server.Environment)
