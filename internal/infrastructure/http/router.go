@@ -1,8 +1,8 @@
 package infrastructure
 
 import (
-	"github.com/yourusername/gym-go/internal/infrastructure/http/handlers"
-	"github.com/yourusername/gym-go/internal/infrastructure/http/middleware"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/handlers"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,9 +10,12 @@ import (
 
 // Router configura y retorna el router de la aplicación
 type Router struct {
-	memberHandler     *handlers.MemberHandler
-	classHandler      *handlers.ClassHandler
-	attendanceHandler *handlers.AttendanceHandler
+	memberHandler        *handlers.MemberHandler
+	classHandler         *handlers.ClassHandler
+	attendanceHandler    *handlers.AttendanceHandler
+	productHandler       *handlers.ProductHandler
+	paymentMethodHandler *handlers.PaymentMethodHandler
+	saleHandler          *handlers.SaleHandler
 }
 
 // NewRouter crea una nueva instancia del router
@@ -20,11 +23,17 @@ func NewRouter(
 	memberHandler *handlers.MemberHandler,
 	classHandler *handlers.ClassHandler,
 	attendanceHandler *handlers.AttendanceHandler,
+	productHandler *handlers.ProductHandler,
+	paymentMethodHandler *handlers.PaymentMethodHandler,
+	saleHandler *handlers.SaleHandler,
 ) *Router {
 	return &Router{
-		memberHandler:     memberHandler,
-		classHandler:      classHandler,
-		attendanceHandler: attendanceHandler,
+		memberHandler:        memberHandler,
+		classHandler:         classHandler,
+		attendanceHandler:    attendanceHandler,
+		productHandler:       productHandler,
+		paymentMethodHandler: paymentMethodHandler,
+		saleHandler:          saleHandler,
 	}
 }
 
@@ -69,6 +78,40 @@ func (router *Router) Setup() *gin.Engine {
 			classes.POST("/:id/complete", router.classHandler.CompleteClass)
 		}
 
+
+		// Rutas de productos (inventario)
+		products := api.Group("/products")
+		{
+			products.POST("", router.productHandler.CreateProduct)
+			products.GET("", router.productHandler.GetAllProducts)
+			products.GET("/search", router.productHandler.SearchProducts)
+			products.GET("/:id", router.productHandler.GetProduct)
+			products.PUT("/:id", router.productHandler.UpdateProduct)
+			products.DELETE("/:id", router.productHandler.DeleteProduct)
+			products.PATCH("/:id/stock", router.productHandler.UpdateStock)
+		}
+
+		// Rutas de métodos de pago
+		paymentMethods := api.Group("/payment-methods")
+		{
+			paymentMethods.POST("", router.paymentMethodHandler.CreatePaymentMethod)
+			paymentMethods.GET("", router.paymentMethodHandler.GetAllPaymentMethods)
+			paymentMethods.GET("/:id", router.paymentMethodHandler.GetPaymentMethod)
+			paymentMethods.PUT("/:id", router.paymentMethodHandler.UpdatePaymentMethod)
+			paymentMethods.DELETE("/:id", router.paymentMethodHandler.DeletePaymentMethod)
+		}
+
+		// Rutas de ventas
+		sales := api.Group("/sales")
+		{
+			sales.POST("", router.saleHandler.CreateSale)
+			sales.GET("", router.saleHandler.GetAllSales)
+			sales.GET("/by-date", router.saleHandler.GetSalesByDateRange)
+			sales.GET("/report", router.saleHandler.GetSalesReport)
+			sales.GET("/report/by-product", router.saleHandler.GetSalesReportByProduct)
+			sales.GET("/:id", router.saleHandler.GetSale)
+			sales.POST("/:id/void", router.saleHandler.VoidSale)
+		}
 		// Rutas de asistencia
 		attendance := api.Group("/attendance")
 		{

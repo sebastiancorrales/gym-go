@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"github.com/yourusername/gym-go/internal/domain/entities"
-	"github.com/yourusername/gym-go/internal/infrastructure/http/dto"
-	"github.com/yourusername/gym-go/internal/usecases"
+	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/dto"
+	"github.com/sebastiancorrales/gym-go/internal/usecases"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

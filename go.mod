@@ -1,4 +1,4 @@
-module github.com/yourusername/gym-go
+module github.com/sebastiancorrales/gym-go
 
 go 1.21
 

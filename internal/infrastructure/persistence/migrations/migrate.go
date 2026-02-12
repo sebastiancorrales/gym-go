@@ -4,8 +4,8 @@ import (
 	"log"
 
 	"github.com/google/uuid"
-	"github.com/yourusername/gym-go/internal/domain/entities"
-	"github.com/yourusername/gym-go/pkg/security"
+	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
+	"github.com/sebastiancorrales/gym-go/pkg/security"
 	"gorm.io/gorm"
 )
 
@@ -24,6 +24,10 @@ func Migrate(db *gorm.DB) error {
 		&entities.Device{},
 		&entities.Fingerprint{},
 		&entities.FingerprintVerification{},
+		&entities.Product{},
+		&entities.SalePaymentMethod{},
+		&entities.Sale{},
+		&entities.SaleDetail{},
 	)
 
 	if err != nil {
@@ -71,6 +75,42 @@ func Seed(db *gorm.DB) error {
 		log.Println("✅ Super admin created successfully")
 		log.Printf("   Email: %s", superAdmin.Email)
 		log.Println("   Default Password: admin123 (CHANGE THIS!)")
+	}
+
+	// Check if payment methods exist
+	var paymentMethodCount int64
+	db.Model(&entities.SalePaymentMethod{}).Count(&paymentMethodCount)
+
+	if paymentMethodCount == 0 {
+		// Create default payment methods
+		paymentMethods := []entities.SalePaymentMethod{
+			{
+				ID:     uuid.New(),
+				Name:   "Efectivo",
+				Type:   entities.PaymentTypeCash,
+				Status: entities.PaymentMethodStatusActive,
+			},
+			{
+				ID:     uuid.New(),
+				Name:   "Tarjeta",
+				Type:   entities.PaymentTypeCard,
+				Status: entities.PaymentMethodStatusActive,
+			},
+			{
+				ID:     uuid.New(),
+				Name:   "Transferencia",
+				Type:   entities.PaymentTypeTransfer,
+				Status: entities.PaymentMethodStatusActive,
+			},
+		}
+
+		for _, pm := range paymentMethods {
+			if err := db.Create(&pm).Error; err != nil {
+				log.Printf("⚠️ Failed to create payment method %s: %v", pm.Name, err)
+			} else {
+				log.Printf("✅ Payment method created: %s", pm.Name)
+			}
+		}
 	}
 
 	log.Println("✅ Database seeding completed")

@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yourusername/gym-go/pkg/security"
+	"github.com/sebastiancorrales/gym-go/pkg/security"
 )
 
 // AuthMiddleware creates authentication middleware

@@ -6,9 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/yourusername/gym-go/internal/domain/repositories"
-	"github.com/yourusername/gym-go/internal/infrastructure/http/dto"
-	"github.com/yourusername/gym-go/pkg/security"
+	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/dto"
+	"github.com/sebastiancorrales/gym-go/pkg/security"
 )
 
 // AuthHandler handles authentication requests

@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/yourusername/gym-go/internal/domain/entities"
+	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"gorm.io/gorm"
 )
 

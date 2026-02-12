@@ -2,7 +2,7 @@ package persistence
 
 import (
 	"github.com/google/uuid"
-	"github.com/yourusername/gym-go/internal/domain/entities"
+	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"gorm.io/gorm"
 )
 

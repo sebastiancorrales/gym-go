@@ -12,13 +12,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yourusername/gym-go/internal/config"
-	"github.com/yourusername/gym-go/internal/infrastructure/http/handlers"
-	"github.com/yourusername/gym-go/internal/infrastructure/http/middleware"
-	"github.com/yourusername/gym-go/internal/infrastructure/persistence"
-	"github.com/yourusername/gym-go/internal/infrastructure/persistence/migrations"
-	"github.com/yourusername/gym-go/internal/usecases"
-	"github.com/yourusername/gym-go/pkg/security"
+	"github.com/sebastiancorrales/gym-go/internal/config"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/handlers"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/persistence"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/persistence/migrations"
+	"github.com/sebastiancorrales/gym-go/internal/usecases"
+	"github.com/sebastiancorrales/gym-go/pkg/security"
 )
 
 //go:embed all:frontend/dist
@@ -70,6 +70,10 @@ func main() {
 	planRepo := persistence.NewSQLitePlanRepository(database.DB)
 	gymRepo := persistence.NewSQLiteGymRepository(database.DB)
 	fingerprintRepo := persistence.NewSQLiteFingerprintRepository(database.DB)
+	productRepo := persistence.NewSQLiteProductRepository(database.DB)
+	paymentMethodRepo := persistence.NewSQLitePaymentMethodRepository(database.DB)
+	saleRepo := persistence.NewSQLiteSaleRepository(database.DB)
+	saleDetailRepo := persistence.NewSQLiteSaleDetailRepository(database.DB)
 
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(userRepo)
@@ -77,6 +81,9 @@ func main() {
 	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, planRepo, userRepo)
 	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo)
 	biometricService := usecases.NewBiometricService(fingerprintRepo, userRepo)
+	productUseCase := usecases.NewProductUseCase(productRepo)
+	paymentMethodUseCase := usecases.NewPaymentMethodUseCase(paymentMethodRepo)
+	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, jwtManager)
@@ -84,6 +91,9 @@ func main() {
 	userHandler := handlers.NewUserHandler(userUseCase)
 	planHandler := handlers.NewPlanHandler(planUseCase)
 	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionUseCase, userUseCase, planUseCase)
+	productHandler := handlers.NewProductHandler(productUseCase)
+	paymentMethodHandler := handlers.NewPaymentMethodHandler(paymentMethodUseCase)
+	saleHandler := handlers.NewSaleHandler(saleUseCase)
 	accessHandler := handlers.NewAccessHandler(accessUseCase)
 	uploadHandler := handlers.NewUploadHandler("./uploads")
 	biometricHandler := handlers.NewBiometricHandler(biometricService)
@@ -203,6 +213,43 @@ func main() {
 				biometric.GET("/user/:user_id", biometricHandler.GetUserFingerprints)
 				biometric.DELETE("/:fingerprint_id", biometricHandler.DeleteFingerprint)
 			}
+		}
+
+		// Product routes (inventory) - Multiple roles
+		products := protected.Group("/products")
+		products.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		{
+			products.GET("", productHandler.GetAllProducts)
+			products.GET("/search", productHandler.SearchProducts)
+			products.GET("/:id", productHandler.GetProduct)
+			products.POST("", productHandler.CreateProduct)
+			products.PUT("/:id", productHandler.UpdateProduct)
+			products.DELETE("/:id", productHandler.DeleteProduct)
+			products.PATCH("/:id/stock", productHandler.UpdateStock)
+		}
+
+		// Payment methods routes - Only SUPER_ADMIN and ADMIN_GYM
+		paymentMethods := protected.Group("/payment-methods")
+		paymentMethods.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		{
+			paymentMethods.GET("", paymentMethodHandler.GetAllPaymentMethods)
+			paymentMethods.GET("/:id", paymentMethodHandler.GetPaymentMethod)
+			paymentMethods.POST("", paymentMethodHandler.CreatePaymentMethod)
+			paymentMethods.PUT("/:id", paymentMethodHandler.UpdatePaymentMethod)
+			paymentMethods.DELETE("/:id", paymentMethodHandler.DeletePaymentMethod)
+		}
+
+		// Sales routes - Multiple roles
+		sales := protected.Group("/sales")
+		sales.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		{
+			sales.GET("", saleHandler.GetAllSales)
+			sales.GET("/by-date", saleHandler.GetSalesByDateRange)
+			sales.GET("/report", saleHandler.GetSalesReport)
+			sales.GET("/report/by-product", saleHandler.GetSalesReportByProduct)
+			sales.GET("/:id", saleHandler.GetSale)
+			sales.POST("", saleHandler.CreateSale)
+			sales.POST("/:id/void", saleHandler.VoidSale)
 		}
 	}
 

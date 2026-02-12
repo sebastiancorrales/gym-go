@@ -3,9 +3,9 @@ package main
 import (
 	"log"
 
-	"github.com/yourusername/gym-go/internal/config"
-	"github.com/yourusername/gym-go/internal/infrastructure/persistence"
-	"github.com/yourusername/gym-go/pkg/security"
+	"github.com/sebastiancorrales/gym-go/internal/config"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/persistence"
+	"github.com/sebastiancorrales/gym-go/pkg/security"
 )
 
 func _main() {

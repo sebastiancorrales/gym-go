@@ -2,7 +2,7 @@ package repositories
 
 import (
 	"context"
-	"github.com/yourusername/gym-go/internal/domain/entities"
+	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 )
 
 // InstructorRepository define las operaciones para persistencia de instructores
