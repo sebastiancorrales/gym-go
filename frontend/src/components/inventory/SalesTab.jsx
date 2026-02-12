@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../utils/api';
+import Toast from '../Toast';
+import Modal from '../Modal';
 
 export default function SalesTab({ user }) {
   const [products, setProducts] = useState([]);
@@ -9,6 +11,7 @@ export default function SalesTab({ user }) {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     fetchProducts();
@@ -33,6 +36,18 @@ export default function SalesTab({ user }) {
       if (response.ok) {
         const data = await response.json();
         setPaymentMethods(data || []);
+        
+        // Auto-select "Efectivo" if available
+        const efectivo = data.find(method => 
+          method.name.toLowerCase().includes('efectivo') || 
+          method.name.toLowerCase().includes('cash')
+        );
+        if (efectivo) {
+          setSelectedPaymentMethod(efectivo.id);
+        } else if (data.length > 0) {
+          // If "Efectivo" not found, select first method
+          setSelectedPaymentMethod(data[0].id);
+        }
       }
     } catch (error) {
       console.error('Error fetching payment methods:', error);
@@ -63,7 +78,7 @@ export default function SalesTab({ user }) {
     if (existingItem) {
       // Check stock limit
       if (existingItem.quantity >= product.stock) {
-        alert('No hay suficiente stock disponible');
+        setToast({ message: 'No hay suficiente stock disponible', type: 'warning' });
         return;
       }
       setCart(cart.map(item =>
@@ -73,7 +88,7 @@ export default function SalesTab({ user }) {
       ));
     } else {
       if (product.stock === 0) {
-        alert('Producto sin stock');
+        setToast({ message: 'Producto sin stock', type: 'warning' });
         return;
       }
       setCart([...cart, {
@@ -94,7 +109,7 @@ export default function SalesTab({ user }) {
         
         // Validate quantity against stock
         if (field === 'quantity' && value > item.max_stock) {
-          alert(`Solo hay ${item.max_stock} unidades disponibles`);
+          setToast({ message: `Solo hay ${item.max_stock} unidades disponibles`, type: 'warning' });
           return item;
         }
         
@@ -122,7 +137,7 @@ export default function SalesTab({ user }) {
 
   const handleCheckout = () => {
     if (cart.length === 0) {
-      alert('El carrito está vacío');
+      setToast({ message: 'El carrito está vacío', type: 'warning' });
       return;
     }
     setShowPaymentModal(true);
@@ -130,7 +145,7 @@ export default function SalesTab({ user }) {
 
   const completeSale = async () => {
     if (!selectedPaymentMethod) {
-      alert('Seleccione un método de pago');
+      setToast({ message: 'Seleccione un método de pago', type: 'warning' });
       return;
     }
 
@@ -150,20 +165,33 @@ export default function SalesTab({ user }) {
       
       if (response.ok) {
         const data = await response.json();
-        alert(`Venta completada exitosamente!\nTotal: $${data.total.toFixed(2)}`);
+        setToast({ 
+          message: `✓ Venta completada - Total: $${data.total.toFixed(2)}`, 
+          type: 'success' 
+        });
         
         // Reset
         setCart([]);
-        setSelectedPaymentMethod('');
         setShowPaymentModal(false);
         fetchProducts(); // Refresh to update stock
+        
+        // Re-select default payment method
+        const efectivo = paymentMethods.find(method => 
+          method.name.toLowerCase().includes('efectivo') || 
+          method.name.toLowerCase().includes('cash')
+        );
+        if (efectivo) {
+          setSelectedPaymentMethod(efectivo.id);
+        } else if (paymentMethods.length > 0) {
+          setSelectedPaymentMethod(paymentMethods[0].id);
+        }
       } else {
         const error = await response.json();
-        alert(error.error || 'Error al completar la venta');
+        setToast({ message: error.error || 'Error al completar la venta', type: 'error' });
       }
     } catch (error) {
       console.error('Error completing sale:', error);
-      alert('Error al completar la venta');
+      setToast({ message: 'Error al completar la venta', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -340,70 +368,75 @@ export default function SalesTab({ user }) {
       </div>
 
       {/* Payment Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Finalizar Venta</h3>
-              
-              <div className="space-y-4 mb-6">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-gray-600">Subtotal:</span>
-                    <span className="font-medium">${totals.subtotal.toFixed(2)}</span>
-                  </div>
-                  {totals.totalDiscount > 0 && (
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600">Descuentos:</span>
-                      <span className="font-medium text-red-600">-${totals.totalDiscount.toFixed(2)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-300">
-                    <span>Total a Pagar:</span>
-                    <span className="text-blue-600">${totals.total.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Método de Pago *
-                  </label>
-                  <select
-                    value={selectedPaymentMethod}
-                    onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required
-                  >
-                    <option value="">Seleccione un método</option>
-                    {paymentMethods.map((method) => (
-                      <option key={method.id} value={method.id}>
-                        {method.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+      <Modal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        title="Finalizar Venta"
+        maxWidth="md"
+      >
+        <div className="space-y-4 mb-6">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-gray-600">Subtotal:</span>
+              <span className="font-medium">${totals.subtotal.toFixed(2)}</span>
+            </div>
+            {totals.totalDiscount > 0 && (
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-gray-600">Descuentos:</span>
+                <span className="font-medium text-red-600">-${totals.totalDiscount.toFixed(2)}</span>
               </div>
-
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowPaymentModal(false)}
-                  disabled={loading}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={completeSale}
-                  disabled={loading || !selectedPaymentMethod}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Procesando...' : 'Confirmar Venta'}
-                </button>
-              </div>
+            )}
+            <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-300">
+              <span>Total a Pagar:</span>
+              <span className="text-blue-600">${totals.total.toFixed(2)}</span>
             </div>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Método de Pago *
+            </label>
+            <select
+              value={selectedPaymentMethod}
+              onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            >
+              {paymentMethods.map((method) => (
+                <option key={method.id} value={method.id}>
+                  {method.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
+
+        <div className="flex space-x-3">
+          <button
+            type="button"
+            onClick={() => setShowPaymentModal(false)}
+            disabled={loading}
+            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={completeSale}
+            disabled={loading}
+            className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Procesando...' : 'Confirmar Venta'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );
