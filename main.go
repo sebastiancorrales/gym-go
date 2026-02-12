@@ -24,11 +24,39 @@ import (
 //go:embed all:frontend/dist
 var webFS embed.FS
 
+// adjustDatabasePath adjusts the database path for production installations
+func adjustDatabasePath(cfg *config.Config) {
+	// If running in Program Files, use ProgramData for database
+	exePath, err := os.Executable()
+	if err == nil {
+		// Check if running from Program Files
+		if len(exePath) > 15 && (exePath[:15] == "C:\\Program Files" || exePath[:19] == "C:\\Program Files (x") {
+			// Use ProgramData for database storage
+			dataDir := os.Getenv("PROGRAMDATA")
+			if dataDir == "" {
+				dataDir = "C:\\ProgramData"
+			}
+			dbDir := dataDir + "\\Gym-Go"
+			
+			// Create directory if it doesn't exist
+			if err := os.MkdirAll(dbDir, 0755); err != nil {
+				log.Printf("⚠️ Warning: Could not create data directory: %v", err)
+			} else {
+				cfg.Database.DatabasePath = dbDir + "\\gym-go.db"
+				log.Printf("📁 Using database path: %s", cfg.Database.DatabasePath)
+			}
+		}
+	}
+}
+
 func main() {
 	log.Println("🚀 Starting Gym-Go API Server...")
 
 	// Load configuration
 	cfg := config.LoadConfig()
+
+	// Adjust database path for production installation
+	adjustDatabasePath(cfg)
 
 	// Initialize database
 	dbConfig := &config.DatabaseConfig{

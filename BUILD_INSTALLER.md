@@ -55,7 +55,7 @@ El instalador empaqueta los siguientes componentes:
 ```
 Gym-Go-Installer.exe
 ├── Backend
-│   ├── gym-go.exe (Servidor Go)
+│   ├── gym-go.exe (Servidor Go - se ejecuta como servicio)
 │   └── config/
 ├── Frontend
 │   └── frontend/dist/ (Build de React)
@@ -66,9 +66,10 @@ Gym-Go-Installer.exe
 │   ├── DEPLOYMENT.md
 │   └── LICENSE
 └── Scripts
-    ├── start-server.bat
-    ├── install-service.bat (opcional)
-    └── uninstall-service.bat (opcional)
+    ├── open-gym.bat (Abre navegador y verifica servicio)
+    ├── stop-service.bat (Detiene servicio)
+    ├── restart-service.bat (Reinicia servicio)
+    └── uninstall-service.bat (Desinstala servicio)
 ```
 
 ## 🎯 Opciones de Instalación
@@ -81,49 +82,100 @@ El instalador ofrece 3 componentes:
 - Migraciones de base de datos
 
 ### 2. **Crear Accesos Directos**
-- Menú Inicio
-- Escritorio
-- Script de inicio rápido
+- Menú Inicio: Abrir Gym-Go, Detener Servicio, Reiniciar Servicio
+- Opciones de gestión del servicio
 
-### 3. **Instalar como Servicio de Windows** (Opcional)
-- Ejecuta Gym-Go automáticamente al iniciar Windows
-- Corre en segundo plano
-- Scripts para gestionar el servicio
+### 3. **Instalar como Servicio de Windows (Recomendado)**
+- ✅ Se instala automáticamente como servicio
+- ✅ Se inicia con Windows
+- ✅ Corre siempre en segundo plano (sin ventanas de consola)
+- ✅ Solo necesitas abrir el navegador - el servidor ya está corriendo
+- 🎯 **Funciona como una aplicación profesional**
+
+## 🚀 Inicio Automático
+
+Al finalizar la instalación, el instalador ofrece:
+
+1. **Iniciar Gym-Go ahora** (marcado por defecto)
+   - Si instalaste el servicio: Lo inicia automáticamente
+   - Abre el navegador en `http://localhost:8080`
+   - ¡Listo para usar en segundos!
+
+2. **Crear acceso directo en el escritorio**
+   - Acceso rápido desde el escritorio
+   - Solo abre el navegador (el servicio ya está corriendo)
+   - Si el servicio no está activo, lo inicia automáticamente
 
 ## 📍 Ubicación de Instalación por Defecto
 
 ```
 C:\Program Files\Gym-Go\
-├── gym-go.exe
-├── start-server.bat
+├── gym-go.exe (Corre como servicio de Windows)
+├── open-gym.bat
+├── stop-service.bat
+├── restart-service.bat
 ├── frontend\
-│   └── (archivos del build)
+│   └── dist\ (archivos del build)
 ├── migrations\
 ├── data\
 │   └── gym.db (creado en primer uso)
 └── docs\
 ```
 
-## 🔧 Configuración Post-Instalación
+## 🔧 Servicio de Windows
 
-### Para Usuario Normal:
+Cuando instalas como servicio:
 
-1. **Iniciar el Servidor:**
-   - Doble clic en el icono "Iniciar Gym-Go" del menú inicio
-   - O ejecutar: `C:\Program Files\Gym-Go\start-server.bat`
-   - Se abrirá automáticamente http://localhost:8080
+- **Nombre del Servicio**: `GymGoService`
+- **Nombre para Mostrar**: "Gym-Go Service"
+- **Tipo de Inicio**: Automático (se inicia con Windows)
+- **Estado**: En ejecución (siempre activo)
 
-### Para Instalar como Servicio:
+### Ventajas del Servicio:
+- ✅ Sin ventanas de consola
+- ✅ Inicia automáticamente con Windows
+- ✅ Siempre disponible en segundo plano
+- ✅ Experiencia de aplicación profesional
+- ✅ Solo abres el navegador cuando lo necesitas
 
-1. Ejecutar como **Administrador**:
-   ```
-   C:\Program Files\Gym-Go\install-service.bat
-   ```
+## 🔧 Uso de Gym-Go
 
-2. Para desinstalar el servicio:
-   ```
-   C:\Program Files\Gym-Go\uninstall-service.bat
-   ```
+### Si Instalaste como Servicio (Recomendado):
+
+El servicio está **SIEMPRE corriendo en segundo plano**. Solo necesitas:
+
+**Desde el Menú Inicio:**
+- **Abrir Gym-Go**: Abre el navegador (el servidor ya está corriendo)
+- **Detener Servicio**: Detiene el servicio de Windows
+- **Reiniciar Servicio**: Reinicia el servicio (útil tras actualizaciones)
+
+**Desde el Escritorio** (si creaste el acceso directo):
+- Doble clic en "Gym-Go" → Abre el navegador
+
+**Manualmente:**
+```cmd
+# Abrir navegador (verifica que el servicio esté corriendo)
+C:\Program Files\Gym-Go\open-gym.bat
+
+# Gestionar servicio
+sc start GymGoService    # Iniciar
+sc stop GymGoService     # Detener
+sc query GymGoService    # Ver estado
+```
+
+### Si NO Instalaste como Servicio:
+
+Necesitas iniciar el servidor manualmente cada vez:
+
+```cmd
+# Iniciar servidor
+C:\Program Files\Gym-Go\gym-go.exe
+
+# En otra ventana o después de iniciar
+start http://localhost:8080
+```
+
+**💡 Recomendación:** Reinstala seleccionando "Instalar como Servicio de Windows" para una mejor experiencia.
 
 ## 🎨 Personalizar el Instalador
 
@@ -155,7 +207,34 @@ Section "Gym-Go (requerido)" SecCore
 SectionEnd
 ```
 
-## 📦 Reducir el Tamaño del Instalador
+## � Arquitectura de Ubicación de Archivos
+
+El instalador utiliza la estructura recomendada de Windows:
+
+### Archivos de Programa:
+```
+C:\Program Files\Gym-Go\
+├── gym-go.exe          (Ejecutable principal)
+├── dist\               (Frontend compilado)
+├── open-gym.bat        (Script de inicio)
+├── stop-service.bat    (Detener servicio)
+└── uninstall.exe       (Desinstalador)
+```
+
+### Datos de Aplicación:
+```
+C:\ProgramData\Gym-Go\
+└── gym-go.db           (Base de datos SQLite)
+```
+
+**¿Por qué esta separación?**
+- 🔒 **Program Files**: Solo lectura para usuarios normales (seguridad)
+- ✍️ **ProgramData**: Tiene permisos de escritura para la base de datos
+- 🎯 Esta arquitectura permite que el servicio de Windows funcione correctamente sin requerir permisos elevados
+
+El ejecutable detecta automáticamente si está instalado en `Program Files` y ajusta la ruta de la base de datos a `ProgramData\Gym-Go\gym-go.db`.
+
+## �📦 Reducir el Tamaño del Instalador
 
 ### 1. Compilar Go con flags de optimización:
 
