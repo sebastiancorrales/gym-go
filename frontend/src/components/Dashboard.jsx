@@ -4,6 +4,11 @@ import UsersManagement from './UsersManagement';
 import PlansManagement from './PlansManagement';
 import SubscriptionsManagement from './SubscriptionsManagement';
 import AccessManagement from './AccessManagement';
+import ProductsManagement from './inventory/ProductsManagement';
+import SalesTab from './inventory/SalesTab';
+import SalesHistory from './inventory/SalesHistory';
+import ReportsTab from './inventory/ReportsTab';
+import PaymentMethodsManagement from './inventory/PaymentMethodsManagement';
 
 export default function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -195,6 +200,56 @@ export default function Dashboard({ user, onLogout }) {
             >
               Accesos
             </button>
+            <button
+              onClick={() => setActiveTab('products')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
+                activeTab === 'products'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Productos
+            </button>
+            <button
+              onClick={() => setActiveTab('sales')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
+                activeTab === 'sales'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Ventas
+            </button>
+            <button
+              onClick={() => setActiveTab('sales-history')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
+                activeTab === 'sales-history'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Historial
+            </button>
+            <button
+              onClick={() => setActiveTab('reports')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
+                activeTab === 'reports'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Reportes
+            </button>
+            <button
+              onClick={() => setActiveTab('payment-methods')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
+                activeTab === 'payment-methods'
+                  ? 'border-purple-600 text-purple-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Métodos de Pago
+            </button>
           </nav>
         </div>
       </div>
@@ -307,6 +362,11 @@ export default function Dashboard({ user, onLogout }) {
         {activeTab === 'plans' && <PlansManagement />}
         {activeTab === 'subscriptions' && <SubscriptionsManagement />}
         {activeTab === 'access' && <AccessManagement />}
+        {activeTab === 'products' && <ProductsManagement />}
+        {activeTab === 'sales' && <SalesTab user={user} />}
+        {activeTab === 'sales-history' && <SalesHistory />}
+        {activeTab === 'reports' && <ReportsTab />}
+        {activeTab === 'payment-methods' && <PaymentMethodsManagement user={user} />}
       </main>
     </div>
   );

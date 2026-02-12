@@ -43,7 +43,7 @@ func (h *SaleHandler) CreateSale(c *gin.Context) {
 	}
 
 	// Obtener userID del contexto (asumiendo que viene del middleware de auth)
-	userIDValue, exists := c.Get("userID")
+	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{
 			Error:   "Unauthorized",
@@ -52,11 +52,12 @@ func (h *SaleHandler) CreateSale(c *gin.Context) {
 		return
 	}
 
-	userID, ok := userIDValue.(uuid.UUID)
-	if !ok {
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error:   "Internal Server Error",
 			Message: "Error al obtener ID de usuario",
+			Details: map[string]string{"detail": err.Error()},
 		})
 		return
 	}
@@ -176,7 +177,7 @@ func (h *SaleHandler) VoidSale(c *gin.Context) {
 	}
 
 	// Obtener userID del contexto
-	userIDValue, exists := c.Get("userID")
+	userIDStr, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{
 			Error:   "Unauthorized",
@@ -185,11 +186,12 @@ func (h *SaleHandler) VoidSale(c *gin.Context) {
 		return
 	}
 
-	userID, ok := userIDValue.(uuid.UUID)
-	if !ok {
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error:   "Internal Server Error",
 			Message: "Error al obtener ID de usuario",
+			Details: map[string]string{"detail": err.Error()},
 		})
 		return
 	}

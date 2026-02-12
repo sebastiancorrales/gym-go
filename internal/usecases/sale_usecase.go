@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -45,6 +46,11 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 	}
 	if len(sale.Details) == 0 {
 		return errors.ErrInvalidInput
+	}
+
+	log.Printf("🔍 DEBUG CreateSale - Received %d details", len(sale.Details))
+	for i, d := range sale.Details {
+		log.Printf("🔍 DEBUG CreateSale - Detail %d: ProductID=%s, Quantity=%d", i, d.ProductID, d.Quantity)
 	}
 
 	// Validate payment method
@@ -122,6 +128,7 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 	}
 
 	// Create sale details
+	log.Printf("📝 DEBUG CreateSale - Creating %d detail records in database", len(sale.Details))
 	if err := uc.saleDetailRepo.CreateBatch(ctx, sale.ID, sale.Details); err != nil {
 		return err
 	}
@@ -141,6 +148,7 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 			if err := product.DecreaseStock(totalQty); err != nil {
 				return err
 			}
+			log.Printf("➖ DEBUG CreateSale - Decreasing stock for product %s: -%d", productID, totalQty)
 			if err := uc.productRepo.UpdateStock(ctx, productID, -totalQty); err != nil {
 				return err
 			}
@@ -171,6 +179,13 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 	details, err := uc.saleDetailRepo.GetBySaleID(ctx, saleID)
 	if err != nil {
 		return nil, err
+	}
+
+	// DEBUG: Log details to understand the issue
+	log.Printf("🔍 DEBUG VoidSale - Original sale ID: %s", originalSale.ID)
+	log.Printf("🔍 DEBUG VoidSale - Details count: %d", len(details))
+	for i, detail := range details {
+		log.Printf("🔍 DEBUG VoidSale - Detail %d: ProductID=%s, Quantity=%d", i, detail.ProductID, detail.Quantity)
 	}
 
 	// Update original sale status
@@ -219,11 +234,28 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 		return nil, err
 	}
 
-	// Restore inventory
+	// Restore inventory - Restore ONLY ONCE per product
+	restoredProducts := make(map[uuid.UUID]bool)
 	for _, detail := range details {
-		if err := uc.productRepo.UpdateStock(ctx, detail.ProductID, detail.Quantity); err != nil {
+		// Skip if already restored (in case of duplicate details)
+		if restoredProducts[detail.ProductID] {
+			log.Printf("⚠️ DEBUG VoidSale - Skipping duplicate product: %s", detail.ProductID)
+			continue
+		}
+
+		// Calculate total quantity for this product across all details
+		totalQty := 0
+		for _, d := range details {
+			if d.ProductID == detail.ProductID {
+				totalQty += d.Quantity
+			}
+		}
+
+		log.Printf("✅ DEBUG VoidSale - Restoring stock for product %s: +%d", detail.ProductID, totalQty)
+		if err := uc.productRepo.UpdateStock(ctx, detail.ProductID, totalQty); err != nil {
 			return nil, err
 		}
+		restoredProducts[detail.ProductID] = true
 	}
 
 	return voidSale, nil

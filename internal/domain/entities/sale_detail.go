@@ -20,7 +20,7 @@ type SaleDetail struct {
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`
 
 	// Relations - not stored in DB directly
-	Product *Product `json:"product,omitempty" db:"-"`
+	Product *Product `json:"product,omitempty" gorm:"-" db:"-"`
 }
 
 // CalculateSubtotal calculates the subtotal for this detail

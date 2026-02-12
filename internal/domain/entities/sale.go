@@ -38,9 +38,9 @@ type Sale struct {
 	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
 
 	// Relations - not stored in DB directly
-	Details       []SaleDetail       `json:"details,omitempty" db:"-"`
-	User          *User              `json:"user,omitempty" db:"-"`
-	PaymentMethod *SalePaymentMethod `json:"payment_method,omitempty" db:"-"`
+	Details       []SaleDetail       `json:"details,omitempty" gorm:"-" db:"-"`
+	User          *User              `json:"user,omitempty" gorm:"-" db:"-"`
+	PaymentMethod *SalePaymentMethod `json:"payment_method,omitempty" gorm:"-" db:"-"`
 }
 
 // CalculateTotal calculates the total from details
