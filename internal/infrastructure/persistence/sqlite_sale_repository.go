@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -69,6 +70,8 @@ func (r *SQLiteSaleRepository) GetByDateRange(ctx context.Context, startDate, en
 func (r *SQLiteSaleRepository) GetSalesReport(ctx context.Context, startDate, endDate time.Time, userID *uuid.UUID) ([]repositories.SaleReport, error) {
 	var reports []repositories.SaleReport
 
+	log.Printf("🔍 DEBUG GetSalesReport - startDate: %v, endDate: %v", startDate, endDate)
+
 	query := r.db.WithContext(ctx).
 		Model(&entities.Sale{}).
 		Select(`
@@ -86,6 +89,10 @@ func (r *SQLiteSaleRepository) GetSalesReport(ctx context.Context, startDate, en
 	}
 
 	err := query.Scan(&reports).Error
+	log.Printf("🔍 DEBUG GetSalesReport - Found %d reports, error: %v", len(reports), err)
+	if len(reports) > 0 {
+		log.Printf("🔍 DEBUG GetSalesReport - Report: %+v", reports[0])
+	}
 	return reports, err
 }
 

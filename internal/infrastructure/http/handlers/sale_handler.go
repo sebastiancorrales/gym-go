@@ -263,6 +263,9 @@ func (h *SaleHandler) GetSalesByDateRange(c *gin.Context) {
 		return
 	}
 
+	// Ajustar endDate al final del día (23:59:59.999999999)
+	endDate = endDate.Add(24*time.Hour - time.Nanosecond)
+
 	var userID *uuid.UUID
 	if userIDStr := c.Query("user_id"); userIDStr != "" {
 		uid, err := uuid.Parse(userIDStr)
@@ -325,6 +328,9 @@ func (h *SaleHandler) GetSalesReport(c *gin.Context) {
 		})
 		return
 	}
+
+	// Ajustar endDate al final del día (23:59:59.999999999)
+	endDate = endDate.Add(24*time.Hour - time.Nanosecond)
 
 	var userID *uuid.UUID
 	if userIDStr := c.Query("user_id"); userIDStr != "" {
@@ -399,6 +405,9 @@ func (h *SaleHandler) GetSalesReportByProduct(c *gin.Context) {
 		})
 		return
 	}
+
+	// Ajustar endDate al final del día (23:59:59.999999999)
+	endDate = endDate.Add(24*time.Hour - time.Nanosecond)
 
 	reports, err := h.saleUseCase.GetSalesReportByProduct(c.Request.Context(), startDate, endDate)
 	if err != nil {

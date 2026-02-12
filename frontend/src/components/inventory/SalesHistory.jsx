@@ -1,14 +1,24 @@
 import { useState, useEffect } from 'react';
 import api from '../../utils/api';
 
+// Helper function to get today's date in YYYY-MM-DD format
+const getTodayDate = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function SalesHistory() {
+  const todayDate = getTodayDate();
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSale, setSelectedSale] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [dateRange, setDateRange] = useState({
-    start_date: '',
-    end_date: ''
+    start_date: todayDate,
+    end_date: todayDate
   });
 
   useEffect(() => {

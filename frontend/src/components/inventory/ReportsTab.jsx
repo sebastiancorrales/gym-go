@@ -1,11 +1,21 @@
 import { useState } from 'react';
 import api from '../../utils/api';
 
+// Helper function to get today's date in YYYY-MM-DD format
+const getTodayDate = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function ReportsTab() {
+  const todayDate = getTodayDate();
   const [activeReport, setActiveReport] = useState('sales');
   const [dateRange, setDateRange] = useState({
-    start_date: '',
-    end_date: ''
+    start_date: todayDate,
+    end_date: todayDate
   });
   const [salesReport, setSalesReport] = useState(null);
   const [productReport, setProductReport] = useState(null);
@@ -68,7 +78,9 @@ export default function ReportsTab() {
   };
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString);
+    // Parse date as local time to avoid timezone issues
+    const [year, month, day] = dateString.split('-');
+    const date = new Date(year, month - 1, day);
     return date.toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
@@ -280,7 +292,7 @@ export default function ReportsTab() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <span className="text-sm text-gray-900 font-semibold mr-2">
-                            {product.total_quantity}
+                            {product.quantity_sold}
                           </span>
                           <span className="text-xs text-gray-500">unidades</span>
                         </div>
@@ -292,7 +304,7 @@ export default function ReportsTab() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-gray-900">
-                          ${(product.total_revenue / product.total_quantity).toFixed(2)}
+                          ${(product.total_revenue / product.quantity_sold).toFixed(2)}
                         </span>
                       </td>
                     </tr>
@@ -305,7 +317,7 @@ export default function ReportsTab() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm font-bold text-gray-900">
-                        {productReport.reduce((sum, p) => sum + p.total_quantity, 0)} unidades
+                        {productReport.reduce((sum, p) => sum + p.quantity_sold, 0)} unidades
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
