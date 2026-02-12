@@ -206,13 +206,25 @@ func main() {
 		}
 	}
 
-	// Serve frontend (embedded)
-	webFiles, err := fs.Sub(webFS, "frontend/dist")
-	if err != nil {
-		log.Printf("⚠️ Warning: Could not load frontend files: %v", err)
-	} else {
-		fileServer := http.FileServer(http.FS(webFiles))
+	// Serve frontend (embedded or from disk)
+	var fileServer http.Handler
 
+	// Check if frontend/dist exists on disk (for installed version)
+	if _, err := os.Stat("frontend/dist"); err == nil {
+		log.Println("📁 Serving frontend from disk: frontend/dist")
+		fileServer = http.FileServer(http.Dir("frontend/dist"))
+	} else {
+		// Use embedded files (for development)
+		log.Println("📦 Serving frontend from embedded files")
+		webFiles, err := fs.Sub(webFS, "frontend/dist")
+		if err != nil {
+			log.Printf("⚠️ Warning: Could not load frontend files: %v", err)
+		} else {
+			fileServer = http.FileServer(http.FS(webFiles))
+		}
+	}
+
+	if fileServer != nil {
 		// Serve assets
 		router.GET("/assets/*filepath", func(c *gin.Context) {
 			fileServer.ServeHTTP(c.Writer, c.Request)
