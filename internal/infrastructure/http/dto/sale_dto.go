@@ -43,18 +43,19 @@ type SaleDetailResponse struct {
 
 // SaleResponse representa la respuesta de una venta
 type SaleResponse struct {
-	ID              string               `json:"id"`
-	SaleDate        time.Time            `json:"sale_date"`
-	Total           float64              `json:"total"`
-	TotalDiscount   float64              `json:"total_discount"`
-	UserID          string               `json:"user_id"`
-	Type            string               `json:"type"`
-	Status          string               `json:"status"`
-	PaymentMethodID string               `json:"payment_method_id"`
-	VoidedSaleID    *string              `json:"voided_sale_id,omitempty"`
-	CreatedAt       time.Time            `json:"created_at"`
-	UpdatedAt       time.Time            `json:"updated_at"`
-	Details         []SaleDetailResponse `json:"details,omitempty"`
+	ID                string               `json:"id"`
+	SaleDate          time.Time            `json:"sale_date"`
+	Total             float64              `json:"total"`
+	TotalDiscount     float64              `json:"total_discount"`
+	UserID            string               `json:"user_id"`
+	Type              string               `json:"type"`
+	Status            string               `json:"status"`
+	PaymentMethodID   string               `json:"payment_method_id"`
+	PaymentMethodName string               `json:"payment_method_name,omitempty"`
+	VoidedSaleID      *string              `json:"voided_sale_id,omitempty"`
+	CreatedAt         time.Time            `json:"created_at"`
+	UpdatedAt         time.Time            `json:"updated_at"`
+	Details           []SaleDetailResponse `json:"details,omitempty"`
 }
 
 // SaleReportRequest representa la solicitud para un reporte de ventas
@@ -134,6 +135,10 @@ func ToSaleResponse(sale *entities.Sale) *SaleResponse {
 		VoidedSaleID:    voidedSaleID,
 		CreatedAt:       sale.CreatedAt,
 		UpdatedAt:       sale.UpdatedAt,
+	}
+
+	if sale.PaymentMethod != nil {
+		response.PaymentMethodName = sale.PaymentMethod.Name
 	}
 
 	if len(sale.Details) > 0 {

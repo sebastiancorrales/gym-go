@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>GymGo.BiometricService</RootNamespace>
+    <AssemblyName>BiometricService</AssemblyName>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <!-- 
+    DigitalPersona SDK DLLs - Copiar a la carpeta lib/
+    Después de instalar "DigitalPersona One Touch for Windows SDK", 
+    copiar estos archivos desde:
+      C:\Program Files\DigitalPersona\U.are.U SDK\Windows\Lib\dotnet\
+    O desde:
+      C:\Program Files (x86)\DigitalPersona\Bin\
+  -->
+  <ItemGroup>
+    <Reference Include="DPFPShrNET">
+      <HintPath>lib\DPFPShrNET.dll</HintPath>
+    </Reference>
+    <Reference Include="DPFPDevNET">
+      <HintPath>lib\DPFPDevNET.dll</HintPath>
+    </Reference>
+    <Reference Include="DPFPEngNET">
+      <HintPath>lib\DPFPEngNET.dll</HintPath>
+    </Reference>
+    <Reference Include="DPFPVerNET">
+      <HintPath>lib\DPFPVerNET.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>

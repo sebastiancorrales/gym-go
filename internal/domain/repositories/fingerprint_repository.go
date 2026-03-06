@@ -15,10 +15,10 @@ type FingerprintRepository interface {
 	GetByID(ctx context.Context, id int) (*entities.Fingerprint, error)
 
 	// GetByUserID retrieves all fingerprints for a user
-	GetByUserID(ctx context.Context, userID int) ([]*entities.Fingerprint, error)
+	GetByUserID(ctx context.Context, userID string) ([]*entities.Fingerprint, error)
 
 	// GetActiveByUserID retrieves all active fingerprints for a user
-	GetActiveByUserID(ctx context.Context, userID int) ([]*entities.Fingerprint, error)
+	GetActiveByUserID(ctx context.Context, userID string) ([]*entities.Fingerprint, error)
 
 	// Update updates a fingerprint
 	Update(ctx context.Context, fingerprint *entities.Fingerprint) error

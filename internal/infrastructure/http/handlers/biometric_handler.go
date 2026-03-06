@@ -154,6 +154,60 @@ func (h *BiometricHandler) EnrollFingerprint(c *gin.Context) {
 	})
 }
 
+// EnrollFingerprintViaDevice registers a fingerprint using the reader device
+// POST /api/v1/biometric/enroll-device
+// The C# service handles multi-capture enrollment (4 captures)
+func (h *BiometricHandler) EnrollFingerprintViaDevice(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	var req dto.FingerprintEnrollDeviceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Error:   "Invalid request body",
+		})
+		return
+	}
+
+	validFingers := map[string]bool{
+		"left_thumb": true, "left_index": true, "left_middle": true, "left_ring": true, "left_little": true,
+		"right_thumb": true, "right_index": true, "right_middle": true, "right_ring": true, "right_little": true,
+	}
+
+	if !validFingers[req.FingerIndex] {
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Error:   "Invalid finger_index",
+		})
+		return
+	}
+
+	fingerprint, err := h.biometricService.EnrollFingerprintViaService(ctx, req.UserID, req.FingerIndex)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, dto.APIResponse{
+			Success: false,
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	response := dto.FingerprintResponse{
+		ID:          fingerprint.ID,
+		UserID:      fingerprint.UserID,
+		FingerIndex: fingerprint.FingerIndex,
+		Quality:     fingerprint.Quality,
+		CreatedAt:   fingerprint.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   fingerprint.UpdatedAt.Format(time.RFC3339),
+		IsActive:    fingerprint.IsActive,
+	}
+
+	c.JSON(http.StatusCreated, dto.APIResponse{
+		Success: true,
+		Data:    response,
+		Message: "Fingerprint enrolled via device successfully",
+	})
+}
+
 // VerifyFingerprint verifies a captured fingerprint
 // POST /api/v1/biometric/verify
 func (h *BiometricHandler) VerifyFingerprint(c *gin.Context) {
@@ -193,7 +247,6 @@ func (h *BiometricHandler) VerifyFingerprint(c *gin.Context) {
 		return
 	}
 
-	// Build response - user may be nil if biometric system uses separate user IDs
 	var userResponse *dto.UserResponse
 	if user != nil {
 		userResponse = &dto.UserResponse{
@@ -208,7 +261,7 @@ func (h *BiometricHandler) VerifyFingerprint(c *gin.Context) {
 
 	response := dto.FingerprintVerifyResponse{
 		Success:    true,
-		UserID:     0, // Placeholder - user ID mapping needed
+		UserID:     user.ID.String(),
 		MatchScore: matchScore,
 		Message:    "Fingerprint verified successfully",
 		User:       userResponse,
@@ -225,8 +278,8 @@ func (h *BiometricHandler) VerifyFingerprint(c *gin.Context) {
 func (h *BiometricHandler) GetUserFingerprints(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	userID, err := strconv.Atoi(c.Param("user_id"))
-	if err != nil {
+	userID := c.Param("user_id")
+	if userID == "" {
 		c.JSON(http.StatusBadRequest, dto.APIResponse{
 			Success: false,
 			Error:   "Invalid user ID",

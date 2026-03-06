@@ -5,7 +5,7 @@ import "time"
 // Fingerprint represents a user's fingerprint template
 type Fingerprint struct {
 	ID              int       `json:"id" gorm:"primaryKey;autoIncrement"`
-	UserID          int       `json:"user_id" gorm:"not null;index"`
+	UserID          string    `json:"user_id" gorm:"type:text;not null;index"`
 	FingerprintData []byte    `json:"-" gorm:"type:blob;not null"`                   // Binary template data
 	FingerIndex     string    `json:"finger_index" gorm:"type:varchar(20);not null"` // e.g., "left_thumb", "right_index"
 	Quality         int       `json:"quality" gorm:"not null"`                       // Quality score 0-100
@@ -22,7 +22,7 @@ func (Fingerprint) TableName() string {
 // FingerprintVerification represents a fingerprint verification attempt
 type FingerprintVerification struct {
 	ID            int       `json:"id" gorm:"primaryKey;autoIncrement"`
-	UserID        int       `json:"user_id" gorm:"not null;index"`
+	UserID        string    `json:"user_id" gorm:"type:text;not null;index"`
 	FingerprintID int       `json:"fingerprint_id" gorm:"not null"`
 	MatchScore    int       `json:"match_score" gorm:"not null"` // Match score 0-100
 	IsSuccess     bool      `json:"is_success" gorm:"not null"`

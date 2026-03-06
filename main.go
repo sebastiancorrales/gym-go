@@ -37,7 +37,7 @@ func adjustDatabasePath(cfg *config.Config) {
 				dataDir = "C:\\ProgramData"
 			}
 			dbDir := dataDir + "\\Gym-Go"
-			
+
 			// Create directory if it doesn't exist
 			if err := os.MkdirAll(dbDir, 0755); err != nil {
 				log.Printf("⚠️ Warning: Could not create data directory: %v", err)
@@ -237,6 +237,7 @@ func main() {
 				biometric.GET("/status", biometricHandler.GetStatus)
 				biometric.POST("/capture", biometricHandler.CaptureFingerprint)
 				biometric.POST("/enroll", biometricHandler.EnrollFingerprint)
+				biometric.POST("/enroll-device", biometricHandler.EnrollFingerprintViaDevice)
 				biometric.POST("/verify", biometricHandler.VerifyFingerprint)
 				biometric.GET("/user/:user_id", biometricHandler.GetUserFingerprints)
 				biometric.DELETE("/:fingerprint_id", biometricHandler.DeleteFingerprint)

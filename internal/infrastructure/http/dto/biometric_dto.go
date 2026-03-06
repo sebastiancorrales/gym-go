@@ -2,10 +2,16 @@ package dto
 
 // FingerprintEnrollRequest represents a request to enroll a new fingerprint
 type FingerprintEnrollRequest struct {
-	UserID       int    `json:"user_id" binding:"required"`
+	UserID       string `json:"user_id" binding:"required"`
 	FingerIndex  string `json:"finger_index" binding:"required"`  // left_thumb, right_index, etc.
 	TemplateData string `json:"template_data" binding:"required"` // Base64 encoded fingerprint template
 	Quality      int    `json:"quality" binding:"required,min=0,max=100"`
+}
+
+// FingerprintEnrollDeviceRequest represents a request to enroll using the fingerprint reader
+type FingerprintEnrollDeviceRequest struct {
+	UserID      string `json:"user_id" binding:"required"`
+	FingerIndex string `json:"finger_index" binding:"required"` // left_thumb, right_index, etc.
 }
 
 // FingerprintVerifyRequest represents a request to verify a fingerprint
@@ -17,7 +23,7 @@ type FingerprintVerifyRequest struct {
 // FingerprintResponse represents a fingerprint record
 type FingerprintResponse struct {
 	ID          int    `json:"id"`
-	UserID      int    `json:"user_id"`
+	UserID      string `json:"user_id"`
 	FingerIndex string `json:"finger_index"`
 	Quality     int    `json:"quality"`
 	CreatedAt   string `json:"created_at"`
@@ -28,7 +34,7 @@ type FingerprintResponse struct {
 // FingerprintVerifyResponse represents the result of a fingerprint verification
 type FingerprintVerifyResponse struct {
 	Success    bool          `json:"success"`
-	UserID     int           `json:"user_id,omitempty"`
+	UserID     string        `json:"user_id,omitempty"`
 	MatchScore int           `json:"match_score"`
 	Message    string        `json:"message"`
 	User       *UserResponse `json:"user,omitempty"`

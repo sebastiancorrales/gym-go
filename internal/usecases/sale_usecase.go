@@ -274,26 +274,62 @@ func (uc *SaleUseCase) GetSaleByID(ctx context.Context, id uuid.UUID) (*entities
 	// Load details
 	details, err := uc.saleDetailRepo.GetBySaleID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, err	
 	}
 	sale.Details = details
+
+	// Load payment method
+	pm, err := uc.paymentMethodRepo.GetByID(ctx, sale.PaymentMethodID)
+	if err == nil && pm != nil {
+		sale.PaymentMethod = pm
+	}
 
 	return sale, nil
 }
 
 // GetAllSales retrieves all sales
 func (uc *SaleUseCase) GetAllSales(ctx context.Context) ([]entities.Sale, error) {
-	return uc.saleRepo.GetAll(ctx)
+	sales, err := uc.saleRepo.GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	uc.loadPaymentMethods(ctx, sales)
+	return sales, nil
 }
 
 // GetSalesByDateRange retrieves sales within a date range
 func (uc *SaleUseCase) GetSalesByDateRange(ctx context.Context, startDate, endDate time.Time, userID *uuid.UUID) ([]entities.Sale, error) {
-	return uc.saleRepo.GetByDateRange(ctx, startDate, endDate, userID)
+	sales, err := uc.saleRepo.GetByDateRange(ctx, startDate, endDate, userID)
+	if err != nil {
+		return nil, err
+	}
+	uc.loadPaymentMethods(ctx, sales)
+	return sales, nil
 }
 
 // GetSalesReport generates a sales report for a date range
 func (uc *SaleUseCase) GetSalesReport(ctx context.Context, startDate, endDate time.Time, userID *uuid.UUID) ([]repositories.SaleReport, error) {
 	return uc.saleRepo.GetSalesReport(ctx, startDate, endDate, userID)
+}
+
+// loadPaymentMethods batch-loads payment methods for a list of sales
+func (uc *SaleUseCase) loadPaymentMethods(ctx context.Context, sales []entities.Sale) {
+	pmMap := make(map[uuid.UUID]*entities.SalePaymentMethod)
+	for i := range sales {
+		pmID := sales[i].PaymentMethodID
+		if _, exists := pmMap[pmID]; exists {
+			continue
+		}
+		pm, err := uc.paymentMethodRepo.GetByID(ctx, pmID)
+		if err == nil && pm != nil {
+			pmMap[pmID] = pm
+		}
+	}
+	for i := range sales {
+		if pm, ok := pmMap[sales[i].PaymentMethodID]; ok {
+			sales[i].PaymentMethod = pm
+		}
+	}
 }
 
 // GetSalesReportByProduct generates a sales report grouped by product
