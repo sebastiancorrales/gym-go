@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using System.Windows.Forms;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -13,28 +14,38 @@ using Newtonsoft.Json.Linq;
 // Compatible con DigitalPersona U.are.U 4500
 // Usa el SDK de DigitalPersona (DPFP) para captura y matching de huellas
 // Se comunica con el backend Go via TCP en localhost:9000
+//
+// Arquitectura: Form oculto en hilo STA principal (message pump para COM events)
+//               TCP server en hilo background despacha al hilo UI via Invoke()
 // =============================================================================
 
 namespace GymGo.BiometricService
 {
-    class Program
+    // =========================================================================
+    // Form oculto que actúa como message pump para los eventos COM del SDK
+    // =========================================================================
+    class ServiceForm : Form
     {
         private const int PORT = 9000;
+        private FingerprintService _service;
+        private TcpListener _listener;
 
-        static void Main(string[] args)
+        public ServiceForm()
         {
-            Console.OutputEncoding = Encoding.UTF8;
-            Console.WriteLine("═══════════════════════════════════════════");
-            Console.WriteLine("  GYM-GO Servicio Biométrico");
-            Console.WriteLine("  DigitalPersona U.are.U 4500");
-            Console.WriteLine($"  Puerto: {PORT}");
-            Console.WriteLine("═══════════════════════════════════════════");
-            Console.WriteLine();
+            this.ShowInTaskbar = false;
+            this.WindowState = FormWindowState.Minimized;
+            this.FormBorderStyle = FormBorderStyle.None;
+            this.Opacity = 0;
+        }
 
-            var service = new FingerprintService();
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            this.Visible = false;
 
-            // Verificar que el SDK está disponible
-            if (!service.IsSdkAvailable())
+            _service = new FingerprintService();
+
+            if (!_service.IsSdkAvailable())
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine("[ERROR] No se encontraron las DLLs del SDK de DigitalPersona.");
@@ -42,41 +53,39 @@ namespace GymGo.BiometricService
                 Console.WriteLine("    - DPFPShrNET.dll");
                 Console.WriteLine("    - DPFPDevNET.dll");
                 Console.WriteLine("    - DPFPEngNET.dll");
-                Console.WriteLine();
-                Console.WriteLine("  Estos archivos se obtienen del SDK 'DigitalPersona One Touch for Windows'");
-                Console.WriteLine("  Descarga gratuita en: https://www.hidglobal.com/drivers");
                 Console.ResetColor();
-                Console.WriteLine();
-                Console.WriteLine("Presiona Enter para salir...");
-                Console.ReadLine();
+                Application.Exit();
                 return;
             }
 
-            StartTcpServer(service);
+            // Iniciar TCP server en hilo background
+            var tcpThread = new Thread(() => RunTcpServer()) { IsBackground = true };
+            tcpThread.Start();
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine($"[OK] Servicio escuchando en localhost:{PORT}");
+            Console.ResetColor();
+            Console.WriteLine("[INFO] Esperando conexiones del backend Go...");
+            Console.WriteLine();
         }
 
-        static void StartTcpServer(FingerprintService service)
+        private void RunTcpServer()
         {
-            TcpListener listener = null;
             try
             {
-                listener = new TcpListener(IPAddress.Loopback, PORT);
-                listener.Start();
-
-                Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"[OK] Servicio escuchando en localhost:{PORT}");
-                Console.ResetColor();
-                Console.WriteLine("[INFO] Esperando conexiones del backend Go...");
-                Console.WriteLine();
+                _listener = new TcpListener(IPAddress.Loopback, PORT);
+                _listener.Start();
 
                 while (true)
                 {
                     try
                     {
-                        var client = listener.AcceptTcpClient();
-                        // Handle each client synchronously (one at a time) 
-                        // since the fingerprint reader is a shared device
-                        HandleClient(client, service);
+                        var client = _listener.AcceptTcpClient();
+                        HandleClient(client);
+                    }
+                    catch (SocketException)
+                    {
+                        break; // Listener stopped
                     }
                     catch (Exception ex)
                     {
@@ -89,22 +98,18 @@ namespace GymGo.BiometricService
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"[FATAL] No se pudo iniciar el servidor: {ex.Message}");
+                Console.WriteLine($"[FATAL] No se pudo iniciar TCP: {ex.Message}");
                 Console.ResetColor();
-            }
-            finally
-            {
-                if (listener != null) listener.Stop();
             }
         }
 
-        static void HandleClient(TcpClient client, FingerprintService service)
+        private void HandleClient(TcpClient client)
         {
             try
             {
                 using (client)
                 {
-                    client.ReceiveTimeout = 60000; // 60s timeout
+                    client.ReceiveTimeout = 60000;
                     client.SendTimeout = 10000;
 
                     var stream = client.GetStream();
@@ -122,22 +127,25 @@ namespace GymGo.BiometricService
                     var command = JsonConvert.DeserializeObject<JObject>(requestLine);
                     var commandType = command?.Value<string>("command") ?? "";
 
-                    object response;
+                    // Despachar operaciones DPFP al hilo UI (STA) via Invoke
+                    // para que los eventos COM se disparen correctamente
+                    BiometricResponse response = null;
+
                     switch (commandType)
                     {
                         case "status":
-                            response = service.GetStatus();
+                            this.Invoke((Action)(() => { response = _service.GetStatus(); }));
                             break;
                         case "capture":
-                            response = service.Capture();
+                            this.Invoke((Action)(() => { response = _service.Capture(); }));
                             break;
                         case "enroll":
-                            response = service.Enroll();
+                            this.Invoke((Action)(() => { response = _service.Enroll(); }));
                             break;
                         case "match":
                             var templateData = command.Value<string>("template_data") ?? "";
                             var storedArray = command["stored_templates"] as JArray;
-                            response = service.Match(templateData, storedArray);
+                            this.Invoke((Action)(() => { response = _service.Match(templateData, storedArray); }));
                             break;
                         default:
                             response = new BiometricResponse
@@ -151,10 +159,9 @@ namespace GymGo.BiometricService
                     var jsonResponse = JsonConvert.SerializeObject(response);
                     writer.WriteLine(jsonResponse);
 
-                    var resp = response as BiometricResponse;
-                    var color = (resp != null && resp.Success) ? ConsoleColor.Green : ConsoleColor.Yellow;
+                    var color = (response != null && response.Success) ? ConsoleColor.Green : ConsoleColor.Yellow;
                     Console.ForegroundColor = color;
-                    Console.WriteLine($"[RESP] success={resp?.Success}, message={resp?.Message}");
+                    Console.WriteLine($"[RESP] success={response?.Success}, message={response?.Message}");
                     Console.ResetColor();
                     Console.WriteLine();
                 }
@@ -167,10 +174,34 @@ namespace GymGo.BiometricService
             }
         }
 
-        static string TruncateForLog(string s, int maxLen)
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (_listener != null) _listener.Stop();
+            base.OnFormClosing(e);
+        }
+
+        private string TruncateForLog(string s, int maxLen)
         {
             if (s == null) return "";
             return s.Length <= maxLen ? s : s.Substring(0, maxLen) + "...";
+        }
+    }
+
+    class Program
+    {
+        [STAThread]
+        static void Main(string[] args)
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            Console.WriteLine("═══════════════════════════════════════════");
+            Console.WriteLine("  GYM-GO Servicio Biométrico");
+            Console.WriteLine("  DigitalPersona U.are.U 4500");
+            Console.WriteLine("  Puerto: 9000");
+            Console.WriteLine("═══════════════════════════════════════════");
+            Console.WriteLine();
+
+            Application.EnableVisualStyles();
+            Application.Run(new ServiceForm());
         }
     }
 
@@ -214,8 +245,8 @@ namespace GymGo.BiometricService
                 capture.EventHandler = handler;
                 capture.StartCapture();
 
-                // Esperar un momento para detectar el reader
-                Thread.Sleep(500);
+                // Bombear mensajes para detectar el reader
+                handler.WaitForReader(1000);
                 capture.StopCapture();
 
                 bool connected = handler.ReaderDetected;
@@ -586,27 +617,50 @@ namespace GymGo.BiometricService
     // =========================================================================
     // Handler sincrónico de captura DPFP
     // Convierte el modelo de eventos del SDK a un modelo sincrónico con espera
+    // Usa Application.DoEvents() como message pump para que los eventos COM
+    // del SDK de DigitalPersona se disparen correctamente
     // =========================================================================
     class SyncCaptureHandler : DPFP.Capture.EventHandler
     {
-        private readonly ManualResetEventSlim _captureEvent = new ManualResetEventSlim(false);
+        private volatile bool _captured;
+        private volatile bool _readerDetected;
 
         public DPFP.Sample CapturedSample { get; private set; }
-        public bool ReaderDetected { get; private set; }
+        public bool ReaderDetected { get { return _readerDetected; } }
 
         /// <summary>
-        /// Espera a que se capture una huella o se agote el timeout
+        /// Espera a que se capture una huella, bombeando mensajes Windows
+        /// para que los eventos COM del SDK se disparen
         /// </summary>
         public bool WaitForCapture(int timeoutMs)
         {
-            return _captureEvent.Wait(timeoutMs);
+            var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            while (!_captured && DateTime.UtcNow < deadline)
+            {
+                Application.DoEvents();
+                Thread.Sleep(50);
+            }
+            return _captured;
+        }
+
+        /// <summary>
+        /// Espera corta para detección de reader (para status)
+        /// </summary>
+        public void WaitForReader(int timeoutMs)
+        {
+            var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            while (!_readerDetected && DateTime.UtcNow < deadline)
+            {
+                Application.DoEvents();
+                Thread.Sleep(50);
+            }
         }
 
         public void OnComplete(object Capture, string ReaderSerialNumber, DPFP.Sample Sample)
         {
             CapturedSample = Sample;
-            ReaderDetected = true;
-            _captureEvent.Set();
+            _readerDetected = true;
+            _captured = true;
         }
 
         public void OnFingerGone(object Capture, string ReaderSerialNumber)
@@ -617,13 +671,13 @@ namespace GymGo.BiometricService
         public void OnFingerTouch(object Capture, string ReaderSerialNumber)
         {
             Console.WriteLine("  Dedo detectado...");
-            ReaderDetected = true;
+            _readerDetected = true;
         }
 
         public void OnReaderConnect(object Capture, string ReaderSerialNumber)
         {
             Console.WriteLine("  Lector conectado.");
-            ReaderDetected = true;
+            _readerDetected = true;
         }
 
         public void OnReaderDisconnect(object Capture, string ReaderSerialNumber)
@@ -631,7 +685,7 @@ namespace GymGo.BiometricService
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("  Lector desconectado!");
             Console.ResetColor();
-            ReaderDetected = false;
+            _readerDetected = false;
         }
 
         public void OnSampleQuality(object Capture, string ReaderSerialNumber, DPFP.Capture.CaptureFeedback CaptureFeedback)
