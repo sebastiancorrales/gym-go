@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -15,178 +16,15 @@ using Newtonsoft.Json.Linq;
 // Usa el SDK de DigitalPersona (DPFP) para captura y matching de huellas
 // Se comunica con el backend Go via TCP en localhost:9000
 //
-// Arquitectura: Form oculto en hilo STA principal (message pump para COM events)
-//               TCP server en hilo background despacha al hilo UI via Invoke()
+// Arquitectura: Hilo STA principal con message pump manual.
+//               TCP listener non-blocking en el mismo hilo.
+//               Todas las operaciones DPFP corren directo en el hilo STA
+//               sin Invoke ni nested DoEvents, garantizando que los eventos
+//               COM del SDK se disparen correctamente.
 // =============================================================================
 
 namespace GymGo.BiometricService
 {
-    // =========================================================================
-    // Form oculto que actúa como message pump para los eventos COM del SDK
-    // =========================================================================
-    class ServiceForm : Form
-    {
-        private const int PORT = 9000;
-        private FingerprintService _service;
-        private TcpListener _listener;
-
-        public ServiceForm()
-        {
-            this.ShowInTaskbar = false;
-            this.WindowState = FormWindowState.Minimized;
-            this.FormBorderStyle = FormBorderStyle.None;
-            this.Opacity = 0;
-        }
-
-        protected override void OnLoad(EventArgs e)
-        {
-            base.OnLoad(e);
-            this.Visible = false;
-
-            _service = new FingerprintService();
-
-            if (!_service.IsSdkAvailable())
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("[ERROR] No se encontraron las DLLs del SDK de DigitalPersona.");
-                Console.WriteLine("  Asegúrate de copiar los siguientes archivos a la carpeta 'lib\\':");
-                Console.WriteLine("    - DPFPShrNET.dll");
-                Console.WriteLine("    - DPFPDevNET.dll");
-                Console.WriteLine("    - DPFPEngNET.dll");
-                Console.ResetColor();
-                Application.Exit();
-                return;
-            }
-
-            // Iniciar TCP server en hilo background
-            var tcpThread = new Thread(() => RunTcpServer()) { IsBackground = true };
-            tcpThread.Start();
-
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"[OK] Servicio escuchando en localhost:{PORT}");
-            Console.ResetColor();
-            Console.WriteLine("[INFO] Esperando conexiones del backend Go...");
-            Console.WriteLine();
-        }
-
-        private void RunTcpServer()
-        {
-            try
-            {
-                _listener = new TcpListener(IPAddress.Loopback, PORT);
-                _listener.Start();
-
-                while (true)
-                {
-                    try
-                    {
-                        var client = _listener.AcceptTcpClient();
-                        HandleClient(client);
-                    }
-                    catch (SocketException)
-                    {
-                        break; // Listener stopped
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine($"[ERROR] {ex.Message}");
-                        Console.ResetColor();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"[FATAL] No se pudo iniciar TCP: {ex.Message}");
-                Console.ResetColor();
-            }
-        }
-
-        private void HandleClient(TcpClient client)
-        {
-            try
-            {
-                using (client)
-                {
-                    client.ReceiveTimeout = 60000;
-                    client.SendTimeout = 10000;
-
-                    var stream = client.GetStream();
-                    var noBomUtf8 = new UTF8Encoding(false);
-                    var reader = new StreamReader(stream, noBomUtf8);
-                    var writer = new StreamWriter(stream, noBomUtf8) { AutoFlush = true };
-
-                    var requestLine = reader.ReadLine();
-                    if (string.IsNullOrEmpty(requestLine)) return;
-
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine($"[REQ] {TruncateForLog(requestLine, 120)}");
-                    Console.ResetColor();
-
-                    var command = JsonConvert.DeserializeObject<JObject>(requestLine);
-                    var commandType = command?.Value<string>("command") ?? "";
-
-                    // Despachar operaciones DPFP al hilo UI (STA) via Invoke
-                    // para que los eventos COM se disparen correctamente
-                    BiometricResponse response = null;
-
-                    switch (commandType)
-                    {
-                        case "status":
-                            this.Invoke((Action)(() => { response = _service.GetStatus(); }));
-                            break;
-                        case "capture":
-                            this.Invoke((Action)(() => { response = _service.Capture(); }));
-                            break;
-                        case "enroll":
-                            this.Invoke((Action)(() => { response = _service.Enroll(); }));
-                            break;
-                        case "match":
-                            var templateData = command.Value<string>("template_data") ?? "";
-                            var storedArray = command["stored_templates"] as JArray;
-                            this.Invoke((Action)(() => { response = _service.Match(templateData, storedArray); }));
-                            break;
-                        default:
-                            response = new BiometricResponse
-                            {
-                                Success = false,
-                                Message = $"Comando desconocido: {commandType}"
-                            };
-                            break;
-                    }
-
-                    var jsonResponse = JsonConvert.SerializeObject(response);
-                    writer.WriteLine(jsonResponse);
-
-                    var color = (response != null && response.Success) ? ConsoleColor.Green : ConsoleColor.Yellow;
-                    Console.ForegroundColor = color;
-                    Console.WriteLine($"[RESP] success={response?.Success}, message={response?.Message}");
-                    Console.ResetColor();
-                    Console.WriteLine();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"[ERROR] HandleClient: {ex.Message}");
-                Console.ResetColor();
-            }
-        }
-
-        protected override void OnFormClosing(FormClosingEventArgs e)
-        {
-            if (_listener != null) _listener.Stop();
-            base.OnFormClosing(e);
-        }
-
-        private string TruncateForLog(string s, int maxLen)
-        {
-            if (s == null) return "";
-            return s.Length <= maxLen ? s : s.Substring(0, maxLen) + "...";
-        }
-    }
-
     class Program
     {
         [STAThread]
@@ -200,9 +38,198 @@ namespace GymGo.BiometricService
             Console.WriteLine("═══════════════════════════════════════════");
             Console.WriteLine();
 
-            Application.EnableVisualStyles();
-            Application.Run(new ServiceForm());
+            var service = new FingerprintService();
+            if (!service.IsSdkAvailable())
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("[ERROR] No se encontraron las DLLs del SDK de DigitalPersona.");
+                Console.WriteLine("  Asegúrate de copiar los siguientes archivos a la carpeta 'lib\\':");
+                Console.WriteLine("    - DPFPShrNET.dll");
+                Console.WriteLine("    - DPFPDevNET.dll");
+                Console.WriteLine("    - DPFPEngNET.dll");
+                Console.ResetColor();
+                return;
+            }
+
+            // Cola thread-safe: el hilo TCP pone requests, el hilo STA los procesa
+            var requestQueue = new ConcurrentQueue<PendingRequest>();
+
+            // TCP listener en hilo background (solo acepta y encola)
+            var tcpThread = new Thread(() => TcpAcceptLoop(requestQueue)) { IsBackground = true };
+            tcpThread.Start();
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine("[OK] Servicio escuchando en localhost:9000");
+            Console.ResetColor();
+            Console.WriteLine("[INFO] Esperando conexiones del backend Go...");
+            Console.WriteLine();
+
+            // Loop principal STA: bombea mensajes Windows y procesa comandos DPFP
+            while (true)
+            {
+                // Procesar mensajes Windows (necesario para eventos COM del SDK)
+                Application.DoEvents();
+
+                // Revisar si hay un request TCP pendiente
+                PendingRequest req;
+                if (requestQueue.TryDequeue(out req))
+                {
+                    ProcessRequest(req, service);
+                }
+
+                Thread.Sleep(10);
+            }
         }
+
+        /// <summary>
+        /// Hilo background: acepta conexiones TCP, lee el comando JSON,
+        /// y encola el request para que el hilo STA lo procese.
+        /// </summary>
+        static void TcpAcceptLoop(ConcurrentQueue<PendingRequest> queue)
+        {
+            TcpListener listener = null;
+            try
+            {
+                listener = new TcpListener(IPAddress.Loopback, 9000);
+                listener.Start();
+
+                while (true)
+                {
+                    try
+                    {
+                        var client = listener.AcceptTcpClient();
+                        client.ReceiveTimeout = 60000;
+                        client.SendTimeout = 10000;
+
+                        var stream = client.GetStream();
+                        var noBomUtf8 = new UTF8Encoding(false);
+                        var reader = new StreamReader(stream, noBomUtf8);
+
+                        var requestLine = reader.ReadLine();
+                        if (string.IsNullOrEmpty(requestLine))
+                        {
+                            client.Close();
+                            continue;
+                        }
+
+                        Console.ForegroundColor = ConsoleColor.Cyan;
+                        Console.WriteLine($"[REQ] {TruncateForLog(requestLine, 120)}");
+                        Console.ResetColor();
+
+                        // Encolar para que el hilo STA procese
+                        queue.Enqueue(new PendingRequest
+                        {
+                            Client = client,
+                            RequestJson = requestLine
+                        });
+                    }
+                    catch (SocketException)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"[ERROR] TCP: {ex.Message}");
+                        Console.ResetColor();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"[FATAL] No se pudo iniciar TCP: {ex.Message}");
+                Console.ResetColor();
+            }
+        }
+
+        /// <summary>
+        /// Procesa un request en el hilo STA principal.
+        /// Las operaciones DPFP corren aquí directamente, sin Invoke.
+        /// </summary>
+        static void ProcessRequest(PendingRequest req, FingerprintService service)
+        {
+            BiometricResponse response = null;
+            try
+            {
+                var command = JsonConvert.DeserializeObject<JObject>(req.RequestJson);
+                var commandType = command?.Value<string>("command") ?? "";
+
+                switch (commandType)
+                {
+                    case "status":
+                        response = service.GetStatus();
+                        break;
+                    case "capture":
+                        response = service.Capture();
+                        break;
+                    case "enroll":
+                        response = service.Enroll();
+                        break;
+                    case "match":
+                        var templateData = command.Value<string>("template_data") ?? "";
+                        var storedArray = command["stored_templates"] as JArray;
+                        response = service.Match(templateData, storedArray);
+                        break;
+                    default:
+                        response = new BiometricResponse
+                        {
+                            Success = false,
+                            Message = $"Comando desconocido: {commandType}"
+                        };
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                response = new BiometricResponse
+                {
+                    Success = false,
+                    Message = $"Error procesando comando: {ex.Message}"
+                };
+            }
+
+            // Enviar respuesta al cliente TCP
+            try
+            {
+                var stream = req.Client.GetStream();
+                var noBomUtf8 = new UTF8Encoding(false);
+                var writer = new StreamWriter(stream, noBomUtf8) { AutoFlush = true };
+                var jsonResponse = JsonConvert.SerializeObject(response);
+                writer.WriteLine(jsonResponse);
+
+                var color = (response != null && response.Success) ? ConsoleColor.Green : ConsoleColor.Yellow;
+                Console.ForegroundColor = color;
+                Console.WriteLine($"[RESP] success={response?.Success}, message={response?.Message}");
+                Console.ResetColor();
+                Console.WriteLine();
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"[ERROR] Enviando respuesta: {ex.Message}");
+                Console.ResetColor();
+            }
+            finally
+            {
+                try { req.Client.Close(); } catch { }
+            }
+        }
+
+        static string TruncateForLog(string s, int maxLen)
+        {
+            if (s == null) return "";
+            return s.Length <= maxLen ? s : s.Substring(0, maxLen) + "...";
+        }
+    }
+
+    /// <summary>
+    /// Request pendiente del TCP server para procesar en el hilo STA
+    /// </summary>
+    class PendingRequest
+    {
+        public TcpClient Client { get; set; }
+        public string RequestJson { get; set; }
     }
 
     // =========================================================================
