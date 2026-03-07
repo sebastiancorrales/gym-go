@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BiometricService")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8df1a1389d4393547b5cd3b5d394f08475a52b26")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3d351175d3c0645b822c91141e314d6e76121735")]
 [assembly: System.Reflection.AssemblyProductAttribute("BiometricService")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BiometricService")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
