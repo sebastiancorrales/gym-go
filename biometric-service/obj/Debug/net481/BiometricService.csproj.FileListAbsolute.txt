@@ -2,10 +2,6 @@ C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net481\Biomet
 C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net481\BiometricService.exe
 C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net481\BiometricService.pdb
 C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net481\Newtonsoft.Json.dll
-C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net481\DPFPDevNET.dll
-C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net481\DPFPEngNET.dll
-C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net481\DPFPShrNET.dll
-C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net481\DPFPVerNET.dll
 C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\obj\Debug\net481\BiometricService.csproj.AssemblyReference.cache
 C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\obj\Debug\net481\BiometricService.GeneratedMSBuildEditorConfig.editorconfig
 C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\obj\Debug\net481\BiometricService.AssemblyInfoInputs.cache

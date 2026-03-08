@@ -1,0 +1,16 @@
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\bin\Debug\net481\BiometricTest.exe.config
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\bin\Debug\net481\BiometricTest.exe
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\bin\Debug\net481\BiometricTest.pdb
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\bin\Debug\net481\DPFPDevNET.dll
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\bin\Debug\net481\DPFPEngNET.dll
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\bin\Debug\net481\DPFPShrNET.dll
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\bin\Debug\net481\DPFPVerNET.dll
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\obj\Debug\net481\BiometricTest.csproj.AssemblyReference.cache
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\obj\Debug\net481\BiometricTest.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\obj\Debug\net481\BiometricTest.AssemblyInfoInputs.cache
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\obj\Debug\net481\BiometricTest.AssemblyInfo.cs
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\obj\Debug\net481\BiometricTest.csproj.CoreCompileInputs.cache
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\obj\Debug\net481\BiometricTest.sourcelink.json
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\obj\Debug\net481\Biometri.B435EFC4.Up2Date
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\obj\Debug\net481\BiometricTest.exe
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-test\obj\Debug\net481\BiometricTest.pdb

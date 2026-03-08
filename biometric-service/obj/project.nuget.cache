@@ -1,11 +1,9 @@
 {
   "version": 2,
-  "dgSpecHash": "+ALSqmG9d7s=",
+  "dgSpecHash": "OZx86/h+s9c=",
   "success": true,
   "projectFilePath": "C:\\Users\\sebas\\OneDrive\\Desktop\\gym-go\\biometric-service\\BiometricService.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\sebas\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
-    "C:\\Users\\sebas\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net481\\1.0.3\\microsoft.netframework.referenceassemblies.net481.1.0.3.nupkg.sha512",
     "C:\\Users\\sebas\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512"
   ],
   "logs": []

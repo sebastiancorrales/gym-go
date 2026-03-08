@@ -10,7 +10,6 @@ C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net8.0-window
 C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net8.0-windows\BiometricService.dll
 C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net8.0-windows\BiometricService.pdb
 C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net8.0-windows\Newtonsoft.Json.dll
-C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net8.0-windows\DPFPDevNET.dll
 C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net8.0-windows\DPFPEngNET.dll
 C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net8.0-windows\DPFPShrNET.dll
 C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net8.0-windows\DPFPVerNET.dll

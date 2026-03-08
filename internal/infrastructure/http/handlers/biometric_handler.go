@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"net/http"
 	"strconv"
 	"time"
@@ -82,7 +83,7 @@ func (h *BiometricHandler) CaptureFingerprint(c *gin.Context) {
 
 	response := dto.CaptureFingerprintResponse{
 		Success:      true,
-		TemplateData: string(templateData), // Will be base64 in real implementation
+		TemplateData: base64.StdEncoding.EncodeToString(templateData),
 		Quality:      quality,
 		Message:      "Fingerprint captured successfully",
 	}

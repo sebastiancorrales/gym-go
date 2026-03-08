@@ -1,9 +1,10 @@
 package infrastructure
 
 import (
+	"net/http"
+
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/handlers"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -60,6 +61,7 @@ func (router *Router) Setup() *gin.Engine {
 		// Rutas de miembros
 		members := api.Group("/members")
 		{
+			members.GET("", router.memberHandler.ListMembers)
 			members.POST("", router.memberHandler.CreateMember)
 			members.GET("/:id", router.memberHandler.GetMember)
 			members.PUT("/:id", router.memberHandler.UpdateMember)
@@ -77,7 +79,6 @@ func (router *Router) Setup() *gin.Engine {
 			classes.POST("/:id/start", router.classHandler.StartClass)
 			classes.POST("/:id/complete", router.classHandler.CompleteClass)
 		}
-
 
 		// Rutas de productos (inventario)
 		products := api.Group("/products")
@@ -122,6 +123,3 @@ func (router *Router) Setup() *gin.Engine {
 
 	return r
 }
-
-
-

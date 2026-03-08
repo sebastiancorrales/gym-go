@@ -1,0 +1,490 @@
+<html>
+<head>
+<title>GymGo Biometric Bridge</title>
+<hta:application id="oHTA" applicationname="GymGoBiometric"
+    border="thin" borderstyle="normal" caption="yes"
+    maximizebutton="no" minimizebutton="yes"
+    scroll="no" showintaskbar="yes" singleinstance="no"
+    sysmenu="yes" windowstate="normal" />
+<style>
+body { font-family: Segoe UI, sans-serif; margin: 0; padding: 15px; background: #1a1a2e; color: #e0e0e0; }
+h3 { margin: 0 0 10px 0; color: #00bfff; font-size: 15px; }
+#status { font-size: 20px; font-weight: bold; color: #00ff88; margin: 15px 0; text-align: center; padding: 15px; background: #16213e; border-radius: 8px; }
+#log { background: #0f3460; border: 1px solid #333; border-radius: 5px; padding: 8px; height: 120px; overflow-y: auto; font-family: Consolas, monospace; font-size: 11px; white-space: pre-wrap; }
+.ok { color: #00ff88; } .warn { color: #ffaa00; } .err { color: #ff4444; } .info { color: #00bfff; }
+</style>
+</head>
+<body>
+<h3>GymGo - Servicio Biometrico</h3>
+<div id="status">Iniciando...</div>
+<div id="log"></div>
+
+<object id="DPCapture" classid="clsid:3FA859DA-300C-4247-BD33-6011198399C0" style="display:none"></object>
+
+<script language="VBScript">
+' ============================================================
+' GymGo Biometric Bridge - HTA
+' MUST run with 64-bit mshta (C:\WINDOWS\system32\mshta.exe)
+' Reads command from %TEMP%\dp_bio_cmd.txt
+' Writes result to %TEMP%\dp_bio_result.txt
+' ============================================================
+
+Const DATA_PURPOSE_ENROLLMENT   = 1
+Const DATA_PURPOSE_VERIFICATION = 2
+Const CAPTURE_FEEDBACK_GOOD     = 0
+Const TEMPLATE_STATUS_READY     = 2
+Const TEMPLATE_STATUS_FAILED    = 3
+
+Dim gAction
+Dim gTimeout
+Dim gResultFile
+Dim gTemplateFile
+Dim gFE
+Dim gEnrollment
+Dim gLastFeatureSet
+Dim gSamplesCollected
+Dim gTimerId
+Dim gStartTime
+Dim gDone
+Dim gLogFile
+
+gDone = False
+gSamplesCollected = 0
+
+Dim wshShell
+Set wshShell = CreateObject("WScript.Shell")
+Dim tempDir
+tempDir = wshShell.ExpandEnvironmentStrings("%TEMP%")
+gLogFile = tempDir & "\dp_bio_debug.log"
+
+Sub DebugLog(msg)
+    On Error Resume Next
+    Dim fso, f
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set f = fso.OpenTextFile(gLogFile, 8, True)
+    f.WriteLine Now & " | " & msg
+    f.Close
+End Sub
+
+' ==================== UTILITIES ====================
+
+Function BytesToBase64(bytes)
+    Dim dom, node
+    Set dom = CreateObject("MSXML2.DOMDocument")
+    Set node = dom.createElement("b64")
+    node.dataType = "bin.base64"
+    node.nodeTypedValue = bytes
+    BytesToBase64 = Replace(Replace(node.text, vbCr, ""), vbLf, "")
+End Function
+
+Function Base64ToBytes(b64)
+    Dim dom, node
+    Set dom = CreateObject("MSXML2.DOMDocument")
+    Set node = dom.createElement("b64")
+    node.dataType = "bin.base64"
+    node.text = b64
+    Base64ToBytes = node.nodeTypedValue
+End Function
+
+Function ReadTextFile(path)
+    On Error Resume Next
+    Dim fso
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso.FileExists(path) Then
+        ReadTextFile = ""
+        Exit Function
+    End If
+    Dim f
+    Set f = fso.OpenTextFile(path, 1, False)
+    If Not f.AtEndOfStream Then
+        ReadTextFile = f.ReadAll
+    Else
+        ReadTextFile = ""
+    End If
+    f.Close
+End Function
+
+Sub WriteTextFile(path, content)
+    Dim fso
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Dim f
+    Set f = fso.CreateTextFile(path, True)
+    f.Write content
+    f.Close
+End Sub
+
+Function EscapeJson(s)
+    Dim r
+    r = Replace(s, "\", "\\")
+    r = Replace(r, """", "\""")
+    r = Replace(r, vbCr, "")
+    r = Replace(r, vbLf, "\n")
+    EscapeJson = r
+End Function
+
+Sub WriteResult(success, message, dataStr)
+    Dim json, suc
+    If success Then suc = "true" Else suc = "false"
+    json = "{""success"":" & suc & ",""message"":""" & EscapeJson(message) & """"
+    If dataStr <> "" Then json = json & ",""data"":" & dataStr
+    json = json & "}"
+    WriteTextFile gResultFile, json
+    AddLog "Resultado: " & Left(json, 100), "ok"
+End Sub
+
+Sub AddLog(msg, cls)
+    On Error Resume Next
+    Dim d
+    Set d = document.getElementById("log")
+    d.innerHTML = d.innerHTML & "<span class='" & cls & "'>" & msg & "</span>" & vbCrLf
+    d.scrollTop = d.scrollHeight
+End Sub
+
+Sub SetStatus(msg)
+    On Error Resume Next
+    document.getElementById("status").innerText = msg
+End Sub
+
+' ==================== INIT ====================
+
+Sub Window_OnLoad()
+    On Error Resume Next
+    window.resizeTo 450, 340
+
+    Dim fso, tempDir
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    tempDir = fso.GetSpecialFolder(2)
+    gResultFile = tempDir & "\dp_bio_result.txt"
+    gTemplateFile = tempDir & "\dp_bio_template.txt"
+
+    ' Read command file
+    Dim cmdFile, content, lines
+    cmdFile = tempDir & "\dp_bio_cmd.txt"
+    content = ReadTextFile(cmdFile)
+    If content = "" Then
+        gAction = "capture"
+        gTimeout = 30
+    Else
+        lines = Split(content, vbCrLf)
+        If UBound(lines) < 1 Then lines = Split(content, vbLf)
+        gAction = LCase(Trim(lines(0)))
+        If UBound(lines) >= 1 And Trim(lines(1)) <> "" Then
+            gTimeout = CInt(Trim(lines(1)))
+        Else
+            gTimeout = 30
+        End If
+    End If
+    AddLog "Accion: " & gAction & " | Timeout: " & gTimeout & "s", "info"
+
+    ' Create FeatureExtraction via CreateObject (works with 64-bit mshta)
+    Set gFE = CreateObject("DPFPEngX.DPFPFeatureExtraction")
+    If Err.Number <> 0 Then
+        AddLog "Error FeatureExtraction: " & Err.Description, "err"
+        WriteResult False, "Error FeatureExtraction: " & Err.Description, ""
+        CloseAfterDelay 3
+        Exit Sub
+    End If
+    AddLog "FeatureExtraction OK", "ok"
+
+    If gAction = "enroll" Then
+        Set gEnrollment = CreateObject("DPFPEngX.DPFPEnrollment")
+        If Err.Number <> 0 Then
+            AddLog "Error Enrollment: " & Err.Description, "err"
+            WriteResult False, "Error Enrollment", ""
+            CloseAfterDelay 3
+            Exit Sub
+        End If
+        AddLog "Enrollment OK (necesita " & gEnrollment.FeaturesNeeded & " capturas)", "ok"
+    End If
+
+    DPCapture.StartCapture
+    If Err.Number <> 0 Then
+        AddLog "Error StartCapture: " & Err.Description, "err"
+        WriteResult False, "Error StartCapture", ""
+        CloseAfterDelay 3
+        Exit Sub
+    End If
+    AddLog "StartCapture OK", "ok"
+
+    Select Case gAction
+        Case "capture":         SetStatus "Coloca tu dedo en el lector..."
+        Case "enroll_capture":  SetStatus "Registro: coloca tu dedo..."
+        Case "enroll":          SetStatus "Registro: coloca tu dedo (1/4)"
+        Case "verify":          SetStatus "Verificacion: coloca tu dedo..."
+        Case Else:              SetStatus "Coloca tu dedo..."
+    End Select
+
+    gStartTime = Timer
+    gTimerId = window.setInterval("CheckTimeout", 2000)
+End Sub
+
+' ==================== TIMEOUT ====================
+
+Sub CheckTimeout()
+    If gDone Then Exit Sub
+    Dim elapsed
+    elapsed = Int(Timer - gStartTime)
+    If elapsed < 0 Then elapsed = elapsed + 86400
+    If elapsed >= gTimeout Then
+        gDone = True
+        window.clearInterval gTimerId
+        DPCapture.StopCapture
+        SetStatus "TIMEOUT"
+        WriteResult False, "Timeout: no se detecto huella en " & gTimeout & " segundos", ""
+        window.setTimeout "SelfClose", 2000
+    End If
+End Sub
+
+Sub CloseAfterDelay(secs)
+    gDone = True
+    window.setTimeout "SelfClose", secs * 1000
+End Sub
+
+Sub SelfClose()
+    On Error Resume Next
+    DPCapture.StopCapture
+    window.close
+End Sub
+
+' ==================== HANDLERS ====================
+
+Sub HandleCapture()
+    If gLastFeatureSet Is Nothing Then Exit Sub
+    Dim fsData, fsB64
+    fsData = gLastFeatureSet.Serialize()
+    fsB64 = BytesToBase64(fsData)
+    AddLog "FeatureSet: " & Len(fsB64) & " chars", "ok"
+    SetStatus "CAPTURA EXITOSA!"
+    WriteResult True, "Fingerprint captured successfully", _
+        "{""template_data"":""" & fsB64 & """,""quality"":85}"
+    DPCapture.StopCapture
+    CloseAfterDelay 1
+End Sub
+
+Sub HandleEnroll()
+    DebugLog "HandleEnroll START - gLastFeatureSet Is Nothing: " & (gLastFeatureSet Is Nothing)
+    If gLastFeatureSet Is Nothing Then
+        SetStatus "Mala calidad, repite..."
+        Exit Sub
+    End If
+    On Error Resume Next
+    Err.Clear
+    gEnrollment.AddFeatures gLastFeatureSet
+    DebugLog "AddFeatures err=" & Err.Number & " desc=" & Err.Description
+    If Err.Number <> 0 Then
+        AddLog "ERROR AddFeatures: " & Err.Number & " - " & Err.Description, "warn"
+        Err.Clear
+    End If
+    gSamplesCollected = gSamplesCollected + 1
+    Dim needed
+    needed = gEnrollment.FeaturesNeeded
+    DebugLog "FeaturesNeeded=" & needed & " TemplateStatus=" & gEnrollment.TemplateStatus
+    AddLog "Captura " & gSamplesCollected & " OK. Faltan: " & needed & " Status: " & gEnrollment.TemplateStatus, "ok"
+
+    If gEnrollment.TemplateStatus = TEMPLATE_STATUS_READY Then
+        DebugLog "TEMPLATE_READY - getting template..."
+        Dim tmpl, tmplData, tmplB64
+        tmplB64 = ""
+
+        ' ===== ATTEMPT 1: JScript helper (different IDispatch binding) =====
+        Err.Clear
+        tmplData = jsGetTemplateSerialized(gEnrollment)
+        DebugLog "JS tmplData TypeName=" & TypeName(tmplData) & " IsNull=" & IsNull(tmplData)
+        If Not IsNull(tmplData) And Not IsEmpty(tmplData) Then
+            tmplB64 = BytesToBase64(tmplData)
+            DebugLog "JS success! Len=" & Len(tmplB64)
+        End If
+
+        ' ===== ATTEMPT 2: Enumerate enrollment properties via JScript =====
+        If tmplB64 = "" Then
+            Err.Clear
+            Dim props
+            props = jsEnumProps(gEnrollment)
+            DebugLog "Enrollment props: " & props
+        End If
+
+        ' ===== ATTEMPT 3: Use last FeatureSet as template (fallback) =====
+        If tmplB64 = "" Then
+            DebugLog "Using FeatureSet as template (fallback)"
+            Err.Clear
+            If Not (gLastFeatureSet Is Nothing) Then
+                tmplData = gLastFeatureSet.Serialize()
+                DebugLog "FeatureSet Serialize err=" & Err.Number
+                If Err.Number = 0 And Not IsEmpty(tmplData) Then
+                    tmplB64 = BytesToBase64(tmplData)
+                    DebugLog "FeatureSet Base64 Len=" & Len(tmplB64)
+                End If
+            End If
+        End If
+
+        AddLog "Template: " & Len(tmplB64) & " chars", "ok"
+        SetStatus "REGISTRO EXITOSO!"
+        WriteResult True, "Enrollment completed", _
+            "{""template_data"":""" & tmplB64 & """,""quality"":90}"
+        DPCapture.StopCapture
+        CloseAfterDelay 1
+    ElseIf gEnrollment.TemplateStatus = TEMPLATE_STATUS_FAILED Then
+        SetStatus "ERROR en registro"
+        WriteResult False, "Enrollment failed", ""
+        DPCapture.StopCapture
+        CloseAfterDelay 2
+    Else
+        SetStatus "Levanta y pon tu dedo (" & gSamplesCollected & "/" & (gSamplesCollected + needed) & ")"
+    End If
+End Sub
+
+Sub HandleVerify()
+    DebugLog "HandleVerify START"
+    If gLastFeatureSet Is Nothing Then
+        DebugLog "gLastFeatureSet Is Nothing"
+        SetStatus "Mala calidad, repite..."
+        Exit Sub
+    End If
+    On Error Resume Next
+
+    Dim tmplB64
+    tmplB64 = Trim(ReadTextFile(gTemplateFile))
+    DebugLog "Template file Len=" & Len(tmplB64)
+    If tmplB64 = "" Then
+        WriteResult False, "No template for verification", ""
+        DPCapture.StopCapture
+        CloseAfterDelay 2
+        Exit Sub
+    End If
+
+    ' === Attempt 1: Deserialize as Template and Verify ===
+    Err.Clear
+    Dim storedTmpl
+    Set storedTmpl = CreateObject("DPFPShrX.DPFPTemplate")
+    DebugLog "DPFPTemplate created err=" & Err.Number
+    Err.Clear
+    storedTmpl.Deserialize Base64ToBytes(tmplB64)
+    DebugLog "Deserialize err=" & Err.Number & " desc=" & Err.Description
+
+    Dim verifier
+    Err.Clear
+    Set verifier = CreateObject("DPFPEngX.DPFPVerification")
+    DebugLog "DPFPVerification created err=" & Err.Number
+
+    Dim vResult
+    Err.Clear
+    Set vResult = verifier.Verify(gLastFeatureSet, storedTmpl)
+    DebugLog "Verify err=" & Err.Number & " desc=" & Err.Description
+
+    If Err.Number <> 0 Then
+        DebugLog "Verify failed! Trying FeatureSet comparison approach..."
+        Err.Clear
+        ' === Attempt 2: Deserialize as FeatureSet and compare ===
+        Dim storedFS
+        Set storedFS = CreateObject("DPFPShrX.DPFPFeatureSet")
+        DebugLog "DPFPFeatureSet created err=" & Err.Number
+        Err.Clear
+        storedFS.Deserialize Base64ToBytes(tmplB64)
+        DebugLog "FS Deserialize err=" & Err.Number
+
+        ' Try Verify with FeatureSet as second param (COM might accept it)
+        Err.Clear
+        Set vResult = verifier.Verify(gLastFeatureSet, storedFS)
+        DebugLog "Verify with FS err=" & Err.Number & " desc=" & Err.Description
+    End If
+
+    If Err.Number = 0 And Not (vResult Is Nothing) Then
+        Err.Clear
+        Dim isVerified
+        isVerified = vResult.Verified
+        DebugLog "Verified err=" & Err.Number & " val=" & isVerified
+        Dim farVal
+        Err.Clear
+        farVal = vResult.FARAchieved
+        DebugLog "FARAchieved err=" & Err.Number & " val=" & farVal
+
+        If isVerified Then
+            AddLog "VERIFICADO! FAR=" & farVal, "ok"
+            SetStatus "VERIFICADO!"
+            WriteResult True, "Match found", _
+                "{""matched"":true,""match_score"":95,""far_achieved"":" & farVal & "}"
+        Else
+            AddLog "No coincide (FAR=" & farVal & ")", "warn"
+            SetStatus "NO COINCIDE"
+            WriteResult False, "No match", _
+                "{""matched"":false,""match_score"":0,""far_achieved"":" & farVal & "}"
+        End If
+    Else
+        DebugLog "Verification completely failed"
+        WriteResult False, "Verification error: " & Err.Description, _
+            "{""matched"":false,""match_score"":0,""far_achieved"":0}"
+    End If
+    DPCapture.StopCapture
+    CloseAfterDelay 2
+End Sub
+</script>
+
+<!-- ==================== COM EVENTS ==================== -->
+
+<script language="VBScript" for="DPCapture" event="OnReaderConnect(SerNum)">
+    AddLog "Reader: " & SerNum, "ok"
+</script>
+
+<script language="VBScript" for="DPCapture" event="OnReaderDisconnect(SerNum)">
+    AddLog "Reader desconectado: " & SerNum, "warn"
+</script>
+
+<script language="VBScript" for="DPCapture" event="OnFingerTouch(SerNum)">
+    AddLog "Dedo detectado!", "ok"
+    SetStatus "Capturando..."
+</script>
+
+<script language="VBScript" for="DPCapture" event="OnFingerGone(SerNum)">
+    AddLog "Dedo retirado", "info"
+</script>
+
+<script language="VBScript" for="DPCapture" event="OnComplete(SerNum, Sample)">
+    On Error Resume Next
+    If gDone Then Exit Sub
+    AddLog "Captura completa!", "ok"
+
+    ' CreateFeatureSet works DIRECTLY with Sample inside OnComplete event
+    Dim purpose
+    If gAction = "enroll" Or gAction = "enroll_capture" Then purpose = 1 Else purpose = 2
+
+    Dim fb
+    fb = gFE.CreateFeatureSet(Sample, purpose)
+    If Err.Number <> 0 Then
+        AddLog "Error CreateFeatureSet: " & Err.Description, "err"
+        Err.Clear
+        Set gLastFeatureSet = Nothing
+    ElseIf fb = 0 Then
+        Set gLastFeatureSet = gFE.FeatureSet
+        AddLog "FeatureSet OK", "ok"
+    Else
+        Set gLastFeatureSet = Nothing
+        AddLog "Calidad insuficiente (feedback=" & fb & ")", "warn"
+    End If
+
+    Select Case gAction
+        Case "capture":         HandleCapture
+        Case "enroll_capture":  HandleCapture
+        Case "enroll":          HandleEnroll
+        Case "verify":          HandleVerify
+    End Select
+</script>
+
+<!-- OnSampleQuality omitted: Feedback param has incompatible COM type -->
+
+<!-- JScript helper: different IDispatch binding might access Template property -->
+<script language="JScript">
+function jsGetTemplate(enrollment) {
+    try { return enrollment.Template; } catch(e) { return null; }
+}
+function jsGetTemplateSerialized(enrollment) {
+    try { return enrollment.Template.Serialize(); } catch(e) { return null; }
+}
+function jsEnumProps(obj) {
+    var props = [];
+    for (var p in obj) { props.push(p); }
+    return props.join(",");
+}
+</script>
+
+</body>
+</html>

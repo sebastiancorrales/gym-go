@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"net/http"
+
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
+	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/dto"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,6 +22,31 @@ func NewMemberHandler(memberUseCase *usecases.MemberUseCase) *MemberHandler {
 	return &MemberHandler{
 		memberUseCase: memberUseCase,
 	}
+}
+
+// ListMembers maneja la lista de todos los miembros
+func (h *MemberHandler) ListMembers(c *gin.Context) {
+	filters := repositories.MemberFilters{
+		Limit:  100,
+		Offset: 0,
+	}
+
+	members, err := h.memberUseCase.ListMembers(c.Request.Context(), filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error:   "Internal Server Error",
+			Message: "Error al listar miembros",
+			Details: map[string]string{"detail": err.Error()},
+		})
+		return
+	}
+
+	var response []*dto.MemberResponse
+	for _, m := range members {
+		response = append(response, mapMemberToResponse(m))
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // CreateMember maneja la creación de un nuevo miembro
@@ -205,6 +232,3 @@ func mapMemberToResponse(member *entities.Member) *dto.MemberResponse {
 		UpdatedAt:    member.UpdatedAt,
 	}
 }
-
-
-
