@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import ImageUpload from './ImageUpload';
 import api from '../utils/api';
+import SkeletonTable from './SkeletonTable';
 
 const FINGER_OPTIONS = [
   { value: 'right_index', label: 'Índice Derecho' },
@@ -13,9 +14,11 @@ const FINGER_OPTIONS = [
 
 export default function UsersManagement() {
   const [users, setUsers] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [formStep, setFormStep] = useState(1);
 
   // Fingerprint state
   const [enrollingUser, setEnrollingUser] = useState(null);
@@ -249,6 +252,7 @@ export default function UsersManagement() {
       role: user.role || 'MEMBER'
     });
     setShowForm(true);
+    setFormStep(1);
   };
 
   const handleUpdate = async (e) => {
@@ -355,7 +359,8 @@ export default function UsersManagement() {
             if (showForm && editingUser) {
               handleCancelEdit();
             } else {
-              setShowForm(!showForm);
+              setShowForm(s => !s);
+              setFormStep(1);
             }
           }}
           className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg"
@@ -366,331 +371,302 @@ export default function UsersManagement() {
 
       {showForm && (
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-200">
-          <h3 className="text-lg font-semibold mb-6">
-            {editingUser ? 'Editar Usuario' : 'Crear Nuevo Usuario'}
-          </h3>
-          <form onSubmit={editingUser ? handleUpdate : handleSubmit} className="space-y-6">
-            
-            {/* Photo Upload */}
-            <ImageUpload
-              value={formData.photoURL}
-              onChange={(url) => setFormData({ ...formData, photoURL: url })}
-              label="Foto de Perfil"
-            />
 
-            {/* Información de Cuenta - Only show email and password when creating */}
-            {!editingUser && (
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b">Información de Cuenta</h4>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email *
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                    />
+          {/* Step indicator */}
+          <div className="flex items-center gap-2 mb-6">
+            {[
+              { n: 1, label: editingUser ? 'Personal' : 'Cuenta' },
+              { n: 2, label: 'Personal' },
+              { n: 3, label: editingUser ? 'Contacto' : 'Contacto' },
+            ].map(({ n, label }, idx, arr) => (
+              <div key={n} className="flex items-center flex-1 last:flex-none">
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
+                    ${formStep === n ? 'bg-purple-600 text-white' : formStep > n ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                    {formStep > n ? '✓' : n}
                   </div>
+                  <span className={`text-xs font-medium hidden sm:inline ${formStep === n ? 'text-purple-600' : 'text-gray-400'}`}>{label}</span>
+                </div>
+                {idx < arr.length - 1 && <div className={`flex-1 h-0.5 mx-2 ${formStep > n ? 'bg-green-400' : 'bg-gray-200'}`} />}
+              </div>
+            ))}
+            <span className="text-sm font-semibold text-gray-700 ml-4">
+              {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
+            </span>
+          </div>
 
+          <form onSubmit={editingUser ? handleUpdate : handleSubmit} className="space-y-5">
+
+            {/* ── Paso 1: Cuenta (crear) / Info básica (editar) ── */}
+            {formStep === 1 && !editingUser && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-gray-700 pb-2 border-b">Información de Cuenta</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Contraseña *
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      minLength="8"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <input type="email" required value={formData.email}
+                      onChange={e => setFormData({ ...formData, email: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Rol *
-                    </label>
-                    <select
-                      value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                    >
-                      {roles.map(role => (
-                        <option key={role.value} value={role.value}>
-                          {role.label}
-                        </option>
-                      ))}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña *</label>
+                    <input type="password" required minLength="8" value={formData.password}
+                      onChange={e => setFormData({ ...formData, password: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Rol *</label>
+                    <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                      {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* For editing, show role in personal info section */}
-            {editingUser && (
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b">Información de Cuenta</h4>
-                <div className="grid grid-cols-3 gap-4">
+            {formStep === 1 && editingUser && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-gray-700 pb-2 border-b">Información Personal</h4>
+                <ImageUpload value={formData.photoURL} onChange={url => setFormData({ ...formData, photoURL: url })} label="Foto de Perfil" />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email (no editable)
-                    </label>
-                    <input
-                      type="email"
-                      disabled
-                      value={formData.email}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                    <input type="text" required value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Rol *
-                    </label>
-                    <select
-                      value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                    >
-                      {roles.map(role => (
-                        <option key={role.value} value={role.value}>
-                          {role.label}
-                        </option>
-                      ))}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
+                    <input type="text" required value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Rol *</label>
+                    <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                      {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                    <select required value={formData.documentType} onChange={e => setFormData({ ...formData, documentType: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                      {documentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                    <input type="text" required value={formData.documentNumber} onChange={e => setFormData({ ...formData, documentNumber: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Género</label>
+                    <select value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                      {genders.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento</label>
+                    <input type="date" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Paso 2: Personal (crear) / Contacto (editar) ── */}
+            {formStep === 2 && !editingUser && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-gray-700 pb-2 border-b">Información Personal</h4>
+                <ImageUpload value={formData.photoURL} onChange={url => setFormData({ ...formData, photoURL: url })} label="Foto de Perfil" />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                    <input type="text" required value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
+                    <input type="text" required value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento</label>
+                    <input type="date" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
+                    <select required value={formData.documentType} onChange={e => setFormData({ ...formData, documentType: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                      {documentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
+                    <input type="text" required value={formData.documentNumber} onChange={e => setFormData({ ...formData, documentNumber: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Género</label>
+                    <select value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                      {genders.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
                     </select>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Información Personal */}
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b">Información Personal</h4>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nombre *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  />
+            {formStep === 2 && editingUser && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-gray-700 pb-2 border-b">Contacto y Emergencia</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                    <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+                    <input type="text" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                    <input type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Contacto Emergencia</label>
+                    <input type="text" value={formData.emergencyContactName} onChange={e => setFormData({ ...formData, emergencyContactName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tel. Emergencia</label>
+                    <input type="tel" value={formData.emergencyContactPhone} onChange={e => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Apellido *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+                  <textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} rows="2"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fecha de Nacimiento
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Tipo de Documento *
-                  </label>
-                  <select
-                    required
-                    value={formData.documentType}
-                    onChange={(e) => setFormData({ ...formData, documentType: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  >
-                    {documentTypes.map(type => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Número de Documento *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.documentNumber}
-                    onChange={(e) => setFormData({ ...formData, documentNumber: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Género
-                  </label>
-                  <select
-                    value={formData.gender}
-                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  >
-                    {genders.map(gender => (
-                      <option key={gender.value} value={gender.value}>
-                        {gender.label}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Información adicional..." />
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Información de Contacto */}
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b">Información de Contacto</h4>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Teléfono
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  />
+            {/* ── Paso 3: Contacto (crear) / Huella (editar) ── */}
+            {formStep === 3 && !editingUser && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-gray-700 pb-2 border-b">Contacto y Emergencia</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                    <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+                    <input type="text" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                    <input type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Contacto Emergencia</label>
+                    <input type="text" value={formData.emergencyContactName} onChange={e => setFormData({ ...formData, emergencyContactName: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tel. Emergencia</label>
+                    <input type="tel" value={formData.emergencyContactPhone} onChange={e => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  </div>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ciudad
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+                  <textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} rows="2"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Dirección
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  />
+                    placeholder="Información adicional..." />
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Contacto de Emergencia */}
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b">Contacto de Emergencia</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nombre de Contacto
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.emergencyContactName}
-                    onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Teléfono de Contacto
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.emergencyContactPhone}
-                    onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Notas */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Notas / Observaciones
-              </label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows="3"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
-                placeholder="Información adicional sobre el usuario..."
-              />
-            </div>
-
-            {/* Huella Digital - solo en edición */}
-            {editingUser && (
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b">Huella Digital</h4>
+            {formStep === 3 && editingUser && (
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-gray-700 pb-2 border-b">Huella Digital</h4>
                 {(userFingerprints[editingUser.id] || []).length > 0 ? (
-                  <div className="space-y-2 mb-3">
+                  <div className="space-y-2">
                     {(userFingerprints[editingUser.id] || []).map(fp => (
-                      <div key={fp.id} className="flex items-center justify-between bg-green-50 p-2 rounded">
-                        <span className="text-sm text-green-700">
-                          ✅ {FINGER_OPTIONS.find(f => f.value === fp.finger_index)?.label || fp.finger_index}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => deleteFingerprint(fp.id, editingUser.id)}
-                          className="text-red-500 hover:text-red-700 text-xs font-medium"
-                        >
-                          Eliminar
-                        </button>
+                      <div key={fp.id} className="flex items-center justify-between bg-green-50 p-2 rounded-lg">
+                        <span className="text-sm text-green-700">✅ {FINGER_OPTIONS.find(f => f.value === fp.finger_index)?.label || fp.finger_index}</span>
+                        <button type="button" onClick={() => deleteFingerprint(fp.id, editingUser.id)} className="text-red-500 hover:text-red-700 text-xs font-medium">Eliminar</button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-yellow-600 mb-3">⚠️ Sin huellas registradas</p>
+                  <p className="text-sm text-yellow-600">⚠️ Sin huellas registradas</p>
                 )}
-                <button
-                  type="button"
-                  onClick={() => openEnrollModal(editingUser)}
-                  className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition font-medium"
-                >
+                <button type="button" onClick={() => openEnrollModal(editingUser)}
+                  className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition font-medium">
                   🖐 Registrar Huella
                 </button>
               </div>
             )}
 
-            <div className="flex justify-end pt-4 border-t">
+            {/* Navigation buttons */}
+            <div className="flex justify-between items-center pt-4 border-t">
               <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg disabled:opacity-50"
+                type="button"
+                onClick={() => setFormStep(s => s - 1)}
+                disabled={formStep === 1}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-0 disabled:pointer-events-none"
               >
-                {loading ? (editingUser ? 'Actualizando...' : 'Creando...') : (editingUser ? 'Actualizar Usuario' : 'Crear Usuario')}
+                ← Anterior
               </button>
+              {formStep < 3 ? (
+                <button
+                  type="button"
+                  onClick={() => setFormStep(s => s + 1)}
+                  className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg text-sm font-medium"
+                >
+                  Siguiente →
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg text-sm font-medium disabled:opacity-50"
+                >
+                  {loading ? (editingUser ? 'Actualizando...' : 'Creando...') : (editingUser ? 'Guardar Cambios' : 'Crear Usuario')}
+                </button>
+              )}
             </div>
           </form>
         </div>
       )}
+
+      {/* Search */}
+      <div className="mb-4">
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por nombre, documento o email..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          />
+        </div>
+      </div>
 
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
@@ -724,19 +700,24 @@ export default function UsersManagement() {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {loading ? (
-              <tr>
-                <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
-                  Cargando usuarios...
-                </td>
-              </tr>
-            ) : users.length === 0 ? (
-              <tr>
-                <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
-                  No hay usuarios registrados
-                </td>
-              </tr>
-            ) : (
-              users.map((user) => (
+              <tr><td colSpan="8" className="p-0"><SkeletonTable cols={8} rows={6} /></td></tr>
+            ) : (() => {
+              const q = searchQuery.toLowerCase();
+              const filtered = q
+                ? users.filter(u =>
+                    `${u.first_name} ${u.last_name}`.toLowerCase().includes(q) ||
+                    (u.document_number || '').toLowerCase().includes(q) ||
+                    (u.email || '').toLowerCase().includes(q)
+                  )
+                : users;
+              if (filtered.length === 0) return (
+                <tr>
+                  <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                    {searchQuery ? `Sin resultados para "${searchQuery}"` : 'No hay usuarios registrados'}
+                  </td>
+                </tr>
+              );
+              return filtered.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -816,8 +797,8 @@ export default function UsersManagement() {
                     </button>
                   </td>
                 </tr>
-              ))
-            )}
+              ));
+            })()}
           </tbody>
         </table>
       </div>

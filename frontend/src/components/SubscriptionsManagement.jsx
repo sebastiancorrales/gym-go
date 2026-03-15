@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import SkeletonTable from './SkeletonTable';
 
 export default function SubscriptionsManagement() {
   const [subscriptions, setSubscriptions] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -226,6 +228,22 @@ export default function SubscriptionsManagement() {
         </div>
       )}
 
+      {/* Search */}
+      <div className="mb-4">
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por nombre, documento, email o plan..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          />
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -252,19 +270,25 @@ export default function SubscriptionsManagement() {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {loading ? (
-              <tr>
-                <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                  Cargando suscripciones...
-                </td>
-              </tr>
-            ) : subscriptions.length === 0 ? (
-              <tr>
-                <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                  No hay suscripciones registradas
-                </td>
-              </tr>
-            ) : (
-              subscriptions.map((sub) => (
+              <tr><td colSpan="6" className="p-0"><SkeletonTable cols={6} rows={5} /></td></tr>
+            ) : (() => {
+              const q = searchQuery.toLowerCase();
+              const filtered = q
+                ? subscriptions.filter(s =>
+                    `${s.user?.first_name} ${s.user?.last_name}`.toLowerCase().includes(q) ||
+                    (s.user?.document_number || '').toLowerCase().includes(q) ||
+                    (s.user?.email || '').toLowerCase().includes(q) ||
+                    (s.plan?.name || '').toLowerCase().includes(q)
+                  )
+                : subscriptions;
+              if (filtered.length === 0) return (
+                <tr>
+                  <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                    {searchQuery ? `Sin resultados para "${searchQuery}"` : 'No hay suscripciones registradas'}
+                  </td>
+                </tr>
+              );
+              return filtered.map((sub) => (
                 <tr key={sub.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
@@ -302,8 +326,8 @@ export default function SubscriptionsManagement() {
                     </span>
                   </td>
                 </tr>
-              ))
-            )}
+              ));
+            })()}
           </tbody>
         </table>
       </div>

@@ -1,168 +1,133 @@
 import { useState, useEffect } from 'react';
 
+const FINGERPRINT_PATH = 'M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4';
+const BOLT_PATH = 'M13 10V3L4 14h7v7l9-11h-7z';
+const CHECK_PATH = 'M5 13l4 4L19 7';
+const X_PATH = 'M6 18L18 6M6 6l12 12';
+const WARN_PATH = 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z';
+const BACK_PATH = 'M10 19l-7-7m0 0l7-7m-7 7h18';
+
+function Svg({ path, className = 'w-6 h-6' }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={path} />
+    </svg>
+  );
+}
+
+function Clock() {
+  const [time, setTime] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="text-center">
+      <p className="text-5xl font-thin text-white tracking-widest tabular-nums">
+        {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+      </p>
+      <p className="text-sm text-white/60 mt-1 capitalize">
+        {time.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+      </p>
+    </div>
+  );
+}
+
+function Avatar({ user, size = 'lg' }) {
+  const sz = size === 'lg' ? 'w-28 h-28 text-4xl' : 'w-16 h-16 text-xl';
+  if (user?.photoURL) {
+    return <img src={user.photoURL} alt={user.first_name} className={`${sz} rounded-full object-cover border-4 border-white shadow-xl`} />;
+  }
+  const initials = `${user?.first_name?.[0] || ''}${user?.last_name?.[0] || ''}`.toUpperCase();
+  return (
+    <div className={`${sz} rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center border-4 border-white shadow-xl`}>
+      <span className="font-bold text-white">{initials}</span>
+    </div>
+  );
+}
+
+function formatDate(d) {
+  return new Date(d).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
 export default function CheckIn() {
-  const [documentNumber, setDocumentNumber] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-  const [countdown, setCountdown] = useState(5);
-  const [checkInMethod, setCheckInMethod] = useState('manual'); // 'manual' or 'fingerprint'
-  const [readerStatus, setReaderStatus] = useState(null);
+  const [documentNumber, setDocumentNumber]     = useState('');
+  const [loading, setLoading]                   = useState(false);
+  const [result, setResult]                     = useState(null);   // { success, user, subscription?, message, reason? }
+  const [error, setError]                       = useState(null);   // { message, detail }
+  const [countdown, setCountdown]               = useState(5);
+  const [checkInMethod, setCheckInMethod]       = useState('manual');
+  const [readerStatus, setReaderStatus]         = useState(null);
   const [capturingFingerprint, setCapturingFingerprint] = useState(false);
 
-  // Countdown effect when result or error is shown
+  // Auto-dismiss countdown
   useEffect(() => {
-    if (result || error) {
-      setCountdown(5);
-      setDocumentNumber(''); // Clear immediately so input is ready
-      const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            setResult(null);
-            setError(null);
-            return 5;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(timer);
-    }
+    if (!result && !error) return;
+    setCountdown(5);
+    setDocumentNumber('');
+    const timer = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(timer); setResult(null); setError(null); return 5; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
   }, [result, error]);
 
-  // Check fingerprint reader status on mount
+  // Reader status polling
   useEffect(() => {
-    const checkReaderStatus = async () => {
+    const check = async () => {
       try {
         const token = localStorage.getItem('access_token');
-        const response = await fetch('http://localhost:8080/api/v1/biometric/status', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+        const res = await fetch('http://localhost:8080/api/v1/biometric/status', {
+          headers: { Authorization: `Bearer ${token}` },
         });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setReaderStatus(data.data);
-        }
-      } catch (err) {
-        console.error('Error checking reader status:', err);
-      }
+        if (res.ok) { const d = await res.json(); setReaderStatus(d.data); }
+      } catch {}
     };
-
-    checkReaderStatus();
-    // Check status every 10 seconds
-    const interval = setInterval(checkReaderStatus, 10000);
-    return () => clearInterval(interval);
+    check();
+    const id = setInterval(check, 10000);
+    return () => clearInterval(id);
   }, []);
 
-  const handleCheckIn = async (e) => {
+  const handleCheckIn = async e => {
     e.preventDefault();
     if (!documentNumber.trim()) return;
-
-    setLoading(true);
-    setResult(null);
-    setError(null);
+    setLoading(true); setResult(null); setError(null);
 
     try {
       const token = localStorage.getItem('access_token');
-      
-      // First, find user by document number
-      const usersResponse = await fetch('http://localhost:8080/api/v1/users', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!usersResponse.ok) {
-        throw new Error('Error al buscar usuario');
-      }
-
-      const usersData = await usersResponse.json();
-      const users = usersData.data || usersData || [];
-      const user = users.find(u => u.document_number === documentNumber.trim());
+      const usersRes = await fetch('http://localhost:8080/api/v1/users', { headers: { Authorization: `Bearer ${token}` } });
+      if (!usersRes.ok) throw new Error('Error al buscar usuario');
+      const usersData = await usersRes.json();
+      const user = (usersData.data || usersData || []).find(u => u.document_number === documentNumber.trim());
 
       if (!user) {
-        setError({
-          message: 'Usuario no encontrado',
-          detail: 'La identificación ingresada no está registrada en el sistema'
-        });
+        setError({ message: 'Usuario no encontrado', detail: 'La identificación ingresada no está registrada' });
         setDocumentNumber('');
         return;
       }
 
-      // Try to check in
-      const checkInResponse = await fetch('http://localhost:8080/api/v1/access/checkin', {
+      const ciRes = await fetch('http://localhost:8080/api/v1/access/checkin', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          user_id: user.id,
-          method: 'MANUAL'
-        })
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id, method: 'MANUAL' }),
       });
+      const ciData = await ciRes.json();
 
-      const checkInData = await checkInResponse.json();
+      const subsRes = await fetch('http://localhost:8080/api/v1/subscriptions', { headers: { Authorization: `Bearer ${token}` } });
+      const subsAll = subsRes.ok ? await subsRes.json() : [];
 
-      if (checkInResponse.ok) {
-        // Success - get subscription info
-        const subsResponse = await fetch('http://localhost:8080/api/v1/subscriptions', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (subsResponse.ok) {
-          const subs = await subsResponse.json();
-          const userSub = (subs || []).find(s => s.user_id === user.id && s.status === 'ACTIVE');
-          
-          setResult({
-            success: true,
-            user: user,
-            subscription: userSub,
-            message: '¡Acceso Permitido!'
-          });
-        }
+      if (ciRes.ok) {
+        const sub = (subsAll || []).find(s => s.user_id === user.id && s.status === 'ACTIVE');
+        setResult({ success: true, user, subscription: sub, message: '¡Bienvenido!' });
       } else {
-        // Access denied - try to get last subscription info
-        const subsResponse = await fetch('http://localhost:8080/api/v1/subscriptions', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        let expiredSub = null;
-        if (subsResponse.ok) {
-          const subs = await subsResponse.json();
-          // Find last subscription for this user (even if expired)
-          const userSubs = (subs || []).filter(s => s.user_id === user.id);
-          if (userSubs.length > 0) {
-            // Get most recent one
-            expiredSub = userSubs.sort((a, b) => new Date(b.end_date) - new Date(a.end_date))[0];
-          }
-        }
-
-        setResult({
-          success: false,
-          user: user,
-          message: 'Acceso Denegado',
-          reason: checkInData.reason || 'Sin suscripción activa',
-          expiredSubscription: expiredSub
-        });
+        const userSubs = (subsAll || []).filter(s => s.user_id === user.id);
+        const expired = userSubs.sort((a, b) => new Date(b.end_date) - new Date(a.end_date))[0] || null;
+        setResult({ success: false, user, message: 'Acceso Denegado', reason: ciData.reason || 'Sin suscripción activa', expiredSubscription: expired });
       }
-
-      // Don't set timeout here anymore, handled by useEffect
-
-    } catch (err) {
-      console.error('Error during check-in:', err);
-      setError({
-        message: 'Error del sistema',
-        detail: 'Por favor contacte al administrador'
-      });
-      // Don't set timeout here anymore, handled by useEffect
+    } catch {
+      setError({ message: 'Error del sistema', detail: 'Por favor contacte al administrador' });
     } finally {
       setLoading(false);
     }
@@ -170,437 +135,240 @@ export default function CheckIn() {
 
   const handleFingerprintCheckIn = async () => {
     if (!readerStatus?.reader_connected) {
-      setError({
-        message: 'Lector no disponible',
-        detail: 'El lector de huellas no está conectado'
-      });
+      setError({ message: 'Lector no disponible', detail: 'El lector de huellas no está conectado' });
       return;
     }
-
-    setCapturingFingerprint(true);
-    setLoading(true);
-    setResult(null);
-    setError(null);
+    setCapturingFingerprint(true); setLoading(true); setResult(null); setError(null);
 
     try {
       const token = localStorage.getItem('access_token');
-
-      // Note: In a real implementation, you would:
-      // 1. Call the capture endpoint to get fingerprint from device
-      // 2. Then verify the captured fingerprint
-      // For now, this is a placeholder showing the flow
-
-      // Capture fingerprint (this would actually communicate with the device)
-      const captureResponse = await fetch('http://localhost:8080/api/v1/biometric/capture', {
+      const capRes = await fetch('http://localhost:8080/api/v1/biometric/capture', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ timeout: 30 })
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeout: 30 }),
       });
+      if (!capRes.ok) throw new Error('Error al capturar huella digital');
+      const capData = await capRes.json();
 
-      if (!captureResponse.ok) {
-        throw new Error('Error al capturar huella digital');
-      }
-
-      const captureData = await captureResponse.json();
-      
-      // Verify the captured fingerprint
-      const verifyResponse = await fetch('http://localhost:8080/api/v1/biometric/verify', {
+      const verRes = await fetch('http://localhost:8080/api/v1/biometric/verify', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          template_data: captureData.data.template_data,
-          device_id: 'web-interface'
-        })
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_data: capData.data.template_data, device_id: 'web-interface' }),
       });
+      const verData = await verRes.json();
 
-      const verifyData = await verifyResponse.json();
-
-      if (verifyResponse.ok && verifyData.success) {
-        const user = verifyData.data.user;
-
-        // Try to check in with verified user
-        const checkInResponse = await fetch('http://localhost:8080/api/v1/access/checkin', {
+      if (verRes.ok && verData.success) {
+        const user = verData.data.user;
+        const ciRes = await fetch('http://localhost:8080/api/v1/access/checkin', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            user_id: user.id,
-            method: 'FINGERPRINT'
-          })
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: user.id, method: 'FINGERPRINT' }),
         });
-
-        if (checkInResponse.ok) {
-          // Success - get subscription info
-          const subsResponse = await fetch('http://localhost:8080/api/v1/subscriptions', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-
-          let userSub = null;
-          if (subsResponse.ok) {
-            const subs = await subsResponse.json();
-            userSub = (subs || []).find(s => s.user_id === user.id && s.status === 'ACTIVE');
-          }
-
-          setResult({
-            success: true,
-            user: user,
-            subscription: userSub,
-            message: '¡Acceso Permitido con Huella!',
-            matchScore: verifyData.data.match_score
-          });
+        if (ciRes.ok) {
+          const subsRes = await fetch('http://localhost:8080/api/v1/subscriptions', { headers: { Authorization: `Bearer ${token}` } });
+          const sub = subsRes.ok ? (await subsRes.json() || []).find(s => s.user_id === user.id && s.status === 'ACTIVE') : null;
+          setResult({ success: true, user, subscription: sub, message: '¡Bienvenido!', byFingerprint: true });
         } else {
-          const checkInData = await checkInResponse.json();
-          setResult({
-            success: false,
-            user: user,
-            message: 'Acceso Denegado',
-            reason: checkInData.reason || 'Sin suscripción activa'
-          });
+          const d = await ciRes.json();
+          setResult({ success: false, user, message: 'Acceso Denegado', reason: d.reason || 'Sin suscripción activa' });
         }
       } else {
-        setError({
-          message: 'Huella no reconocida',
-          detail: 'La huella digital no coincide con ningún usuario registrado'
-        });
+        setError({ message: 'Huella no reconocida', detail: 'No coincide con ningún usuario registrado' });
       }
     } catch (err) {
-      console.error('Error during fingerprint check-in:', err);
-      setError({
-        message: 'Error al procesar huella',
-        detail: err.message || 'Por favor intente nuevamente o use método manual'
-      });
+      setError({ message: 'Error al procesar huella', detail: err.message || 'Intente nuevamente' });
     } finally {
-      setLoading(false);
-      setCapturingFingerprint(false);
+      setLoading(false); setCapturingFingerprint(false);
     }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('es-MX', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
+  // ── Overlay result ──────────────────────────────────────────────────────────
+  const showOverlay = result || error;
+  const isSuccess   = result?.success;
+  const isDenied    = result && !result.success;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-500 via-purple-600 to-pink-500 flex items-center justify-center p-4">
-      {/* Back to Login Button */}
-      <div className="absolute top-4 left-4">
-        <a
-          href="/"
-          className="inline-flex items-center px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition backdrop-blur-sm"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Volver al Login
-        </a>
+    <div className="min-h-screen bg-gray-950 flex flex-col overflow-hidden relative">
+
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-950 to-black pointer-events-none" />
+      <div className="absolute inset-0 opacity-10 pointer-events-none"
+        style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #3b82f6 0%, transparent 50%), radial-gradient(circle at 80% 20%, #8b5cf6 0%, transparent 40%)' }}
+      />
+
+      {/* Back button */}
+      <a href="/" className="absolute top-4 left-4 z-10 flex items-center gap-1.5 text-white/40 hover:text-white/80 transition text-sm">
+        <Svg path={BACK_PATH} className="w-4 h-4" />
+        Admin
+      </a>
+
+      {/* Reader status dot */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        <span className={`w-2 h-2 rounded-full ${readerStatus?.reader_connected ? 'bg-green-400' : 'bg-gray-600'}`} />
+        <span className="text-xs text-white/40">
+          {readerStatus?.reader_connected ? 'Lector conectado' : 'Sin lector'}
+        </span>
       </div>
 
-      <div className="w-full max-w-2xl">
-        {/* Logo/Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-white rounded-full shadow-2xl mb-4">
-            <svg className="w-12 h-12 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+      {/* ── Main content ── */}
+      <div className="flex-1 flex flex-col items-center justify-center relative z-10 p-6 gap-8">
+
+        {/* Logo + clock */}
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <Svg path={BOLT_PATH} className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-2xl font-bold text-white tracking-wide">GYM-GO</span>
           </div>
-          <h1 className="text-5xl font-bold text-white mb-2">GYM-GO</h1>
-          <p className="text-xl text-white/90">Control de Acceso</p>
+          <Clock />
         </div>
 
-        {/* Main Card */}
-        <div className="bg-white rounded-3xl shadow-2xl p-8 mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 text-center mb-6">
-            Control de Acceso
-          </h2>
-          
-          {/* Reader Status Indicator */}
-          {readerStatus && (
-            <div className={`mb-6 p-3 rounded-lg flex items-center justify-center gap-2 ${
-              readerStatus.reader_connected ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'
-            }`}>
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
-                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
-              </svg>
-              <span className="text-sm font-medium">
-                Lector: {readerStatus.reader_connected ? 'Conectado' : 'Desconectado'}
-              </span>
+        {/* Check-in card */}
+        {!showOverlay && (
+          <div className="w-full max-w-sm bg-white/5 border border-white/10 backdrop-blur-sm rounded-3xl p-8 space-y-6 animate-fade-in">
+
+            {/* Method toggle */}
+            <div className="flex bg-white/5 rounded-2xl p-1 gap-1">
+              {['manual', 'fingerprint'].map(m => (
+                <button
+                  key={m}
+                  onClick={() => setCheckInMethod(m)}
+                  disabled={m === 'fingerprint' && !readerStatus?.reader_connected}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2
+                    ${checkInMethod === m ? 'bg-white text-gray-900 shadow' : 'text-white/60 hover:text-white/90 disabled:opacity-30 disabled:cursor-not-allowed'}`}
+                >
+                  {m === 'manual'
+                    ? <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" /></svg>Documento</>
+                    : <><Svg path={FINGERPRINT_PATH} className="w-4 h-4" />Huella</>
+                  }
+                </button>
+              ))}
             </div>
-          )}
 
-          {/* Method Selector */}
-          <div className="flex gap-2 mb-6">
-            <button
-              onClick={() => setCheckInMethod('manual')}
-              className={`flex-1 py-3 px-4 rounded-xl font-semibold transition ${
-                checkInMethod === 'manual'
-                  ? 'bg-purple-600 text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                </svg>
-                Manual
-              </div>
-            </button>
-            <button
-              onClick={() => setCheckInMethod('fingerprint')}
-              disabled={!readerStatus?.reader_connected}
-              className={`flex-1 py-3 px-4 rounded-xl font-semibold transition ${
-                checkInMethod === 'fingerprint'
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
-                </svg>
-                Huella
-              </div>
-            </button>
-          </div>
-
-          {/* Manual Check-In Form */}
-          {checkInMethod === 'manual' && (
-            <form onSubmit={handleCheckIn} className="space-y-6">
-              <div>
+            {/* Manual form */}
+            {checkInMethod === 'manual' && (
+              <form onSubmit={handleCheckIn} className="space-y-4">
                 <input
                   type="text"
                   value={documentNumber}
-                  onChange={(e) => setDocumentNumber(e.target.value)}
-                  placeholder="Número de Documento"
+                  onChange={e => setDocumentNumber(e.target.value)}
+                  placeholder="Número de documento"
                   disabled={loading}
-                  className="w-full px-6 py-5 text-2xl text-center border-2 border-gray-300 rounded-2xl focus:ring-4 focus:ring-purple-600 focus:border-purple-600 focus:outline-none transition disabled:bg-gray-100"
                   autoFocus
+                  className="w-full px-5 py-4 text-xl text-center bg-white/10 border border-white/20 text-white placeholder-white/30 rounded-2xl focus:outline-none focus:border-blue-400 focus:bg-white/15 transition"
                 />
+                <button
+                  type="submit"
+                  disabled={loading || !documentNumber.trim()}
+                  className="w-full py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white text-lg font-bold rounded-2xl transition-all shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {loading
+                    ? <span className="flex items-center justify-center gap-2"><svg className="animate-spin w-5 h-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>Verificando...</span>
+                    : 'Verificar Acceso'
+                  }
+                </button>
+              </form>
+            )}
+
+            {/* Fingerprint */}
+            {checkInMethod === 'fingerprint' && (
+              <div className="space-y-4 text-center">
+                <div className={`mx-auto w-28 h-28 rounded-full flex items-center justify-center
+                  ${capturingFingerprint ? 'bg-blue-500/20 animate-pulse' : 'bg-white/10'}`}>
+                  <Svg path={FINGERPRINT_PATH} className={`w-14 h-14 ${capturingFingerprint ? 'text-blue-400' : 'text-white/50'}`} />
+                </div>
+                <p className="text-white/70 text-sm">
+                  {capturingFingerprint ? 'Mantén el dedo sobre el lector...' : 'Coloca tu dedo en el lector'}
+                </p>
+                <button
+                  onClick={handleFingerprintCheckIn}
+                  disabled={loading}
+                  className="w-full py-4 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white text-lg font-bold rounded-2xl transition-all shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Procesando...' : 'Iniciar Escaneo'}
+                </button>
               </div>
+            )}
+          </div>
+        )}
 
-              <button
-                type="submit"
-                disabled={loading || !documentNumber.trim()}
-                className="w-full py-5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xl font-bold rounded-2xl hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <div className="flex items-center justify-center">
-                    <svg className="animate-spin h-6 w-6 mr-3" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Verificando...
-                  </div>
-                ) : (
-                  'Verificar Acceso'
-                )}
-              </button>
-            </form>
-          )}
-
-          {/* Fingerprint Check-In */}
-          {checkInMethod === 'fingerprint' && (
-            <div className="space-y-6">
-              <div className="text-center py-8">
-                <div className={`inline-flex items-center justify-center w-32 h-32 rounded-full mb-4 ${
-                  capturingFingerprint ? 'bg-blue-100 animate-pulse' : 'bg-blue-50'
-                }`}>
-                  <svg className="w-16 h-16 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
+        {/* ── Success result ── */}
+        {isSuccess && (
+          <div className="w-full max-w-sm bg-white/5 border-2 border-green-400/60 backdrop-blur-sm rounded-3xl p-8 text-center space-y-5 animate-scale-in">
+            <div className="flex justify-center">
+              <div className="relative">
+                <Avatar user={result.user} size="lg" />
+                <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-green-500 rounded-full flex items-center justify-center border-2 border-gray-950">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d={CHECK_PATH} />
                   </svg>
                 </div>
-                <p className="text-lg text-gray-700 mb-2">
-                  {capturingFingerprint ? 'Capturando huella...' : 'Coloca tu dedo en el lector'}
-                </p>
-                <p className="text-sm text-gray-500">
-                  {capturingFingerprint ? 'Mantén tu dedo sobre el sensor' : 'Presiona el botón para iniciar'}
-                </p>
               </div>
-
-              <button
-                onClick={handleFingerprintCheckIn}
-                disabled={loading || !readerStatus?.reader_connected}
-                className="w-full py-5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-xl font-bold rounded-2xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <div className="flex items-center justify-center">
-                    <svg className="animate-spin h-6 w-6 mr-3" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Procesando...
-                  </div>
-                ) : (
-                  'Iniciar Escaneo'
-                )}
-              </button>
             </div>
-          )}
-        </div>
-
-        {/* Results Section - Always below the form */}
-
-        {/* Results Section - Always below the form */}
-        {result && result.success && (
-          <div className="bg-white rounded-3xl shadow-2xl p-8 mb-6 border-4 border-green-500 animate-fade-in">
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4">
-                <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              
-              <h3 className="text-3xl font-bold text-green-600 mb-3">
-                {result.message}
-              </h3>
-              
-              <div className="bg-gray-50 rounded-2xl p-6">
-                <p className="text-2xl font-bold text-gray-800 mb-2">
-                  {result.user.first_name} {result.user.last_name}
-                </p>
-                <p className="text-lg text-gray-600 mb-4">
-                  {result.user.document_type} {result.user.document_number}
-                </p>
-                
-                {result.subscription && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <p className="text-sm text-gray-500 mb-1">Tu suscripción termina el:</p>
-                    <p className="text-xl font-bold text-purple-600">
-                      {formatDate(result.subscription.end_date)}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <p className="text-lg text-gray-600 mt-4">
-                ¡Bienvenido! ✨
+            <div>
+              <p className="text-green-400 text-sm font-semibold uppercase tracking-widest mb-1">
+                {result.byFingerprint ? '✓ Huella reconocida' : '✓ Acceso permitido'}
               </p>
-
-              <div className="mt-3 text-sm text-gray-400">
-                Desapareciendo en {countdown} segundo{countdown !== 1 ? 's' : ''}...
-              </div>
+              <h2 className="text-3xl font-bold text-white">{result.user.first_name} {result.user.last_name}</h2>
+              <p className="text-white/50 text-sm mt-1">{result.user.document_type} {result.user.document_number}</p>
             </div>
+            {result.subscription && (
+              <div className="bg-green-500/10 border border-green-400/30 rounded-2xl px-5 py-3">
+                <p className="text-green-400 text-xs mb-0.5">Plan activo hasta</p>
+                <p className="text-white font-semibold">{formatDate(result.subscription.end_date)}</p>
+              </div>
+            )}
+            <p className="text-4xl">🎉</p>
+            <p className="text-white/40 text-xs">Cerrando en {countdown}s</p>
           </div>
         )}
 
-        {result && !result.success && (
-          <div className="bg-white rounded-3xl shadow-2xl p-8 mb-6 border-4 border-red-500 animate-fade-in">
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-4">
-                <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </div>
-              
-              <h3 className="text-3xl font-bold text-red-600 mb-3">
-                {result.message}
-              </h3>
-              
-              <div className="bg-gray-50 rounded-2xl p-6">
-                <p className="text-2xl font-bold text-gray-800 mb-2">
-                  {result.user.first_name} {result.user.last_name}
-                </p>
-                <p className="text-lg text-gray-600 mb-4">
-                  {result.user.document_type} {result.user.document_number}
-                </p>
-                
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <p className="text-lg text-red-600 font-semibold mb-2">
-                    {result.expiredSubscription 
-                      ? 'Tu suscripción venció el:' 
-                      : 'No tienes una suscripción activa'}
-                  </p>
-                  {result.expiredSubscription && (
-                    <p className="text-xl font-bold text-gray-700">
-                      {formatDate(result.expiredSubscription.end_date)}
-                    </p>
-                  )}
+        {/* ── Denied result ── */}
+        {isDenied && (
+          <div className="w-full max-w-sm bg-white/5 border-2 border-red-400/60 backdrop-blur-sm rounded-3xl p-8 text-center space-y-5 animate-scale-in">
+            <div className="flex justify-center">
+              <div className="relative">
+                <Avatar user={result.user} size="lg" />
+                <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-red-500 rounded-full flex items-center justify-center border-2 border-gray-950">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d={X_PATH} />
+                  </svg>
                 </div>
               </div>
-
-              <p className="text-lg text-gray-600 mt-4">
-                Por favor, contacta con recepción 📞
-              </p>
-
-              <div className="mt-3 text-sm text-gray-400">
-                Desapareciendo en {countdown} segundo{countdown !== 1 ? 's' : ''}...
-              </div>
             </div>
+            <div>
+              <p className="text-red-400 text-sm font-semibold uppercase tracking-widest mb-1">✕ Acceso denegado</p>
+              <h2 className="text-3xl font-bold text-white">{result.user.first_name} {result.user.last_name}</h2>
+              <p className="text-white/50 text-sm mt-1">{result.user.document_type} {result.user.document_number}</p>
+            </div>
+            <div className="bg-red-500/10 border border-red-400/30 rounded-2xl px-5 py-3">
+              <p className="text-red-400 text-xs mb-0.5">
+                {result.expiredSubscription ? 'Suscripción vencida el' : 'Sin suscripción activa'}
+              </p>
+              {result.expiredSubscription && (
+                <p className="text-white font-semibold">{formatDate(result.expiredSubscription.end_date)}</p>
+              )}
+            </div>
+            <p className="text-white/70 text-sm">Acércate a recepción para renovar 📋</p>
+            <p className="text-white/40 text-xs">Cerrando en {countdown}s</p>
           </div>
         )}
 
+        {/* ── Error ── */}
         {error && (
-          <div className="bg-white rounded-3xl shadow-2xl p-8 mb-6 border-4 border-yellow-500 animate-fade-in">
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-yellow-100 rounded-full mb-4">
-                <svg className="w-10 h-10 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              
-              <h3 className="text-2xl font-bold text-yellow-600 mb-3">
-                {error.message}
-              </h3>
-              
-              <p className="text-lg text-gray-600">
-                {error.detail}
-              </p>
-
-              <div className="mt-3 text-sm text-gray-400">
-                Desapareciendo en {countdown} segundo{countdown !== 1 ? 's' : ''}...
-              </div>
+          <div className="w-full max-w-sm bg-white/5 border-2 border-yellow-400/60 backdrop-blur-sm rounded-3xl p-8 text-center space-y-4 animate-scale-in">
+            <div className="mx-auto w-20 h-20 bg-yellow-400/10 rounded-full flex items-center justify-center">
+              <Svg path={WARN_PATH} className="w-10 h-10 text-yellow-400" />
             </div>
-          </div>
-        )}
-
-        {/* Instructions */}
-        {!result && !error && !loading && (
-          <div className="text-center text-white/80 space-y-2">
-            <p className="text-lg">
-              {checkInMethod === 'manual' 
-                ? 'Ingresa tu número de documento para registrar tu entrada'
-                : 'Usa tu huella digital para acceder rápidamente'
-              }
-            </p>
-            <p className="text-sm">
-              {checkInMethod === 'manual'
-                ? 'El sistema verificará automáticamente tu suscripción'
-                : 'El lector identificará tu huella y validará tu acceso'
-              }
-            </p>
+            <div>
+              <p className="text-yellow-400 font-bold text-xl">{error.message}</p>
+              <p className="text-white/60 text-sm mt-1">{error.detail}</p>
+            </div>
+            <p className="text-white/40 text-xs">Cerrando en {countdown}s</p>
           </div>
         )}
       </div>
-
-      <style jsx>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-      `}</style>
     </div>
   );
 }
