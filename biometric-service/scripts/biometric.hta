@@ -303,24 +303,34 @@ Sub HandleEnroll()
             DebugLog "Enrollment props: " & props
         End If
 
-        ' ===== ATTEMPT 3: Use last FeatureSet as template (fallback) =====
+        ' ===== ATTEMPT 3: Direct VBScript access to Template =====
         If tmplB64 = "" Then
-            DebugLog "Using FeatureSet as template (fallback)"
+            DebugLog "Trying direct VBS Template access..."
             Err.Clear
-            If Not (gLastFeatureSet Is Nothing) Then
-                tmplData = gLastFeatureSet.Serialize()
-                DebugLog "FeatureSet Serialize err=" & Err.Number
+            Set tmpl = gEnrollment.Template
+            DebugLog "Template access err=" & Err.Number & " desc=" & Err.Description
+            If Err.Number = 0 And Not (tmpl Is Nothing) Then
+                Err.Clear
+                tmplData = tmpl.Serialize()
+                DebugLog "Template.Serialize err=" & Err.Number
                 If Err.Number = 0 And Not IsEmpty(tmplData) Then
                     tmplB64 = BytesToBase64(tmplData)
-                    DebugLog "FeatureSet Base64 Len=" & Len(tmplB64)
+                    DebugLog "VBS Template success! Len=" & Len(tmplB64)
                 End If
             End If
         End If
 
-        AddLog "Template: " & Len(tmplB64) & " chars", "ok"
-        SetStatus "REGISTRO EXITOSO!"
-        WriteResult True, "Enrollment completed", _
-            "{""template_data"":""" & tmplB64 & """,""quality"":90}"
+        If tmplB64 <> "" Then
+            AddLog "Template: " & Len(tmplB64) & " chars", "ok"
+            SetStatus "REGISTRO EXITOSO!"
+            WriteResult True, "Enrollment completed", _
+                "{""template_data"":""" & tmplB64 & """,""quality"":90}"
+        Else
+            DebugLog "Could not serialize template from COM"
+            AddLog "Error: no se pudo obtener el template", "err"
+            SetStatus "ERROR: template no serializable"
+            WriteResult False, "Enrollment completo pero no se pudo serializar el template", ""
+        End If
         DPCapture.StopCapture
         CloseAfterDelay 1
     ElseIf gEnrollment.TemplateStatus = TEMPLATE_STATUS_FAILED Then

@@ -217,132 +217,137 @@ namespace GymGo.BiometricService
         }
 
         // =====================================================================
-        // ENROLL - 2 captures via HTA, verify they match, store FeatureSet as template
-        // Strategy: COM enrollment SDK is too strict with HTA bridge, so we use
-        // 2 captures + cross-verification to confirm finger consistency
+        // ENROLL - Multiple captures via HTA until SDK produces a real Template.
+        // The SDK typically needs 4 samples. We capture them one by one.
+        // A proper DPFP.Template is REQUIRED for secure verification.
+        // Strategy: Use HTA's COM DPFPEnrollment (all 4 captures in HTA, same COM layer).
+        // The .NET SDK enrollment fails with HTA-produced FeatureSets, but the COM
+        // enrollment inside HTA works because it's the same COM layer.
         // =====================================================================
         static BiometricResponse HandleEnroll()
         {
-            Console.WriteLine("  Enrollment: 2 capturas + verificacion cruzada");
+            const int MAX_RETRIES = 2;
 
-            // Capture 1
-            Console.WriteLine("  Captura 1/2...");
-            var cap1 = RunHtaCapture("enroll_capture", 30);
-            if (!cap1.Success) return new BiometricResponse { Success = false, Message = "Captura 1 fallida: " + cap1.Message };
-
-            var data1 = cap1.Data as Dictionary<string, object>;
-            string fs1Base64 = data1?["template_data"] as string ?? "";
-            if (string.IsNullOrEmpty(fs1Base64))
-                return new BiometricResponse { Success = false, Message = "Sin datos en captura 1" };
-
-            byte[] fs1Bytes = Convert.FromBase64String(fs1Base64);
-            Console.WriteLine("    Captura 1 OK (" + fs1Bytes.Length + " bytes)");
-
-            // Capture 2
-            Console.WriteLine("  Captura 2/2...");
-            var cap2 = RunHtaCapture("enroll_capture", 30);
-            if (!cap2.Success) return new BiometricResponse { Success = false, Message = "Captura 2 fallida: " + cap2.Message };
-
-            var data2 = cap2.Data as Dictionary<string, object>;
-            string fs2Base64 = data2?["template_data"] as string ?? "";
-            if (string.IsNullOrEmpty(fs2Base64))
-                return new BiometricResponse { Success = false, Message = "Sin datos en captura 2" };
-
-            byte[] fs2Bytes = Convert.FromBase64String(fs2Base64);
-            Console.WriteLine("    Captura 2 OK (" + fs2Bytes.Length + " bytes)");
-
-            // Cross-verify: deserialize both as verification FeatureSets and compare
-            try
+            for (int attempt = 1; attempt <= MAX_RETRIES; attempt++)
             {
-                var featureSet1 = new DPFP.FeatureSet();
-                featureSet1.DeSerialize(fs1Bytes);
-
-                var featureSet2 = new DPFP.FeatureSet();
-                featureSet2.DeSerialize(fs2Bytes);
-
-                // Try .NET SDK enrollment with 2 features (may work since both are fresh)
-                bool enrollmentWorked = false;
-                string templateBase64 = "";
+                Console.WriteLine("  Intento " + attempt + "/" + MAX_RETRIES + ": Enrollment via COM interop (4 capturas individuales)...");
 
                 try
                 {
-                    var enrollment = new DPFP.Processing.Enrollment();
-                    enrollment.AddFeatures(featureSet1);
-                    Console.WriteLine("    AddFeatures(1) OK, needed=" + enrollment.FeaturesNeeded);
-                    enrollment.AddFeatures(featureSet2);
-                    Console.WriteLine("    AddFeatures(2) OK, needed=" + enrollment.FeaturesNeeded);
-
-                    // If enrollment needs more, add capture 1 again (SDK sometimes accepts duplicates)
-                    int extraAttempts = 0;
-                    while (enrollment.FeaturesNeeded > 0 && 
-                           enrollment.TemplateStatus != DPFP.Processing.Enrollment.Status.Ready &&
-                           enrollment.TemplateStatus != DPFP.Processing.Enrollment.Status.Failed &&
-                           extraAttempts < 4)
+                    // Create COM enrollment object (C# COM interop CAN access Template property)
+                    Type enrollType = Type.GetTypeFromProgID("DPFPEngX.DPFPEnrollment");
+                    if (enrollType == null)
                     {
-                        Console.WriteLine("    Captura extra " + (extraAttempts + 1) + " (faltan " + enrollment.FeaturesNeeded + ")...");
-                        var extraCap = RunHtaCapture("enroll_capture", 30);
-                        if (extraCap.Success)
-                        {
-                            var extraData = extraCap.Data as Dictionary<string, object>;
-                            string extraBase64 = extraData?["template_data"] as string ?? "";
-                            if (!string.IsNullOrEmpty(extraBase64))
-                            {
-                                var extraFs = new DPFP.FeatureSet();
-                                extraFs.DeSerialize(Convert.FromBase64String(extraBase64));
-                                enrollment.AddFeatures(extraFs);
-                                Console.WriteLine("    Extra FeatureSet added, needed=" + enrollment.FeaturesNeeded);
-                            }
-                        }
-                        extraAttempts++;
+                        return new BiometricResponse { Success = false, Message = "COM DPFPEngX.DPFPEnrollment no disponible" };
+                    }
+                    dynamic comEnrollment = Activator.CreateInstance(enrollType);
+
+                    Type fsType = Type.GetTypeFromProgID("DPFPShrX.DPFPFeatureSet");
+                    if (fsType == null)
+                    {
+                        return new BiometricResponse { Success = false, Message = "COM DPFPShrX.DPFPFeatureSet no disponible" };
                     }
 
-                    if (enrollment.TemplateStatus == DPFP.Processing.Enrollment.Status.Ready)
+                    int featuresNeeded = (int)comEnrollment.FeaturesNeeded;
+                    Console.WriteLine("    COM Enrollment creado. FeaturesNeeded=" + featuresNeeded);
+
+                    // Collect 4 individual captures from HTA
+                    for (int cap = 1; cap <= 4; cap++)
                     {
-                        var template = enrollment.Template;
-                        byte[] tmplBytes = null;
-                        template.Serialize(ref tmplBytes);
-                        templateBase64 = Convert.ToBase64String(tmplBytes);
-                        enrollmentWorked = true;
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("  ENROLLMENT SDK OK! Template: " + tmplBytes.Length + " bytes");
-                        Console.ResetColor();
+                        Console.WriteLine("    Captura " + cap + "/4...");
+                        var captureResult = RunHtaCapture("enroll_capture", 30);
+
+                        if (!captureResult.Success)
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine("      Captura " + cap + " fallida: " + captureResult.Message);
+                            Console.ResetColor();
+                            break;
+                        }
+
+                        var capData = captureResult.Data as Dictionary<string, object>;
+                        string capBase64 = capData?["template_data"] as string ?? "";
+                        if (string.IsNullOrEmpty(capBase64))
+                        {
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine("      Captura " + cap + " vacia");
+                            Console.ResetColor();
+                            break;
+                        }
+
+                        // Create COM FeatureSet and deserialize captured data
+                        byte[] fsBytes = Convert.FromBase64String(capBase64);
+                        dynamic comFS = Activator.CreateInstance(fsType);
+                        comFS.Deserialize(fsBytes);
+
+                        // Add to COM enrollment
+                        comEnrollment.AddFeatures(comFS);
+                        featuresNeeded = (int)comEnrollment.FeaturesNeeded;
+                        int status = (int)comEnrollment.TemplateStatus;
+                        Console.WriteLine("      AddFeatures OK. FeaturesNeeded=" + featuresNeeded + " TemplateStatus=" + status);
+
+                        // Check if template is ready (TemplateStatus=2)
+                        if (status == 2)
+                        {
+                            Console.WriteLine("    Template READY! Extrayendo via COM interop...");
+
+                            // Access Template property via C# COM interop (works where VBScript fails)
+                            dynamic comTemplate = comEnrollment.Template;
+                            if (comTemplate == null)
+                            {
+                                Console.ForegroundColor = ConsoleColor.Yellow;
+                                Console.WriteLine("    Template es null a pesar de TemplateStatus=READY");
+                                Console.ResetColor();
+                                break;
+                            }
+
+                            byte[] tmplBytes = (byte[])comTemplate.Serialize();
+                            string templateBase64 = Convert.ToBase64String(tmplBytes);
+                            Console.WriteLine("    COM Template serializado: " + tmplBytes.Length + " bytes");
+
+                            // Validate with .NET SDK
+                            var netTemplate = new DPFP.Template();
+                            netTemplate.DeSerialize(tmplBytes);
+
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine("  ENROLLMENT OK! Template valido .NET SDK: " + tmplBytes.Length + " bytes");
+                            Console.ResetColor();
+
+                            return new BiometricResponse
+                            {
+                                Success = true,
+                                Message = "Enrollment completed",
+                                Data = new Dictionary<string, object>
+                                {
+                                    { "template_data", templateBase64 },
+                                    { "quality", 90 }
+                                }
+                            };
+                        }
                     }
                 }
-                catch (Exception enrollEx)
+                catch (Exception ex)
                 {
                     Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine("    SDK enrollment failed: " + enrollEx.Message + " - usando FeatureSet directo");
+                    Console.WriteLine("    Error en intento " + attempt + ": " + ex.Message);
                     Console.ResetColor();
                 }
 
-                // Fallback: store the first FeatureSet as template data
-                if (!enrollmentWorked)
+                if (attempt < MAX_RETRIES)
                 {
-                    templateBase64 = fs1Base64;
-                    Console.ForegroundColor = ConsoleColor.Green;
-                    Console.WriteLine("  ENROLLMENT (FeatureSet mode)! Stored: " + fs1Bytes.Length + " bytes");
-                    Console.ResetColor();
+                    Console.WriteLine("    Reintentando enrollment...");
                 }
-
-                return new BiometricResponse
-                {
-                    Success = true,
-                    Message = "Enrollment completed",
-                    Data = new Dictionary<string, object>
-                    {
-                        { "template_data", templateBase64 },
-                        { "quality", 85 }
-                    }
-                };
             }
-            catch (Exception ex)
+
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine("  ENROLLMENT FALLIDO despues de " + MAX_RETRIES + " intentos");
+            Console.ResetColor();
+
+            return new BiometricResponse
             {
-                return new BiometricResponse
-                {
-                    Success = false,
-                    Message = "Error en enrollment: " + ex.Message
-                };
-            }
+                Success = false,
+                Message = "Enrollment fallido. Limpie el lector e intente con capturas firmes y consistentes."
+            };
         }
 
         // =====================================================================
@@ -422,7 +427,7 @@ namespace GymGo.BiometricService
             // Verify against each stored template
             string bestUserId = "";
             bool bestVerified = false;
-            int bestFar = int.MaxValue;
+            long bestFar = long.MaxValue;
 
             Console.WriteLine("  Comparando contra " + storedTemplates.Count + " huellas...");
 
@@ -439,59 +444,31 @@ namespace GymGo.BiometricService
                 {
                     byte[] tmplBytes = Convert.FromBase64String(storedBase64);
 
-                    // Try as Template first (from SDK enrollment)
-                    bool matched = false;
-                    try
-                    {
-                        var template = new DPFP.Template();
-                        template.DeSerialize(tmplBytes);
-                        var result = DPFP.Verification.Verification.Verify(capturedFS, template);
-                        if (result.Verified)
-                        {
-                            Console.WriteLine("    Match (Template): user_id=" + userId + " FAR=" + result.FARAchieved);
-                            if (result.FARAchieved < bestFar)
-                            {
-                                bestFar = result.FARAchieved;
-                                bestUserId = userId;
-                                bestVerified = true;
-                            }
-                            matched = true;
-                        }
-                    }
-                    catch
-                    {
-                        // Not a valid Template - try as FeatureSet
-                    }
+                    // Verify using DPFP.Template + DPFP.Verification (the only secure method)
+                    var template = new DPFP.Template();
+                    template.DeSerialize(tmplBytes);
+                    var verification = new DPFP.Verification.Verification();
+                    var result = new DPFP.Verification.Verification.Result();
+                    verification.Verify(capturedFS, template, ref result);
 
-                    // Fallback: compare as FeatureSet (from FeatureSet-mode enrollment)
-                    if (!matched)
+                    if (result.Verified)
                     {
-                        try
+                        Console.WriteLine("    Match: user_id=" + userId + " FAR=" + result.FARAchieved);
+                        if ((long)result.FARAchieved < bestFar)
                         {
-                            var storedFS = new DPFP.FeatureSet();
-                            storedFS.DeSerialize(tmplBytes);
-
-                            // Use Verification with a template created from features
-                            // Since we can't directly compare 2 FeatureSets with SDK,
-                            // try enrollment with both and see if they're compatible
-                            var testEnroll = new DPFP.Processing.Enrollment();
-                            testEnroll.AddFeatures(storedFS);
-                            testEnroll.AddFeatures(capturedFS);
-                            // If AddFeatures doesn't throw, they're the same finger
-                            Console.WriteLine("    Match (FeatureSet): user_id=" + userId);
+                            bestFar = (long)result.FARAchieved;
                             bestUserId = userId;
                             bestVerified = true;
-                            bestFar = 0;
                         }
-                        catch
-                        {
-                            // Different finger or incompatible - no match
-                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("    No match: user_id=" + userId);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("    Error verifying " + userId + ": " + ex.Message);
+                    Console.WriteLine("    Error verifying " + userId + ": " + ex.Message + " (template invalido - requiere re-enrollment)");
                 }
             }
 
@@ -613,11 +590,11 @@ namespace GymGo.BiometricService
             string[] searchPaths = new[]
             {
                 Path.Combine(exeDir, "scripts", "biometric.hta"),
+                Path.Combine(exeDir, "biometric.hta"),
                 Path.Combine(exeDir, "..", "scripts", "biometric.hta"),
                 Path.Combine(exeDir, "..", "..", "scripts", "biometric.hta"),
                 Path.Combine(exeDir, "..", "..", "..", "scripts", "biometric.hta"),
                 Path.Combine(exeDir, "..", "..", "..", "..", "scripts", "biometric.hta"),
-                Path.Combine(exeDir, "biometric.hta"),
             };
 
             foreach (var path in searchPaths)
