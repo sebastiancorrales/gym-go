@@ -21,6 +21,7 @@ type Gym struct {
 	Email      string    `json:"email,omitempty"`
 	LogoURL    string    `json:"logo_url,omitempty"`
 	Timezone   string    `json:"timezone"`
+	Locale     string    `json:"locale"`
 	Currency   string    `json:"currency"`
 	Status     string    `json:"status"`
 	CreatedAt  time.Time `json:"created_at"`

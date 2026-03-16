@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import SkeletonTable from './SkeletonTable';
+import { fmt } from '../utils/currency';
 
 export default function SubscriptionsManagement() {
   const [subscriptions, setSubscriptions] = useState([]);
@@ -115,13 +116,6 @@ export default function SubscriptionsManagement() {
     }
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'COP'
-    }).format(amount);
-  };
-
   const getStatusBadge = (status) => {
     const styles = {
       'ACTIVE': 'bg-green-100 text-green-800',
@@ -195,7 +189,7 @@ export default function SubscriptionsManagement() {
                 <option value="">Seleccionar plan...</option>
                 {plans.map(plan => (
                   <option key={plan.id} value={plan.id}>
-                    {plan.name} - {formatCurrency(plan.price)} ({plan.duration_days} días)
+                    {plan.name} - {fmt(plan.price)} ({plan.duration_days} días)
                   </option>
                 ))}
               </select>
@@ -312,11 +306,11 @@ export default function SubscriptionsManagement() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-semibold text-gray-900">
-                      {formatCurrency(sub.total_paid)}
+                      {fmt(sub.total_paid)}
                     </div>
                     {sub.discount_applied > 0 && (
                       <div className="text-xs text-green-600">
-                        Descuento: {formatCurrency(sub.discount_applied)}
+                        Descuento: {fmt(sub.discount_applied)}
                       </div>
                     )}
                   </td>

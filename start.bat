@@ -38,7 +38,7 @@ echo.
 :: 3. Backend Go (en ventana aparte con logs visibles)
 :: -----------------------------------------------
 echo [3/3] Iniciando backend Go (puerto 8080)...
-start "Gym-Go Backend" cmd /k "cd /d "%~dp0" && echo === BACKEND GO === && echo Puerto: 8080 && echo Frontend: http://localhost:8080 && echo. && go run main.go"
+start "Gym-Go Backend" cmd /k "cd /d "%~dp0" && echo === BACKEND GO === && echo Puerto: 8080 && echo Frontend: http://localhost:8080 && echo. && go build -o gym-go.exe . && gym-go.exe"
 timeout /t 2 /nobreak >nul
 echo [OK] Backend Go iniciado (ver ventana aparte)
 echo.

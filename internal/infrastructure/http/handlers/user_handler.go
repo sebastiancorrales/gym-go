@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -22,11 +25,13 @@ func NewUserHandler(userUseCase *usecases.UserUseCase) *UserHandler {
 }
 
 type CreateUserRequest struct {
-	Email                 string `json:"email" binding:"required,email"`
+	// Email y password son opcionales para miembros — se auto-generan si no se proveen
+	Email                 string `json:"email"`
+	Password              string `json:"password"`
 	FirstName             string `json:"first_name" binding:"required"`
 	LastName              string `json:"last_name" binding:"required"`
-	DocumentType          string `json:"document_type" binding:"required"`
-	DocumentNumber        string `json:"document_number" binding:"required"`
+	DocumentType          string `json:"document_type"`
+	DocumentNumber        string `json:"document_number"`
 	Phone                 string `json:"phone"`
 	DateOfBirth           string `json:"date_of_birth"`
 	Gender                string `json:"gender"`
@@ -36,8 +41,14 @@ type CreateUserRequest struct {
 	EmergencyContactPhone string `json:"emergency_contact_phone"`
 	PhotoURL              string `json:"photo_url"`
 	Notes                 string `json:"notes"`
-	Role                  string `json:"role" binding:"required"`
-	Password              string `json:"password" binding:"required,min=8"`
+	// Role por defecto MEMBER si no se especifica
+	Role string `json:"role"`
+}
+
+func randomHex(n int) string {
+	b := make([]byte, n)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 func (h *UserHandler) Create(c *gin.Context) {
@@ -54,13 +65,25 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// Role por defecto MEMBER
+	role := entities.UserRole(req.Role)
+	if role == "" {
+		role = entities.RoleMember
+	}
+
+	// Auto-generar email si no se provee (miembros no inician sesión)
+	email := req.Email
+	if email == "" {
+		email = fmt.Sprintf("member.%s.%s@gymgo.internal", req.DocumentNumber, randomHex(4))
+	}
+
 	user, err := h.userUseCase.CreateUser(
 		gymID,
-		req.Email,
+		email,
 		req.FirstName,
 		req.LastName,
 		req.Phone,
-		entities.UserRole(req.Role),
+		role,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
@@ -86,8 +109,12 @@ func (h *UserHandler) Create(c *gin.Context) {
 		}
 	}
 
-	// Set password
-	hashedPassword, err := security.HashPassword(req.Password)
+	// Auto-generar password si no se provee
+	password := req.Password
+	if password == "" {
+		password = randomHex(16) // contraseña aleatoria, el miembro no la necesita
+	}
+	hashedPassword, err := security.HashPassword(password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
@@ -168,6 +195,8 @@ type UpdateUserRequest struct {
 	PhotoURL              string `json:"photo_url"`
 	Notes                 string `json:"notes"`
 	Role                  string `json:"role"`
+	Password              string `json:"password"`
+	Status                string `json:"status"`
 }
 
 func (h *UserHandler) Update(c *gin.Context) {
@@ -228,6 +257,17 @@ func (h *UserHandler) Update(c *gin.Context) {
 	}
 	if req.Role != "" {
 		user.Role = entities.UserRole(req.Role)
+	}
+	if req.Status != "" {
+		user.Status = entities.UserStatus(req.Status)
+	}
+	if req.Password != "" {
+		hashedPassword, err := security.HashPassword(req.Password)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+			return
+		}
+		user.PasswordHash = hashedPassword
 	}
 
 	// Parse date of birth if provided

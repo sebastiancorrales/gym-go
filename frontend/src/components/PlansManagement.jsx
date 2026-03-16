@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { fmt } from '../utils/currency';
 
 export default function PlansManagement() {
   const [plans, setPlans] = useState([]);
@@ -77,13 +78,6 @@ export default function PlansManagement() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'COP'
-    }).format(amount);
   };
 
   return (
@@ -224,14 +218,14 @@ export default function PlansManagement() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Precio:</span>
                   <span className="font-bold text-purple-600 text-lg">
-                    {formatCurrency(plan.price)}
+                    {fmt(plan.price)}
                   </span>
                 </div>
                 {plan.enrollment_fee > 0 && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Inscripción:</span>
                     <span className="font-semibold text-gray-900">
-                      {formatCurrency(plan.enrollment_fee)}
+                      {fmt(plan.enrollment_fee)}
                     </span>
                   </div>
                 )}

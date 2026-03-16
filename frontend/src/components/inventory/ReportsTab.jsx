@@ -1,353 +1,683 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import {
+  AreaChart, Area, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+} from 'recharts';
 import api from '../../utils/api';
+import { fmt } from '../../utils/currency';
 
-// Helper function to get today's date in YYYY-MM-DD format
-const getTodayDate = () => {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+const fmtDate = (str) => {
+  const [y, m, d] = str.split('-');
+  return new Date(+y, +m - 1, +d).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
 };
 
-export default function ReportsTab() {
-  const todayDate = getTodayDate();
-  const [activeReport, setActiveReport] = useState('sales');
-  const [dateRange, setDateRange] = useState({
-    start_date: todayDate,
-    end_date: todayDate
-  });
-  const [salesReport, setSalesReport] = useState(null);
-  const [productReport, setProductReport] = useState(null);
+const today = () => new Date().toISOString().split('T')[0];
+
+const addDays = (dateStr, n) => {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+};
+
+const diffDays = (start, end) => {
+  const s = new Date(start + 'T00:00:00');
+  const e = new Date(end   + 'T00:00:00');
+  return Math.round((e - s) / 86400000) + 1;
+};
+
+const prevPeriod = (start, end) => {
+  const days = diffDays(start, end);
+  const prevEnd   = addDays(start, -1);
+  const prevStart = addDays(prevEnd, -(days - 1));
+  return { start: prevStart, end: prevEnd };
+};
+
+const pctChange = (curr, prev) => {
+  if (!prev) return null;
+  return ((curr - prev) / prev) * 100;
+};
+
+const Delta = ({ curr, prev }) => {
+  const pct = pctChange(curr, prev);
+  if (pct === null) return null;
+  const up = pct >= 0;
+  return (
+    <span className={`text-xs font-semibold flex items-center gap-0.5 ${up ? 'text-green-600' : 'text-red-500'}`}>
+      {up ? '▲' : '▼'} {Math.abs(pct).toFixed(1)}%
+    </span>
+  );
+};
+
+const exportCSV = (rows, filename) => {
+  if (!rows?.length) return;
+  const headers = Object.keys(rows[0]).join(',');
+  const body = rows.map(r => Object.values(r).map(v => `"${v}"`).join(',')).join('\n');
+  const blob = new Blob([headers + '\n' + body], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+// ── Date Presets ──────────────────────────────────────────────────────────────
+const PRESETS = [
+  { label: 'Hoy',          get: () => { const t = today(); return { s: t, e: t }; } },
+  { label: 'Esta semana',  get: () => { const t = new Date(); const mon = new Date(t); mon.setDate(t.getDate() - t.getDay() + 1); return { s: mon.toISOString().split('T')[0], e: today() }; } },
+  { label: 'Este mes',     get: () => { const t = new Date(); return { s: `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-01`, e: today() }; } },
+  { label: 'Este año',     get: () => ({ s: `${new Date().getFullYear()}-01-01`, e: today() }) },
+];
+
+// ── KPI Card ─────────────────────────────────────────────────────────────────
+const KpiCard = ({ title, value, prevValue, sub, icon, accent }) => (
+  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+    <div className="flex items-start justify-between mb-3">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</p>
+      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${accent.replace('text-', 'bg-').replace('-600', '-50').replace('-500', '-50').replace('-700', '-50')}`}>
+        <span className="text-base">{icon}</span>
+      </div>
+    </div>
+    <p className={`text-3xl font-bold ${accent}`}>{value}</p>
+    {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+    {prevValue !== undefined && <div className="mt-2"><Delta curr={prevValue[0]} prev={prevValue[1]} /></div>}
+  </div>
+);
+
+// ── Section wrapper ───────────────────────────────────────────────────────────
+const Card = ({ title, action, children }) => (
+  <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    {(title || action) && (
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-50">
+        {title && <h3 className="text-sm font-semibold text-gray-700">{title}</h3>}
+        {action}
+      </div>
+    )}
+    {children}
+  </div>
+);
+
+const CsvBtn = ({ onClick }) => (
+  <button onClick={onClick} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+    Exportar CSV
+  </button>
+);
+
+// ── VENTAS tab ────────────────────────────────────────────────────────────────
+function TabVentas({ dateRange, prevDate, genKey }) {
+  const [report,     setReport]     = useState(null);
+  const [prevReport, setPrevReport] = useState(null);
+  const [daily,      setDaily]      = useState([]);
+  const [loading,    setLoading]    = useState(false);
+
+  useEffect(() => { if (genKey > 0) load(); }, [genKey]);
+
+  const load = useCallback(async (e) => {
+    if (e) e.preventDefault();
+    setLoading(true);
+    try {
+      const [rRes, prRes, dRes] = await Promise.all([
+        api.get(`/sales/report?start_date=${dateRange.s}&end_date=${dateRange.e}`),
+        api.get(`/sales/report?start_date=${prevDate.start}&end_date=${prevDate.end}`),
+        api.get(`/sales/by-date?start_date=${dateRange.s}&end_date=${dateRange.e}`),
+      ]);
+      if (rRes.ok)  setReport(await rRes.json());
+      if (prRes.ok) setPrevReport(await prRes.json());
+      if (dRes.ok) {
+        const sales = await dRes.json();
+        // Group by day
+        const byDay = {};
+        (sales || []).forEach(s => {
+          const day = (s.created_at || '').split('T')[0];
+          if (day) byDay[day] = (byDay[day] || 0) + (s.total || s.net_total || 0);
+        });
+        // Fill all days in range
+        const days = diffDays(dateRange.s, dateRange.e);
+        const chart = Array.from({ length: days }, (_, i) => {
+          const d = addDays(dateRange.s, i);
+          return { dia: fmtDate(d), ingresos: byDay[d] || 0, _date: d };
+        });
+        setDaily(chart);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [dateRange, prevDate]);
+
+  const csvData = daily.map(d => ({ Fecha: d._date, Ingresos: d.ingresos }));
+
+  return (
+    <div className="space-y-5">
+      {loading && <div className="text-center text-sm text-gray-400 py-2">Generando reporte...</div>}
+
+      {report && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard title="Total Ventas"    value={report.total_sales || 0}                           prevValue={[report.total_sales, prevReport?.total_sales]}          icon="🧾" accent="text-blue-600" />
+            <KpiCard title="Ingresos Brutos" value={fmt(report.gross_sales)}                           prevValue={[report.gross_sales, prevReport?.gross_sales]}           icon="💰" accent="text-green-600" />
+            <KpiCard title="Descuentos"      value={fmt(report.total_discounts)}                       prevValue={[report.total_discounts, prevReport?.total_discounts]}   icon="🏷️" accent="text-orange-500" />
+            <KpiCard title="Ingresos Netos"  value={fmt(report.net_sales)}                             prevValue={[report.net_sales, prevReport?.net_sales]}               icon="📈" accent="text-purple-600" />
+          </div>
+
+          {daily.length > 0 && (
+            <Card title="Ingresos por día" action={<CsvBtn onClick={() => exportCSV(csvData, `ventas_${dateRange.s}_${dateRange.e}.csv`)} />}>
+              <div className="p-6">
+                <ResponsiveContainer width="100%" height={260}>
+                  <AreaChart data={daily} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gVentas" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.15} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <XAxis dataKey="dia" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                    <Tooltip formatter={v => [fmt(v), 'Ingresos']} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,.08)', fontSize: 12 }} />
+                    <Area type="monotone" dataKey="ingresos" stroke="#3b82f6" strokeWidth={2} fill="url(#gVentas)" dot={{ r: 3, fill: '#3b82f6' }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+
+      {!report && !loading && (
+        <EmptyState text="Haz clic en «Generar Reporte» para ver los datos de ventas" />
+      )}
+    </div>
+  );
+}
+
+// ── PRODUCTOS tab ─────────────────────────────────────────────────────────────
+const COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#84cc16','#f97316'];
+
+function TabProductos({ dateRange, genKey }) {
+  const [products, setProducts] = useState(null);
+  const [loading,  setLoading]  = useState(false);
+
+  useEffect(() => { if (genKey > 0) load(); }, [genKey]);
+
+  const load = useCallback(async (e) => {
+    if (e) e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await api.get(`/sales/report/by-product?start_date=${dateRange.s}&end_date=${dateRange.e}`);
+      if (res.ok) setProducts(await res.json());
+    } finally { setLoading(false); }
+  }, [dateRange]);
+
+  const chartData = (products || []).slice(0, 10).map(p => ({
+    name: p.product_name?.length > 20 ? p.product_name.slice(0, 18) + '…' : p.product_name,
+    ingresos: p.total_revenue || 0,
+    cantidad: p.quantity_sold || 0,
+  }));
+
+  const csvData = (products || []).map(p => ({
+    Producto: p.product_name, Cantidad: p.quantity_sold, Ingresos: p.total_revenue?.toFixed(0)
+  }));
+
+  return (
+    <div className="space-y-5">
+      {loading && <div className="text-center text-sm text-gray-400 py-2">Generando reporte...</div>}
+
+      {products && (
+        <>
+          {products.length === 0 ? (
+            <EmptyState text="Sin ventas de productos en este período" />
+          ) : (
+            <>
+              <Card title="Top productos por ingresos" action={<CsvBtn onClick={() => exportCSV(csvData, `productos_${dateRange.s}_${dateRange.e}.csv`)} />}>
+                <div className="p-6">
+                  <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 40)}>
+                    <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                      <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11, fill: '#374151' }} axisLine={false} tickLine={false} />
+                      <Tooltip formatter={(v, n) => [n === 'ingresos' ? fmt(v) : v, n === 'ingresos' ? 'Ingresos' : 'Unidades']} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,.08)', fontSize: 12 }} />
+                      <Bar dataKey="ingresos" radius={[0, 4, 4, 0]} maxBarSize={28}>
+                        {chartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+
+              <Card>
+                <table className="min-w-full divide-y divide-gray-50">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {['#', 'Producto', 'Unidades', 'Ingresos', 'Precio promedio'].map(h => (
+                        <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 bg-white">
+                    {products.map((p, i) => (
+                      <tr key={p.product_id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-5 py-3 text-sm font-semibold text-gray-400">{i + 1}</td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
+                            <span className="text-sm font-medium text-gray-800">{p.product_name}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-sm text-gray-700">{p.quantity_sold} <span className="text-gray-400 text-xs">uds</span></td>
+                        <td className="px-5 py-3 text-sm font-semibold text-green-600">{fmt(p.total_revenue)}</td>
+                        <td className="px-5 py-3 text-sm text-gray-600">{fmt(p.quantity_sold ? p.total_revenue / p.quantity_sold : 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-50">
+                    <tr>
+                      <td colSpan={2} className="px-5 py-3 text-xs font-bold text-gray-600 uppercase">Total</td>
+                      <td className="px-5 py-3 text-sm font-bold text-gray-800">{products.reduce((s, p) => s + p.quantity_sold, 0)} uds</td>
+                      <td className="px-5 py-3 text-sm font-bold text-green-600">{fmt(products.reduce((s, p) => s + (p.total_revenue || 0), 0))}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </Card>
+            </>
+          )}
+        </>
+      )}
+
+      {!products && !loading && (
+        <EmptyState text="Haz clic en «Generar Reporte» para ver el ranking de productos" />
+      )}
+    </div>
+  );
+}
+
+// ── MEMBRESÍAS tab ────────────────────────────────────────────────────────────
+function TabMembresías({ dateRange, genKey }) {
+  const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const fetchSalesReport = async (e) => {
-    e.preventDefault();
-    
-    if (!dateRange.start_date || !dateRange.end_date) {
-      alert('Por favor seleccione ambas fechas');
-      return;
-    }
+  useEffect(() => { if (genKey > 0) load(); }, [genKey]);
 
+  const load = useCallback(async (e) => {
+    if (e) e.preventDefault();
     setLoading(true);
     try {
-      const response = await api.get(
-        `/sales/report?start_date=${dateRange.start_date}&end_date=${dateRange.end_date}`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        setSalesReport(data);
-      } else {
-        alert('Error al generar el reporte');
-      }
-    } catch (error) {
-      console.error('Error fetching sales report:', error);
-      alert('Error al generar el reporte');
-    } finally {
-      setLoading(false);
-    }
-  };
+      const res = await api.get('/subscriptions');
+      if (!res.ok) return;
+      const all = await res.json();
+      const sDate = new Date(dateRange.s + 'T00:00:00');
+      const eDate = new Date(dateRange.e + 'T23:59:59');
+      const now   = new Date();
+      const in7   = new Date(); in7.setDate(in7.getDate() + 7);
 
-  const fetchProductReport = async (e) => {
-    e.preventDefault();
-    
-    if (!dateRange.start_date || !dateRange.end_date) {
-      alert('Por favor seleccione ambas fechas');
-      return;
-    }
+      const inRange = (all || []).filter(s => {
+        const d = new Date(s.created_at || s.start_date);
+        return d >= sDate && d <= eDate;
+      });
 
+      // by plan
+      const byPlan = {};
+      inRange.forEach(s => {
+        const name = s.plan?.name || s.plan_id || 'Desconocido';
+        if (!byPlan[name]) byPlan[name] = { name, count: 0, revenue: 0 };
+        byPlan[name].count++;
+        byPlan[name].revenue += s.total_paid || 0;
+      });
+
+      // expiring soon
+      const expiring = (all || []).filter(s => {
+        const exp = new Date(s.end_date);
+        return s.status === 'ACTIVE' && exp >= now && exp <= in7;
+      }).sort((a, b) => new Date(a.end_date) - new Date(b.end_date));
+
+      setData({
+        total:     inRange.length,
+        revenue:   inRange.reduce((sum, s) => sum + (s.total_paid || 0), 0),
+        active:    (all || []).filter(s => s.status === 'ACTIVE').length,
+        expiring,
+        byPlan:    Object.values(byPlan).sort((a, b) => b.revenue - a.revenue),
+        inRange,
+      });
+    } finally { setLoading(false); }
+  }, [dateRange]);
+
+  const csvData = data?.inRange?.map(s => ({
+    Usuario:  `${s.user?.first_name || ''} ${s.user?.last_name || ''}`.trim(),
+    Plan:     s.plan?.name || '',
+    Inicio:   s.start_date?.split('T')[0],
+    Fin:      s.end_date?.split('T')[0],
+    Pagado:   s.total_paid?.toFixed(0),
+    Estado:   s.status,
+  }));
+
+  return (
+    <div className="space-y-5">
+      {loading && <div className="text-center text-sm text-gray-400 py-2">Generando reporte...</div>}
+
+      {data && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard title="Nuevas Suscripciones" value={data.total}          icon="📋" accent="text-blue-600" />
+            <KpiCard title="Ingresos Membresías"  value={fmt(data.revenue)}   icon="💳" accent="text-green-600" />
+            <KpiCard title="Activas Actualmente"  value={data.active}         icon="✅" accent="text-purple-600" />
+            <KpiCard title="Por Vencer (7 días)"  value={data.expiring.length} icon="⚠️" accent="text-orange-500" />
+          </div>
+
+          {data.byPlan.length > 0 && (
+            <Card title="Ingresos por plan" action={<CsvBtn onClick={() => exportCSV(csvData, `membresías_${dateRange.s}_${dateRange.e}.csv`)} />}>
+              <div className="p-6">
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={data.byPlan} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v, n) => [n === 'revenue' ? fmt(v) : v, n === 'revenue' ? 'Ingresos' : 'Suscripciones']} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,.08)', fontSize: 12 }} />
+                    <Bar dataKey="revenue" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          )}
+
+          {data.expiring.length > 0 && (
+            <Card title={`⚠️ Vencen en los próximos 7 días (${data.expiring.length})`}>
+              <div className="divide-y divide-gray-50">
+                {data.expiring.map(s => {
+                  const name = `${s.user?.first_name || ''} ${s.user?.last_name || ''}`.trim() || 'Sin nombre';
+                  const daysLeft = Math.ceil((new Date(s.end_date) - new Date()) / 86400000);
+                  return (
+                    <div key={s.id} className="flex items-center justify-between px-5 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{name}</p>
+                        <p className="text-xs text-gray-400">{s.plan?.name || '—'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-orange-500">{daysLeft === 0 ? 'Hoy' : `${daysLeft}d`}</p>
+                        <p className="text-xs text-gray-400">{new Date(s.end_date).toLocaleDateString('es-CO')}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+
+      {!data && !loading && (
+        <EmptyState text="Haz clic en «Generar Reporte» para ver el estado de membresías" />
+      )}
+    </div>
+  );
+}
+
+// ── ACCESOS tab ───────────────────────────────────────────────────────────────
+const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+function TabAccesos({ dateRange, genKey }) {
+  const [data,    setData]    = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { if (genKey > 0) load(); }, [genKey]);
+
+  const load = useCallback(async (e) => {
+    if (e) e.preventDefault();
     setLoading(true);
     try {
-      const response = await api.get(
-        `/sales/report/by-product?start_date=${dateRange.start_date}&end_date=${dateRange.end_date}`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        setProductReport(data);
-      } else {
-        alert('Error al generar el reporte');
-      }
-    } catch (error) {
-      console.error('Error fetching product report:', error);
-      alert('Error al generar el reporte');
-    } finally {
-      setLoading(false);
-    }
+      const res = await api.get('/access/history');
+      if (!res.ok) return;
+      const all = (await res.json()) || [];
+
+      const sDate = new Date(dateRange.s + 'T00:00:00');
+      const eDate = new Date(dateRange.e + 'T23:59:59');
+
+      const logs = all.filter(l => {
+        const d = new Date(l.timestamp || l.created_at);
+        return d >= sDate && d <= eDate;
+      });
+
+      // By day of week
+      const byWeekday = Array(7).fill(0);
+      // By hour
+      const byHour = Array(24).fill(0);
+      // By user
+      const byUser = {};
+
+      logs.forEach(l => {
+        const d = new Date(l.timestamp || l.created_at);
+        byWeekday[d.getDay()]++;
+        byHour[d.getHours()]++;
+        const uid  = l.user_id || l.user?.id;
+        const name = l.user ? `${l.user.first_name || ''} ${l.user.last_name || ''}`.trim() : uid;
+        if (uid) {
+          byUser[uid] = byUser[uid] || { name: name || uid, count: 0 };
+          byUser[uid].count++;
+        }
+      });
+
+      const days  = diffDays(dateRange.s, dateRange.e);
+
+      setData({
+        total:   logs.length,
+        avgDay:  days > 0 ? (logs.length / days).toFixed(1) : 0,
+        weekday: DAY_NAMES.map((n, i) => ({ dia: n, accesos: byWeekday[i] })),
+        hourly:  Array.from({ length: 24 }, (_, h) => ({ hora: `${String(h).padStart(2,'0')}h`, accesos: byHour[h] })),
+        topUsers: Object.values(byUser).sort((a, b) => b.count - a.count).slice(0, 8),
+        logs,
+      });
+    } finally { setLoading(false); }
+  }, [dateRange]);
+
+  const csvData = data?.logs?.map(l => ({
+    Fecha:   (l.timestamp || l.created_at || '').split('T')[0],
+    Hora:    new Date(l.timestamp || l.created_at).toLocaleTimeString('es-CO'),
+    Usuario: l.user ? `${l.user.first_name || ''} ${l.user.last_name || ''}`.trim() : l.user_id,
+    Metodo:  l.method || '',
+    Estado:  l.status || '',
+  }));
+
+  return (
+    <div className="space-y-5">
+      {loading && <div className="text-center text-sm text-gray-400 py-2">Generando reporte...</div>}
+
+      {data && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <KpiCard title="Total Accesos"    value={data.total}   icon="🚪" accent="text-blue-600" />
+            <KpiCard title="Promedio por día" value={data.avgDay}  icon="📅" accent="text-purple-600" sub="accesos/día en el período" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <Card title="Accesos por día de la semana" action={<CsvBtn onClick={() => exportCSV(csvData, `accesos_${dateRange.s}_${dateRange.e}.csv`)} />}>
+              <div className="p-5">
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={data.weekday} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <XAxis dataKey="dia" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,.08)', fontSize: 12 }} />
+                    <Bar dataKey="accesos" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+
+            <Card title="Hora pico de asistencia">
+              <div className="p-5">
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={data.hourly} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                    <XAxis dataKey="hora" tick={{ fontSize: 9, fill: '#9ca3af' }} axisLine={false} tickLine={false} interval={2} />
+                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,.08)', fontSize: 12 }} />
+                    <Bar dataKey="accesos" radius={[3, 3, 0, 0]} maxBarSize={20}>
+                      {data.hourly.map((h, i) => (
+                        <Cell key={i} fill={h.accesos === Math.max(...data.hourly.map(x => x.accesos)) ? '#8b5cf6' : '#c4b5fd'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+          </div>
+
+          {data.topUsers.length > 0 && (
+            <Card title="Miembros más activos">
+              <div className="divide-y divide-gray-50">
+                {data.topUsers.map((u, i) => {
+                  const pct = data.total > 0 ? (u.count / data.total) * 100 : 0;
+                  return (
+                    <div key={i} className="flex items-center gap-4 px-5 py-3">
+                      <span className="text-sm font-bold text-gray-300 w-5 text-center">{i + 1}</span>
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        {u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{u.name}</p>
+                        <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1">
+                          <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-700 flex-shrink-0">{u.count} accesos</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+
+      {!data && !loading && (
+        <EmptyState text="Haz clic en «Generar Reporte» para ver el análisis de accesos" />
+      )}
+    </div>
+  );
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+const EmptyState = ({ text }) => (
+  <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-14 text-center">
+    <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+      <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    </div>
+    <p className="text-gray-500 text-sm">{text}</p>
+  </div>
+);
+
+// ── ROOT ──────────────────────────────────────────────────────────────────────
+const TABS = [
+  { id: 'ventas',     label: 'Ventas',      icon: '💵' },
+  { id: 'productos',  label: 'Productos',   icon: '📦' },
+  { id: 'membresias', label: 'Membresías',  icon: '🪪' },
+  { id: 'accesos',    label: 'Accesos',     icon: '🚪' },
+];
+
+export default function ReportsTab() {
+  const [tab, setTab]         = useState('ventas');
+  const [dateRange, setDate]  = useState({ s: today(), e: today() });
+  const [activePreset, setActivePreset] = useState(0);
+  const [genKey, setGenKey]   = useState(0);
+  const [generating, setGenerating] = useState(false);
+
+  const applyPreset = (i) => {
+    const { s, e } = PRESETS[i].get();
+    setDate({ s, e });
+    setActivePreset(i);
   };
 
-  const formatDate = (dateString) => {
-    // Parse date as local time to avoid timezone issues
-    const [year, month, day] = dateString.split('-');
-    const date = new Date(year, month - 1, day);
-    return date.toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+  const setCustom = (field, val) => {
+    setDate(d => ({ ...d, [field]: val }));
+    setActivePreset(-1);
   };
+
+  const handleGenerate = () => {
+    setGenerating(true);
+    setGenKey(k => k + 1);
+    setTimeout(() => setGenerating(false), 1200);
+  };
+
+  const prev = prevPeriod(dateRange.s, dateRange.e);
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-800">Reportes de Ventas</h2>
-        <p className="text-gray-600 mt-1">Analiza el desempeño de ventas y productos</p>
+        <h2 className="text-2xl font-bold text-gray-800">Reportes</h2>
+        <p className="text-gray-500 text-sm mt-1">Análisis de ventas, membresías y asistencia</p>
       </div>
 
-      {/* Report Type Selector */}
-      <div className="bg-white rounded-lg shadow-md p-4">
-        <div className="flex space-x-4">
-          <button
-            onClick={() => setActiveReport('sales')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
-              activeReport === 'sales'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Reporte de Ventas
-          </button>
-          <button
-            onClick={() => setActiveReport('products')}
-            className={`px-4 py-2 rounded-lg font-medium transition ${
-              activeReport === 'products'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Reporte por Producto
+      {/* Filters */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Date presets */}
+          <div className="flex gap-1.5 flex-wrap">
+            {PRESETS.map((p, i) => (
+              <button key={p.label} onClick={() => applyPreset(i)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                  activePreset === i
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="w-px h-6 bg-gray-200 hidden sm:block" />
+
+          {/* Custom range */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs text-gray-500 font-medium">Desde</label>
+              <input type="date" value={dateRange.s} onChange={e => setCustom('s', e.target.value)}
+                className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs text-gray-500 font-medium">Hasta</label>
+              <input type="date" value={dateRange.e} onChange={e => setCustom('e', e.target.value)}
+                className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            </div>
+          </div>
+
+          {/* Generar button — right side */}
+          <button onClick={handleGenerate} disabled={generating}
+            className="ml-auto flex items-center gap-2 px-5 py-2 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition disabled:opacity-60">
+            {generating ? (
+              <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>Generando...</>
+            ) : (
+              <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>Generar Reporte</>
+            )}
           </button>
         </div>
+
+        <p className="text-xs text-gray-400 mt-2">
+          Comparando vs {fmtDate(prev.start)} – {fmtDate(prev.end)}
+        </p>
       </div>
 
-      {/* Date Range Filter */}
-      <div className="bg-white rounded-lg shadow-md p-4">
-        <form
-          onSubmit={activeReport === 'sales' ? fetchSalesReport : fetchProductReport}
-          className="flex flex-wrap gap-4 items-end"
-        >
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Fecha Inicio
-            </label>
-            <input
-              type="date"
-              value={dateRange.start_date}
-              onChange={(e) => setDateRange({ ...dateRange, start_date: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-            />
-          </div>
-          <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Fecha Fin
-            </label>
-            <input
-              type="date"
-              value={dateRange.end_date}
-              onChange={(e) => setDateRange({ ...dateRange, end_date: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Generando...' : 'Generar Reporte'}
+      {/* Tab bar */}
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition ${
+              tab === t.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            <span>{t.icon}</span>
+            <span className="hidden sm:inline">{t.label}</span>
           </button>
-        </form>
+        ))}
       </div>
 
-      {/* Sales Report */}
-      {activeReport === 'sales' && salesReport && (
-        <div className="space-y-6">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Total Ventas</p>
-                  <p className="text-3xl font-bold text-blue-600">
-                    {salesReport.total_sales || 0}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Ingresos Brutos</p>
-                  <p className="text-3xl font-bold text-green-600">
-                    ${salesReport.gross_sales?.toFixed(2) || '0.00'}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">Descuentos</p>
-                  <p className="text-3xl font-bold text-red-600">
-                    ${salesReport.total_discounts?.toFixed(2) || '0.00'}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Net Sales */}
-          <div className="bg-gradient-to-r from-purple-500 to-blue-600 rounded-lg shadow-lg p-8 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-lg opacity-90 mb-2">Ingresos Netos</p>
-                <p className="text-5xl font-bold">
-                  ${salesReport.net_sales?.toFixed(2) || '0.00'}
-                </p>
-                <p className="text-sm opacity-75 mt-2">
-                  Período: {formatDate(dateRange.start_date)} - {formatDate(dateRange.end_date)}
-                </p>
-              </div>
-              <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Product Report */}
-      {activeReport === 'products' && productReport && (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">
-              Productos Más Vendidos
-            </h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Período: {formatDate(dateRange.start_date)} - {formatDate(dateRange.end_date)}
-            </p>
-          </div>
-
-          {productReport.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-gray-600">No hay datos de ventas en este período</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Producto
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Cantidad Vendida
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ingresos Totales
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Precio Promedio
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {productReport.map((product, index) => (
-                    <tr key={product.product_id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-semibold text-gray-900">
-                          {index + 1}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-medium text-gray-900">
-                          {product.product_name}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <span className="text-sm text-gray-900 font-semibold mr-2">
-                            {product.quantity_sold}
-                          </span>
-                          <span className="text-xs text-gray-500">unidades</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-bold text-green-600">
-                          ${product.total_revenue?.toFixed(2) || '0.00'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-900">
-                          ${(product.total_revenue / product.quantity_sold).toFixed(2)}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot className="bg-gray-50">
-                  <tr>
-                    <td colSpan="2" className="px-6 py-4 text-sm font-bold text-gray-900">
-                      TOTALES
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-bold text-gray-900">
-                        {productReport.reduce((sum, p) => sum + p.quantity_sold, 0)} unidades
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-bold text-green-600">
-                        ${productReport.reduce((sum, p) => sum + (p.total_revenue || 0), 0).toFixed(2)}
-                      </span>
-                    </td>
-                    <td></td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Empty State */}
-      {((activeReport === 'sales' && !salesReport) || (activeReport === 'products' && !productReport)) && !loading && (
-        <div className="bg-white rounded-lg shadow-md p-12 text-center">
-          <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Selecciona un rango de fechas
-          </h3>
-          <p className="text-gray-600">
-            Elige las fechas de inicio y fin para generar el reporte
-          </p>
-        </div>
-      )}
+      {/* Tab content */}
+      {tab === 'ventas'     && <TabVentas     dateRange={dateRange} prevDate={prev} genKey={genKey} />}
+      {tab === 'productos'  && <TabProductos  dateRange={dateRange} genKey={genKey} />}
+      {tab === 'membresias' && <TabMembresías dateRange={dateRange} genKey={genKey} />}
+      {tab === 'accesos'    && <TabAccesos    dateRange={dateRange} genKey={genKey} />}
     </div>
   );
 }

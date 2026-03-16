@@ -114,7 +114,7 @@ func main() {
 	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo)
 
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(userRepo, jwtManager)
+	authHandler := handlers.NewAuthHandler(userRepo, gymRepo, jwtManager)
 	registerHandler := handlers.NewRegisterHandler(gymRepo, userRepo, jwtManager)
 	userHandler := handlers.NewUserHandler(userUseCase)
 	planHandler := handlers.NewPlanHandler(planUseCase)

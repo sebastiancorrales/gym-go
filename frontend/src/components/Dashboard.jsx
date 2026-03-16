@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import api from '../utils/api';
 import UsersManagement from './UsersManagement';
+import StaffManagement from './StaffManagement';
 import PlansManagement from './PlansManagement';
 import SubscriptionsManagement from './SubscriptionsManagement';
 import AccessManagement from './AccessManagement';
@@ -14,6 +15,8 @@ import SalesHistory from './inventory/SalesHistory';
 import ReportsTab from './inventory/ReportsTab';
 import PaymentMethodsManagement from './inventory/PaymentMethodsManagement';
 import { SkeletonKpi } from './SkeletonTable';
+import { fmt, saveCurrencyPrefs, USER_LOCALE, USER_CURRENCY } from '../utils/currency';
+import { COUNTRIES, countryByLocale } from '../utils/countries';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 const Icon = ({ path, className = 'w-5 h-5' }) => (
@@ -25,6 +28,7 @@ const Icon = ({ path, className = 'w-5 h-5' }) => (
 const ICONS = {
   dashboard:  'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
   users:      'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
+  staff:      'M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z',
   plans:      'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
   subs:       'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
   access:     'M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1',
@@ -37,6 +41,7 @@ const ICONS = {
   chevronLeft:'M15 19l-7-7 7-7',
   chevronRight:'M9 5l7 7-7 7',
   bolt:       'M13 10V3L4 14h7v7l9-11h-7z',
+  settings:   'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
 };
 
 // ── Nav structure ────────────────────────────────────────────────────────────
@@ -50,20 +55,26 @@ const NAV_GROUPS = [
   {
     label: 'Miembros',
     items: [
-      { id: 'users',         label: 'Usuarios',       icon: 'users' },
-      { id: 'plans',         label: 'Planes',          icon: 'plans' },
-      { id: 'subscriptions', label: 'Suscripciones',   icon: 'subs' },
-      { id: 'access',        label: 'Accesos',          icon: 'access' },
+      { id: 'users',         label: 'Usuarios',     icon: 'users' },
+      { id: 'subscriptions', label: 'Suscripciones', icon: 'subs' },
+      { id: 'access',        label: 'Accesos',        icon: 'access' },
+    ],
+  },
+  {
+    label: 'Administración',
+    items: [
+      { id: 'staff',           label: 'Staff',             icon: 'staff' },
+      { id: 'plans',           label: 'Planes',            icon: 'plans' },
+      { id: 'payment-methods', label: 'Métodos de Pago',   icon: 'payment' },
     ],
   },
   {
     label: 'Inventario',
     items: [
-      { id: 'products',        label: 'Productos',         icon: 'products' },
-      { id: 'sales',           label: 'Ventas',            icon: 'sales' },
-      { id: 'sales-history',   label: 'Historial',         icon: 'history' },
-      { id: 'reports',         label: 'Reportes',          icon: 'reports' },
-      { id: 'payment-methods', label: 'Métodos de Pago',   icon: 'payment' },
+      { id: 'products',      label: 'Productos', icon: 'products' },
+      { id: 'sales',         label: 'Ventas',    icon: 'sales' },
+      { id: 'sales-history', label: 'Historial', icon: 'history' },
+      { id: 'reports',       label: 'Reportes',  icon: 'reports' },
     ],
   },
 ];
@@ -88,6 +99,10 @@ const StatCard = ({ title, value, subtitle, iconPath, bgColor, textColor }) => (
 export default function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab]   = useState('dashboard');
   const [collapsed, setCollapsed]   = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsCountry, setSettingsCountry] = useState(
+    () => countryByLocale(USER_LOCALE)?.code ?? 'CO'
+  );
   const [stats, setStats]           = useState({ activeSubscriptions: 0, todayRevenue: 0, todayAccess: 0, totalMembers: 0 });
   const [loading, setLoading]       = useState(true);
   const [revenueChart, setRevenueChart]   = useState([]);
@@ -288,6 +303,15 @@ export default function Dashboard({ user, onLogout }) {
             </div>
           )}
           <button
+            onClick={() => setShowSettings(true)}
+            title={collapsed ? 'Configuración' : undefined}
+            className={`flex items-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors mb-1
+              ${collapsed ? 'p-2' : 'w-full space-x-2 px-2 py-2'}`}
+          >
+            <Icon path={ICONS.settings} className="w-5 h-5 flex-shrink-0" />
+            {!collapsed && <span className="text-sm">Configuración</span>}
+          </button>
+          <button
             onClick={handleLogout}
             title={collapsed ? 'Cerrar Sesión' : undefined}
             className={`flex items-center text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors
@@ -310,6 +334,17 @@ export default function Dashboard({ user, onLogout }) {
               — {new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           )}
+          <div className="ml-auto">
+            <a
+              href="/checkin"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white text-sm font-medium rounded-xl transition"
+            >
+              <Icon path={ICONS.access} className="w-4 h-4" />
+              <span className="hidden sm:inline">Check-In Kiosk</span>
+            </a>
+          </div>
         </header>
 
         {/* Content */}
@@ -333,7 +368,7 @@ export default function Dashboard({ user, onLogout }) {
                 ) : (
                   <>
                     <StatCard title="Suscripciones Activas" value={stats.activeSubscriptions} subtitle="Miembros con plan activo" iconPath={ICONS.users}   bgColor="bg-blue-50"   textColor="text-blue-600" />
-                    <StatCard title="Ingresos de Hoy"       value={`$${stats.todayRevenue.toLocaleString('es-CO')}`} subtitle="Pagos recibidos hoy" iconPath={ICONS.payment} bgColor="bg-green-50"  textColor="text-green-600" />
+                    <StatCard title="Ingresos de Hoy"       value={fmt(stats.todayRevenue)} subtitle="Pagos recibidos hoy" iconPath={ICONS.payment} bgColor="bg-green-50"  textColor="text-green-600" />
                     <StatCard title="Accesos Hoy"           value={stats.todayAccess}         subtitle="Entradas registradas" iconPath={ICONS.access}   bgColor="bg-purple-50" textColor="text-purple-600" />
                     <StatCard title="Total Miembros"        value={stats.totalMembers}         subtitle="Miembros registrados" iconPath={ICONS.users}   bgColor="bg-orange-50" textColor="text-orange-600" />
                   </>
@@ -356,7 +391,7 @@ export default function Dashboard({ user, onLogout }) {
                       <XAxis dataKey="dia" tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                       <Tooltip
-                        formatter={v => [`$${v.toLocaleString('es-CO')}`, 'Ingresos']}
+                        formatter={v => [fmt(v), 'Ingresos']}
                         contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,.1)', fontSize: 12 }}
                       />
                       <Area type="monotone" dataKey="ingresos" stroke="#3b82f6" strokeWidth={2} fill="url(#colorIngresos)" dot={{ r: 3, fill: '#3b82f6' }} />
@@ -442,6 +477,7 @@ export default function Dashboard({ user, onLogout }) {
           )}
 
           {activeTab === 'users'           && <UsersManagement />}
+          {activeTab === 'staff'           && <StaffManagement />}
           {activeTab === 'plans'           && <PlansManagement />}
           {activeTab === 'subscriptions'   && <SubscriptionsManagement />}
           {activeTab === 'access'          && <AccessManagement />}
@@ -452,6 +488,54 @@ export default function Dashboard({ user, onLogout }) {
           {activeTab === 'payment-methods' && <PaymentMethodsManagement user={user} />}
         </main>
       </div>
+
+      {/* ── Settings modal ── */}
+      {showSettings && (() => {
+        const selected = COUNTRIES.find(c => c.code === settingsCountry) || COUNTRIES[0];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-1">Configuración regional</h2>
+              <p className="text-sm text-gray-500 mb-5">Elige el país de tu gimnasio para ajustar la moneda y el formato de números.</p>
+
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
+                País y Moneda
+              </label>
+              <select
+                value={settingsCountry}
+                onChange={e => setSettingsCountry(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
+              >
+                {COUNTRIES.map(c => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {c.name} — {c.currency}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-3 mb-5 text-sm text-gray-600">
+                <span className="text-lg">{selected.flag}</span>
+                <span>Los precios se mostrarán en <strong>{selected.currency}</strong> con formato <strong>{selected.locale}</strong></span>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-700 text-sm font-medium hover:bg-gray-50 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => saveCurrencyPrefs(selected.locale, selected.currency)}
+                  className="flex-1 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-semibold transition"
+                >
+                  Guardar y recargar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -326,7 +326,7 @@ export default function MembersTab() {
 
       {/* Fingerprint enrollment modal */}
       {enrollingMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/25 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
             <h3 className="text-xl font-bold mb-2 text-gray-800">Registrar Huella Digital</h3>
             <p className="text-gray-600 mb-4">
@@ -408,7 +408,7 @@ export default function MembersTab() {
 
       {/* Edit member modal */}
       {editingMember && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/25 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full mx-4">
             <h3 className="text-xl font-bold mb-4 text-gray-800">Editar Miembro</h3>
 

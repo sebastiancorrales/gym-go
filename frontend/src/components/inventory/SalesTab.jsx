@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../../utils/api';
 import Toast from '../Toast';
 import Modal from '../Modal';
+import { fmt } from '../../utils/currency';
 
 export default function SalesTab({ user }) {
   const [products, setProducts] = useState([]);
@@ -166,7 +167,7 @@ export default function SalesTab({ user }) {
       if (response.ok) {
         const data = await response.json();
         setToast({ 
-          message: `✓ Venta completada - Total: $${data.total.toFixed(2)}`, 
+          message: `✓ Venta completada - Total: ${fmt(data.total)}`,
           type: 'success' 
         });
         
@@ -243,7 +244,7 @@ export default function SalesTab({ user }) {
                 </div>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-lg font-bold text-blue-600">
-                    ${product.unit_price.toFixed(2)}
+                    {fmt(product.unit_price)}
                   </span>
                   <span className="text-xs text-gray-600">
                     Stock: {product.stock}
@@ -320,10 +321,10 @@ export default function SalesTab({ user }) {
                     </div>
 
                     <div className="mt-2 text-right">
-                      <span className="text-xs text-gray-600">Precio: ${item.unit_price.toFixed(2)}</span>
+                      <span className="text-xs text-gray-600">Precio: {fmt(item.unit_price)}</span>
                       <br />
                       <span className="font-semibold text-blue-600">
-                        Subtotal: ${calculateItemSubtotal(item).toFixed(2)}
+                        Subtotal: {fmt(calculateItemSubtotal(item))}
                       </span>
                     </div>
                   </div>
@@ -334,17 +335,17 @@ export default function SalesTab({ user }) {
               <div className="border-t border-gray-200 pt-4 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal:</span>
-                  <span className="font-medium">${totals.subtotal.toFixed(2)}</span>
+                  <span className="font-medium">{fmt(totals.subtotal)}</span>
                 </div>
                 {totals.totalDiscount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Descuentos:</span>
-                    <span className="font-medium text-red-600">-${totals.totalDiscount.toFixed(2)}</span>
+                    <span className="font-medium text-red-600">-{fmt(totals.totalDiscount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span>Total:</span>
-                  <span className="text-blue-600">${totals.total.toFixed(2)}</span>
+                  <span className="text-blue-600">{fmt(totals.total)}</span>
                 </div>
               </div>
 
@@ -378,17 +379,17 @@ export default function SalesTab({ user }) {
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex justify-between text-sm mb-2">
               <span className="text-gray-600">Subtotal:</span>
-              <span className="font-medium">${totals.subtotal.toFixed(2)}</span>
+              <span className="font-medium">{fmt(totals.subtotal)}</span>
             </div>
             {totals.totalDiscount > 0 && (
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-gray-600">Descuentos:</span>
-                <span className="font-medium text-red-600">-${totals.totalDiscount.toFixed(2)}</span>
+                <span className="font-medium text-red-600">-{fmt(totals.totalDiscount)}</span>
               </div>
             )}
             <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-300">
               <span>Total a Pagar:</span>
-              <span className="text-blue-600">${totals.total.toFixed(2)}</span>
+              <span className="text-blue-600">{fmt(totals.total)}</span>
             </div>
           </div>
 

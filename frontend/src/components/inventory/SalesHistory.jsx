@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../../utils/api';
+import { fmt } from '../../utils/currency';
 
 // Helper function to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
@@ -205,11 +206,11 @@ export default function SalesHistory() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`text-sm font-semibold ${sale.type === 'void' ? 'text-red-600' : 'text-green-600'}`}>
-                        {sale.type === 'void' ? '-' : ''}${Math.abs(sale.total).toFixed(2)}
+                        {sale.type === 'void' ? '-' : ''}{fmt(Math.abs(sale.total))}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${sale.total_discount.toFixed(2)}
+                      {fmt(sale.total_discount)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {sale.payment_method_name || 'N/A'}
@@ -235,7 +236,7 @@ export default function SalesHistory() {
 
       {/* Sale Detail Modal */}
       {showDetailModal && selectedSale && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/25 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
@@ -281,14 +282,14 @@ export default function SalesHistory() {
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">{detail.product_name}</p>
                         <p className="text-sm text-gray-600">
-                          {detail.quantity} x ${detail.unit_price.toFixed(2)}
+                          {detail.quantity} x {fmt(detail.unit_price)}
                         </p>
                         {detail.discount > 0 && (
-                          <p className="text-xs text-red-600">Descuento: -${detail.discount.toFixed(2)}</p>
+                          <p className="text-xs text-red-600">Descuento: -{fmt(detail.discount)}</p>
                         )}
                       </div>
                       <span className="font-semibold text-gray-900">
-                        ${detail.subtotal.toFixed(2)}
+                        {fmt(detail.subtotal)}
                       </span>
                     </div>
                   ))}
@@ -300,21 +301,21 @@ export default function SalesHistory() {
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal:</span>
                   <span className="font-medium">
-                    ${(selectedSale.total + selectedSale.total_discount).toFixed(2)}
+                    {fmt(selectedSale.total + selectedSale.total_discount)}
                   </span>
                 </div>
                 {selectedSale.total_discount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Descuentos:</span>
                     <span className="font-medium text-red-600">
-                      -${selectedSale.total_discount.toFixed(2)}
+                      -{fmt(selectedSale.total_discount)}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span>Total:</span>
                   <span className={selectedSale.type === 'void' ? 'text-red-600' : 'text-green-600'}>
-                    {selectedSale.type === 'void' ? '-' : ''}${Math.abs(selectedSale.total).toFixed(2)}
+                    {selectedSale.type === 'void' ? '-' : ''}{fmt(Math.abs(selectedSale.total))}
                   </span>
                 </div>
               </div>
