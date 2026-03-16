@@ -60,6 +60,14 @@ export default function CheckIn() {
   const [readerStatus, setReaderStatus]         = useState(null);
   const [capturingFingerprint, setCapturingFingerprint] = useState(false);
 
+  // Redirect to login if no session
+  useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      window.location.href = '/';
+    }
+  }, []);
+
   // Auto-dismiss countdown
   useEffect(() => {
     if (!result && !error) return;
@@ -98,6 +106,7 @@ export default function CheckIn() {
     try {
       const token = localStorage.getItem('access_token');
       const usersRes = await fetch('http://localhost:8080/api/v1/users', { headers: { Authorization: `Bearer ${token}` } });
+      if (usersRes.status === 401) { window.location.href = '/'; return; }
       if (!usersRes.ok) throw new Error('Error al buscar usuario');
       const usersData = await usersRes.json();
       const user = (usersData.data || usersData || []).find(u => u.document_number === documentNumber.trim());
@@ -197,13 +206,13 @@ export default function CheckIn() {
       />
 
       {/* Back button */}
-      <a href="/" className="absolute top-4 left-4 z-10 flex items-center gap-1.5 text-white/40 hover:text-white/80 transition text-sm">
+      <a href="/" className="absolute top-4 left-4 z-20 flex items-center gap-1.5 text-white/40 hover:text-white/80 transition text-sm">
         <Svg path={BACK_PATH} className="w-4 h-4" />
         Admin
       </a>
 
       {/* Reader status dot */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
         <span className={`w-2 h-2 rounded-full ${readerStatus?.reader_connected ? 'bg-green-400' : 'bg-gray-600'}`} />
         <span className="text-xs text-white/40">
           {readerStatus?.reader_connected ? 'Lector conectado' : 'Sin lector'}
