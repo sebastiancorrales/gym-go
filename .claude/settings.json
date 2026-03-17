@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm run:*)",
       "Bash(grep -E \"\\\\.\\(go\\)$\")",
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(wc -l /c/Users/sebas/OneDrive/Desktop/gym-go/main.go /c/Users/sebas/OneDrive/Desktop/gym-go/internal/usecases/*.go /c/Users/sebas/OneDrive/Desktop/gym-go/internal/infrastructure/persistence/*.go)"
     ]
   }
 }
