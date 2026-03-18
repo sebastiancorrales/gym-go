@@ -111,6 +111,92 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+func (h *SubscriptionHandler) Cancel(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	userIDStr := c.GetString("user_id")
+	cancelledBy, _ := uuid.Parse(userIDStr)
+	if err := h.subscriptionUseCase.CancelSubscription(id, req.Reason, cancelledBy); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel subscription"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Subscription cancelled"})
+}
+
+func (h *SubscriptionHandler) Renew(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+	var req struct {
+		PlanID   string  `json:"plan_id" binding:"required"`
+		Discount float64 `json:"discount"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	planID, err := uuid.Parse(req.PlanID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid plan ID"})
+		return
+	}
+	gymIDStr := c.GetString("gym_id")
+	gymID, _ := uuid.Parse(gymIDStr)
+	newSub, err := h.subscriptionUseCase.RenewSubscription(id, planID, gymID, req.Discount)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to renew subscription"})
+		return
+	}
+	c.JSON(http.StatusCreated, newSub)
+}
+
+func (h *SubscriptionHandler) Freeze(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+	var req struct {
+		Days   int    `json:"days" binding:"required,min=1"`
+		Reason string `json:"reason"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.subscriptionUseCase.FreezeSubscription(id, req.Days, req.Reason); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to freeze subscription"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Subscription frozen"})
+}
+
+func (h *SubscriptionHandler) Unfreeze(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+	if err := h.subscriptionUseCase.UnfreezeSubscription(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to unfreeze subscription"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Subscription unfrozen"})
+}
+
 func (h *SubscriptionHandler) GetStats(c *gin.Context) {
 	gymIDStr := c.GetString("gym_id")
 	gymID, err := uuid.Parse(gymIDStr)

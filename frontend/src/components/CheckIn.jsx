@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import api from '../utils/api';
 
 const FINGERPRINT_PATH = 'M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4';
 const BOLT_PATH = 'M13 10V3L4 14h7v7l9-11h-7z';
@@ -86,10 +87,7 @@ export default function CheckIn() {
   useEffect(() => {
     const check = async () => {
       try {
-        const token = localStorage.getItem('access_token');
-        const res = await fetch('http://localhost:8080/api/v1/biometric/status', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const res = await api.get('/biometric/status');
         if (res.ok) { const d = await res.json(); setReaderStatus(d.data); }
       } catch {}
     };
@@ -104,9 +102,7 @@ export default function CheckIn() {
     setLoading(true); setResult(null); setError(null);
 
     try {
-      const token = localStorage.getItem('access_token');
-      const usersRes = await fetch('http://localhost:8080/api/v1/users', { headers: { Authorization: `Bearer ${token}` } });
-      if (usersRes.status === 401) { window.location.href = '/'; return; }
+      const usersRes = await api.get('/users');
       if (!usersRes.ok) throw new Error('Error al buscar usuario');
       const usersData = await usersRes.json();
       const user = (usersData.data || usersData || []).find(u => u.document_number === documentNumber.trim());
@@ -117,14 +113,10 @@ export default function CheckIn() {
         return;
       }
 
-      const ciRes = await fetch('http://localhost:8080/api/v1/access/checkin', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user.id, method: 'MANUAL' }),
-      });
+      const ciRes = await api.post('/access/checkin', { user_id: user.id, method: 'MANUAL' });
       const ciData = await ciRes.json();
 
-      const subsRes = await fetch('http://localhost:8080/api/v1/subscriptions', { headers: { Authorization: `Bearer ${token}` } });
+      const subsRes = await api.get('/subscriptions');
       const subsAll = subsRes.ok ? await subsRes.json() : [];
 
       if (ciRes.ok) {
@@ -150,31 +142,18 @@ export default function CheckIn() {
     setCapturingFingerprint(true); setLoading(true); setResult(null); setError(null);
 
     try {
-      const token = localStorage.getItem('access_token');
-      const capRes = await fetch('http://localhost:8080/api/v1/biometric/capture', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timeout: 30 }),
-      });
+      const capRes = await api.post('/biometric/capture', { timeout: 30 });
       if (!capRes.ok) throw new Error('Error al capturar huella digital');
       const capData = await capRes.json();
 
-      const verRes = await fetch('http://localhost:8080/api/v1/biometric/verify', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ template_data: capData.data.template_data, device_id: 'web-interface' }),
-      });
+      const verRes = await api.post('/biometric/verify', { template_data: capData.data.template_data, device_id: 'web-interface' });
       const verData = await verRes.json();
 
       if (verRes.ok && verData.success) {
         const user = verData.data.user;
-        const ciRes = await fetch('http://localhost:8080/api/v1/access/checkin', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: user.id, method: 'FINGERPRINT' }),
-        });
+        const ciRes = await api.post('/access/checkin', { user_id: user.id, method: 'FINGERPRINT' });
         if (ciRes.ok) {
-          const subsRes = await fetch('http://localhost:8080/api/v1/subscriptions', { headers: { Authorization: `Bearer ${token}` } });
+          const subsRes = await api.get('/subscriptions');
           const sub = subsRes.ok ? (await subsRes.json() || []).find(s => s.user_id === user.id && s.status === 'ACTIVE') : null;
           setResult({ success: true, user, subscription: sub, message: '¡Bienvenido!', byFingerprint: true });
         } else {

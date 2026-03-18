@@ -124,7 +124,7 @@ func main() {
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, gymRepo, jwtManager)
 	registerHandler := handlers.NewRegisterHandler(gymRepo, userRepo, jwtManager)
-	userHandler := handlers.NewUserHandler(userUseCase)
+	userHandler := handlers.NewUserHandler(userUseCase, subscriptionUseCase, planUseCase)
 	planHandler := handlers.NewPlanHandler(planUseCase)
 	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionUseCase, userUseCase, planUseCase)
 	productHandler := handlers.NewProductHandler(productUseCase)
@@ -270,6 +270,8 @@ func main() {
 			users.POST("", userHandler.Create)
 			users.GET("/:id", userHandler.GetByID)
 			users.PUT("/:id", userHandler.Update)
+			users.DELETE("/:id", userHandler.Delete)
+			users.GET("/:id/profile", userHandler.GetProfile)
 		}
 
 		// Plan routes - Only SUPER_ADMIN and ADMIN_GYM can manage plans
@@ -279,6 +281,8 @@ func main() {
 			plans.GET("", planHandler.List)
 			plans.POST("", planHandler.Create)
 			plans.GET("/:id", planHandler.GetByID)
+			plans.PUT("/:id", planHandler.Update)
+			plans.DELETE("/:id", planHandler.Deactivate)
 		}
 
 		// Subscription routes - Multiple roles can access
@@ -288,6 +292,10 @@ func main() {
 			subscriptions.GET("", subscriptionHandler.List)
 			subscriptions.POST("", subscriptionHandler.Create)
 			subscriptions.GET("/stats", subscriptionHandler.GetStats)
+			subscriptions.POST("/:id/cancel", subscriptionHandler.Cancel)
+			subscriptions.POST("/:id/renew", subscriptionHandler.Renew)
+			subscriptions.POST("/:id/freeze", subscriptionHandler.Freeze)
+			subscriptions.POST("/:id/unfreeze", subscriptionHandler.Unfreeze)
 		}
 
 		// Access routes - Multiple roles can access
@@ -298,6 +306,7 @@ func main() {
 			access.POST("/checkout", accessHandler.CheckOut)
 			access.GET("/today", accessHandler.ListToday)
 			access.GET("/history", accessHandler.ListHistory)
+			access.GET("/user/:user_id", accessHandler.ListByUser)
 			access.GET("/stats", accessHandler.GetStats)
 
 			// Biometric routes - Access to fingerprint functionality
@@ -417,6 +426,19 @@ func main() {
 			fileServer.ServeHTTP(c.Writer, c.Request)
 		})
 	}
+
+	// Auto-expire subscriptions every hour
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if n, err := subscriptionUseCase.AutoExpireSubscriptions(); err != nil {
+				log.Printf("⚠️ Auto-expire error: %v", err)
+			} else if n > 0 {
+				log.Printf("⏰ Auto-expired %d subscriptions", n)
+			}
+		}
+	}()
 
 	// Start server
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)

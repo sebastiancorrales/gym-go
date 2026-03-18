@@ -38,11 +38,6 @@ func NewNotificationHandler(
 
 // SendExpiringReminders sends email reminders for subscriptions expiring within 7 days
 func (h *NotificationHandler) SendExpiringReminders(c *gin.Context) {
-	if !h.emailSender.IsConfigured() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "SMTP no esta configurado. Configure el email en Configuracion del Gimnasio."})
-		return
-	}
-
 	gymIDStr := c.GetString("gym_id")
 	gymID, err := uuid.Parse(gymIDStr)
 	if err != nil {
@@ -50,10 +45,27 @@ func (h *NotificationHandler) SendExpiringReminders(c *gin.Context) {
 		return
 	}
 
-	// Get gym info for email branding
+	// Get gym info for email branding and SMTP config
 	gym, err := h.gymRepo.FindByID(gymID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load gym"})
+		return
+	}
+
+	// Use gym SMTP config if available, fall back to env-configured sender
+	sender := h.emailSender
+	if gym.SMTPHost != "" {
+		sender = email.NewSender(email.Config{
+			Host:     gym.SMTPHost,
+			Port:     gym.SMTPPort,
+			Username: gym.SMTPUsername,
+			Password: gym.SMTPPassword,
+			From:     gym.SMTPFrom,
+		})
+	}
+
+	if !sender.IsConfigured() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "SMTP no esta configurado. Configure el email en Configuracion del Gimnasio."})
 		return
 	}
 
@@ -106,7 +118,7 @@ func (h *NotificationHandler) SendExpiringReminders(c *gin.Context) {
 			gym.Name,
 		)
 
-		if err := h.emailSender.Send([]string{user.Email}, subject, body); err != nil {
+		if err := sender.Send([]string{user.Email}, subject, body); err != nil {
 			errors++
 			continue
 		}
@@ -135,7 +147,21 @@ type SMTPConfigRequest struct {
 
 // TestEmail sends a test email to verify SMTP configuration
 func (h *NotificationHandler) TestEmail(c *gin.Context) {
-	if !h.emailSender.IsConfigured() {
+	gymIDStr := c.GetString("gym_id")
+	gymID, _ := uuid.Parse(gymIDStr)
+
+	sender := h.emailSender
+	if gym, err := h.gymRepo.FindByID(gymID); err == nil && gym.SMTPHost != "" {
+		sender = email.NewSender(email.Config{
+			Host:     gym.SMTPHost,
+			Port:     gym.SMTPPort,
+			Username: gym.SMTPUsername,
+			Password: gym.SMTPPassword,
+			From:     gym.SMTPFrom,
+		})
+	}
+
+	if !sender.IsConfigured() {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "SMTP no esta configurado"})
 		return
 	}
@@ -148,7 +174,7 @@ func (h *NotificationHandler) TestEmail(c *gin.Context) {
 		return
 	}
 
-	err := h.emailSender.Send(
+	err := sender.Send(
 		[]string{req.Email},
 		"Gym-Go - Email de prueba",
 		`<div style="font-family:sans-serif;padding:24px"><h2 style="color:#10b981">Gym-Go</h2><p>Este es un email de prueba. La configuracion SMTP funciona correctamente.</p></div>`,

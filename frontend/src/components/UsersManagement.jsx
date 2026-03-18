@@ -5,6 +5,7 @@ import SkeletonTable from './SkeletonTable';
 import Toast from './Toast';
 import ConfirmDialog from './ConfirmDialog';
 import { fmt } from '../utils/currency';
+import MemberProfile from './MemberProfile';
 
 const FINGER_OPTIONS = [
   { value: 'right_index', label: 'Índice Derecho' },
@@ -36,7 +37,8 @@ export default function UsersManagement() {
   const [enrollMessage, setEnrollMessage] = useState('');
   const [userFingerprints, setUserFingerprints] = useState({});
   const [toast, setToast] = useState(null);
-  const [confirmDialog, setConfirmDialog] = useState({ open: false, onConfirm: null, message: '' });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, onConfirm: null, message: '', title: 'Confirmar', confirmText: 'Confirmar' });
+  const [profileUserId, setProfileUserId] = useState(null);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -147,6 +149,8 @@ export default function UsersManagement() {
   const deleteFingerprint = (fingerprintId, userId) => {
     setConfirmDialog({
       open: true,
+      title: 'Eliminar huella',
+      confirmText: 'Eliminar',
       message: '¿Estás seguro de eliminar esta huella?',
       onConfirm: async () => {
         try {
@@ -376,6 +380,29 @@ export default function UsersManagement() {
     });
   };
 
+  const handleDeactivate = (user) => {
+    setConfirmDialog({
+      open: true,
+      title: 'Desactivar usuario',
+      confirmText: 'Desactivar',
+      message: `¿Desactivar a ${user.first_name} ${user.last_name}? El usuario no podrá acceder al sistema.`,
+      onConfirm: async () => {
+        try {
+          const res = await api.delete('/users/' + user.id);
+          if (res.ok) {
+            setToast({ message: 'Usuario desactivado', type: 'success' });
+            fetchUsers();
+          } else {
+            const err = await res.json().catch(() => ({}));
+            setToast({ message: err.error || 'Error al desactivar usuario', type: 'error' });
+          }
+        } catch {
+          setToast({ message: 'Error de conexión', type: 'error' });
+        }
+      },
+    });
+  };
+
   const getRoleBadgeColor = (role) => {
     const colors = {
       'SUPER_ADMIN': 'bg-purple-100 text-purple-800',
@@ -386,6 +413,14 @@ export default function UsersManagement() {
     };
     return colors[role] || 'bg-gray-100 text-gray-800';
   };
+
+  if (profileUserId) {
+    return (
+      <div className="p-6">
+        <MemberProfile userId={profileUserId} onBack={() => setProfileUserId(null)} />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -769,11 +804,24 @@ export default function UsersManagement() {
                     })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      user.status === 'ACTIVE'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-200 text-gray-500'
+                    }`}>
                       {user.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button
+                      onClick={() => setProfileUserId(user.id)}
+                      className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition mr-2"
+                      title="Ver perfil"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </button>
                     <button
                       onClick={() => handleEdit(user)}
                       className="text-emerald-600 hover:text-emerald-900 mr-3"
@@ -785,10 +833,19 @@ export default function UsersManagement() {
                     </button>
                     <button
                       onClick={() => openEnrollModal(user)}
-                      className="text-green-600 hover:text-green-900"
+                      className="text-green-600 hover:text-green-900 mr-3"
                       title="Registrar huella"
                     >
                       🖐
+                    </button>
+                    <button
+                      onClick={() => handleDeactivate(user)}
+                      className="text-red-500 hover:text-red-700"
+                      title="Desactivar usuario"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
                     </button>
                   </td>
                 </tr>
@@ -889,11 +946,11 @@ export default function UsersManagement() {
 
       <ConfirmDialog
         isOpen={confirmDialog.open}
-        onClose={() => setConfirmDialog({ open: false, onConfirm: null, message: '' })}
+        onClose={() => setConfirmDialog({ open: false, onConfirm: null, message: '', title: 'Confirmar', confirmText: 'Confirmar' })}
         onConfirm={confirmDialog.onConfirm}
-        title="Eliminar huella"
+        title={confirmDialog.title || 'Confirmar'}
         message={confirmDialog.message}
-        confirmText="Eliminar"
+        confirmText={confirmDialog.confirmText || 'Confirmar'}
         variant="danger"
       />
     </div>

@@ -48,6 +48,7 @@ type SubscriptionRepository interface {
 	Update(subscription *entities.Subscription) error
 	Delete(id uuid.UUID) error
 	CountActiveByGymID(gymID uuid.UUID) (int64, error)
+	MarkExpiredSubscriptions() (int64, error)
 }
 
 // PaymentRepository defines payment repository interface

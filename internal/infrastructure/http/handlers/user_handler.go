@@ -15,12 +15,16 @@ import (
 )
 
 type UserHandler struct {
-	userUseCase *usecases.UserUseCase
+	userUseCase         *usecases.UserUseCase
+	subscriptionUseCase *usecases.SubscriptionUseCase
+	planUseCase         *usecases.PlanUseCase
 }
 
-func NewUserHandler(userUseCase *usecases.UserUseCase) *UserHandler {
+func NewUserHandler(userUseCase *usecases.UserUseCase, subscriptionUseCase *usecases.SubscriptionUseCase, planUseCase *usecases.PlanUseCase) *UserHandler {
 	return &UserHandler{
-		userUseCase: userUseCase,
+		userUseCase:         userUseCase,
+		subscriptionUseCase: subscriptionUseCase,
+		planUseCase:         planUseCase,
 	}
 }
 
@@ -288,5 +292,54 @@ func (h *UserHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    user,
+	})
+}
+
+func (h *UserHandler) Delete(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	if err := h.userUseCase.DeactivateUser(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to deactivate user"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "User deactivated"})
+}
+
+func (h *UserHandler) GetProfile(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	user, err := h.userUseCase.GetUserByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Load subscription history
+	type SubWithPlan struct {
+		*entities.Subscription
+		Plan *entities.Plan `json:"plan,omitempty"`
+	}
+	subs, _ := h.subscriptionUseCase.GetSubscriptionsByUser(id)
+	subsWithPlan := make([]SubWithPlan, 0, len(subs))
+	for _, s := range subs {
+		swp := SubWithPlan{Subscription: s}
+		if plan, err := h.planUseCase.GetPlanByID(s.PlanID); err == nil {
+			swp.Plan = plan
+		}
+		subsWithPlan = append(subsWithPlan, swp)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"user":          user,
+		"subscriptions": subsWithPlan,
 	})
 }

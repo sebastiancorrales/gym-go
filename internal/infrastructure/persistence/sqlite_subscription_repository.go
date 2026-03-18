@@ -66,6 +66,13 @@ func (r *SQLiteSubscriptionRepository) Delete(id uuid.UUID) error {
 	return r.db.Delete(&entities.Subscription{}, id).Error
 }
 
+func (r *SQLiteSubscriptionRepository) MarkExpiredSubscriptions() (int64, error) {
+	result := r.db.Model(&entities.Subscription{}).
+		Where("status = ? AND end_date < ?", entities.SubscriptionStatusActive, time.Now()).
+		Update("status", entities.SubscriptionStatusExpired)
+	return result.RowsAffected, result.Error
+}
+
 func (r *SQLiteSubscriptionRepository) CountActiveByGymID(gymID uuid.UUID) (int64, error) {
 	var count int64
 	err := r.db.Model(&entities.Subscription{}).

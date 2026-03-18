@@ -10,11 +10,14 @@ export default function GymSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
+  const [smtpTesting, setSmtpTesting] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
   const [formData, setFormData] = useState({
     name: '', legal_name: '', tax_id: '',
     address: '', city: '', state: '', country: '', postal_code: '',
     phone: '', email: '', logo_url: '',
     timezone: '', locale: '', currency: '',
+    smtp_host: '', smtp_port: 587, smtp_username: '', smtp_password: '', smtp_from: '',
   });
 
   useEffect(() => { fetchGym(); }, []);
@@ -41,6 +44,11 @@ export default function GymSettings() {
           timezone: data.timezone || '',
           locale: data.locale || '',
           currency: data.currency || '',
+          smtp_host: data.smtp_host || '',
+          smtp_port: data.smtp_port || 587,
+          smtp_username: data.smtp_username || '',
+          smtp_password: data.smtp_password || '',
+          smtp_from: data.smtp_from || '',
         });
       }
     } catch (error) {
@@ -66,6 +74,21 @@ export default function GymSettings() {
   const selectedCountry = COUNTRIES.find(c =>
     c.currency === formData.currency || c.name === formData.country
   ) || COUNTRIES[0];
+
+  const handleTestEmail = async () => {
+    if (!testEmail) return;
+    setSmtpTesting(true);
+    try {
+      const res = await api.post('/notifications/test-email', { email: testEmail });
+      const data = await res.json();
+      if (res.ok) setToast({ message: 'Email de prueba enviado exitosamente', type: 'success' });
+      else setToast({ message: data.error || 'Error al enviar', type: 'error' });
+    } catch {
+      setToast({ message: 'Error de conexion', type: 'error' });
+    } finally {
+      setSmtpTesting(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -199,6 +222,59 @@ export default function GymSettings() {
               <span className="text-lg">{selectedCountry.flag}</span>
               <span>Moneda: <strong>{formData.currency}</strong> | Formato: <strong>{formData.locale}</strong> | Zona: <strong>{formData.timezone}</strong></span>
             </div>
+          </div>
+        </div>
+
+        {/* SMTP */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-base font-bold text-gray-900 mb-1">Configuracion de Email (SMTP)</h3>
+          <p className="text-xs text-gray-400 mb-4">Necesario para enviar recordatorios de vencimiento a los miembros</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Servidor SMTP</label>
+              <input type="text" value={formData.smtp_host}
+                onChange={e => setFormData({ ...formData, smtp_host: e.target.value })}
+                placeholder="smtp.gmail.com"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Puerto</label>
+              <input type="number" value={formData.smtp_port}
+                onChange={e => setFormData({ ...formData, smtp_port: parseInt(e.target.value) || 587 })}
+                placeholder="587"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Usuario</label>
+              <input type="text" value={formData.smtp_username}
+                onChange={e => setFormData({ ...formData, smtp_username: e.target.value })}
+                placeholder="tu@email.com"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Contrasena</label>
+              <input type="password" value={formData.smtp_password}
+                onChange={e => setFormData({ ...formData, smtp_password: e.target.value })}
+                placeholder="••••••••"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Email remitente</label>
+              <input type="email" value={formData.smtp_from}
+                onChange={e => setFormData({ ...formData, smtp_from: e.target.value })}
+                placeholder="noreply@tugimnasio.com"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3 mt-4">
+            <input type="email" value={testEmail}
+              onChange={e => setTestEmail(e.target.value)}
+              placeholder="Email de prueba"
+              className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            <button type="button" onClick={handleTestEmail} disabled={smtpTesting || !testEmail}
+              className="px-4 py-2.5 text-sm font-semibold text-emerald-600 border border-emerald-200 rounded-xl hover:bg-emerald-50 transition disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap">
+              {smtpTesting ? 'Enviando...' : 'Probar conexion'}
+            </button>
           </div>
         </div>
 

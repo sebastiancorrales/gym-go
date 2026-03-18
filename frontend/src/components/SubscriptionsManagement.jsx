@@ -5,6 +5,7 @@ import SkeletonTable from './SkeletonTable';
 import EmptyState from './EmptyState';
 import Toast from './Toast';
 import { fmt } from '../utils/currency';
+import SubscriptionReceipt from './SubscriptionReceipt';
 
 // ── Icons ──
 const Svg = ({ path, className = 'w-5 h-5' }) => (
@@ -75,6 +76,17 @@ export default function SubscriptionsManagement() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [receipt, setReceipt] = useState(null); // { subscription, user, plan }
+  const [gymName, setGymName] = useState('');
+
+  // Action modals
+  const [actionModal, setActionModal] = useState(null); // { type: 'cancel'|'freeze'|'renew', sub }
+  const [actionLoading, setActionLoading] = useState(false);
+  const [freezeDays, setFreezeDays] = useState(7);
+  const [freezeReason, setFreezeReason] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [renewPlanId, setRenewPlanId] = useState('');
+  const [renewDiscount, setRenewDiscount] = useState(0);
 
   // Wizard state
   const [showWizard, setShowWizard] = useState(false);
@@ -89,6 +101,7 @@ export default function SubscriptionsManagement() {
     fetchSubscriptions();
     fetchUsers();
     fetchPlans();
+    api.get('/gym').then(r => r.ok ? r.json() : null).then(d => { if (d?.name) setGymName(d.name); });
   }, []);
 
   const fetchSubscriptions = async () => {
@@ -173,9 +186,12 @@ export default function SubscriptionsManagement() {
       });
 
       if (response.ok) {
+        const newSub = await response.json();
         closeWizard();
         setToast({ message: 'Suscripcion creada exitosamente', type: 'success' });
         fetchSubscriptions();
+        // Show receipt
+        setReceipt({ subscription: newSub, user: selectedMember, plan: selectedPlan });
       } else {
         const err = await response.json();
         setToast({ message: err.error || 'Error al crear suscripcion', type: 'error' });
@@ -185,6 +201,52 @@ export default function SubscriptionsManagement() {
       setToast({ message: 'Error al crear suscripcion', type: 'error' });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openAction = (type, sub) => {
+    setActionModal({ type, sub });
+    setFreezeDays(7);
+    setFreezeReason('');
+    setCancelReason('');
+    setRenewPlanId(sub.plan_id || '');
+    setRenewDiscount(0);
+  };
+  const closeAction = () => setActionModal(null);
+
+  const handleAction = async () => {
+    if (!actionModal) return;
+    const { type, sub } = actionModal;
+    setActionLoading(true);
+    try {
+      let res;
+      if (type === 'cancel') {
+        res = await api.post(`/subscriptions/${sub.id}/cancel`, { reason: cancelReason });
+      } else if (type === 'freeze') {
+        res = await api.post(`/subscriptions/${sub.id}/freeze`, { days: parseInt(freezeDays), reason: freezeReason });
+      } else if (type === 'unfreeze') {
+        res = await api.post(`/subscriptions/${sub.id}/unfreeze`, {});
+      } else if (type === 'renew') {
+        res = await api.post(`/subscriptions/${sub.id}/renew`, { plan_id: renewPlanId, discount: parseFloat(renewDiscount) || 0 });
+      }
+      if (res?.ok) {
+        const data = await res.json().catch(() => null);
+        closeAction();
+        const labels = { cancel: 'cancelada', freeze: 'congelada', unfreeze: 'descongelada', renew: 'renovada' };
+        setToast({ message: `Suscripcion ${labels[type]} exitosamente`, type: 'success' });
+        fetchSubscriptions();
+        // Show receipt for renewals
+        if (type === 'renew' && data) {
+          setReceipt({ subscription: data, user: actionModal.sub.user, plan: plans.find(p => p.id === renewPlanId) });
+        }
+      } else {
+        const err = await res?.json();
+        setToast({ message: err?.error || 'Error al procesar accion', type: 'error' });
+      }
+    } catch {
+      setToast({ message: 'Error de conexion', type: 'error' });
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -231,11 +293,12 @@ export default function SubscriptionsManagement() {
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Periodo</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Precio</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {loading ? (
-              <tr><td colSpan="5" className="p-0"><SkeletonTable cols={5} rows={5} /></td></tr>
+              <tr><td colSpan="6" className="p-0"><SkeletonTable cols={6} rows={5} /></td></tr>
             ) : (() => {
               const q = searchQuery.toLowerCase();
               const filtered = q
@@ -248,7 +311,7 @@ export default function SubscriptionsManagement() {
                 : subscriptions;
               if (filtered.length === 0) return (
                 <tr>
-                  <td colSpan="5">
+                  <td colSpan="6">
                     <EmptyState
                       icon="list"
                       title={searchQuery ? `Sin resultados para "${searchQuery}"` : 'No hay suscripciones'}
@@ -299,6 +362,38 @@ export default function SubscriptionsManagement() {
                     </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={sub.status} />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1">
+                        {sub.status === 'ACTIVE' && (
+                          <>
+                            <button onClick={() => openAction('renew', sub)}
+                              className="px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition" title="Renovar">
+                              Renovar
+                            </button>
+                            <button onClick={() => openAction('freeze', sub)}
+                              className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Congelar">
+                              Congelar
+                            </button>
+                            <button onClick={() => openAction('cancel', sub)}
+                              className="px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50 rounded-lg transition" title="Cancelar">
+                              Cancelar
+                            </button>
+                          </>
+                        )}
+                        {sub.status === 'FROZEN' && (
+                          <button onClick={() => openAction('unfreeze', sub)}
+                            className="px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                            Descongelar
+                          </button>
+                        )}
+                        {(sub.status === 'EXPIRED' || sub.status === 'CANCELLED') && (
+                          <button onClick={() => openAction('renew', sub)}
+                            className="px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition">
+                            Renovar
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -590,8 +685,121 @@ export default function SubscriptionsManagement() {
         )}
       </Modal>
 
+      {/* Action Modals */}
+      {actionModal && actionModal.type === 'cancel' && (
+        <Modal isOpen onClose={closeAction} title="Cancelar Suscripcion" maxWidth="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              ¿Cancelar la suscripcion de <strong>{actionModal.sub.user?.first_name} {actionModal.sub.user?.last_name}</strong>?
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Motivo (opcional)</label>
+              <input type="text" value={cancelReason} onChange={e => setCancelReason(e.target.value)}
+                placeholder="Motivo de cancelacion..."
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-red-400 focus:border-transparent" />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={closeAction} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">Volver</button>
+              <button onClick={handleAction} disabled={actionLoading}
+                className="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition disabled:opacity-50">
+                {actionLoading ? 'Procesando...' : 'Cancelar Suscripcion'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {actionModal && actionModal.type === 'freeze' && (
+        <Modal isOpen onClose={closeAction} title="Congelar Suscripcion" maxWidth="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Congela la suscripcion de <strong>{actionModal.sub.user?.first_name} {actionModal.sub.user?.last_name}</strong>. La fecha de vencimiento se extenderá automaticamente.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Dias de congelamiento</label>
+              <input type="number" min="1" max="365" value={freezeDays} onChange={e => setFreezeDays(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Motivo (opcional)</label>
+              <input type="text" value={freezeReason} onChange={e => setFreezeReason(e.target.value)}
+                placeholder="Vacaciones, lesion..."
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent" />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={closeAction} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">Volver</button>
+              <button onClick={handleAction} disabled={actionLoading}
+                className="px-6 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition disabled:opacity-50">
+                {actionLoading ? 'Procesando...' : 'Congelar'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {actionModal && actionModal.type === 'unfreeze' && (
+        <Modal isOpen onClose={closeAction} title="Descongelar Suscripcion" maxWidth="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              ¿Descongelar la suscripcion de <strong>{actionModal.sub.user?.first_name} {actionModal.sub.user?.last_name}</strong>?
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={closeAction} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">Volver</button>
+              <button onClick={handleAction} disabled={actionLoading}
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl transition disabled:opacity-50">
+                {actionLoading ? 'Procesando...' : 'Descongelar'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {actionModal && actionModal.type === 'renew' && (
+        <Modal isOpen onClose={closeAction} title="Renovar Suscripcion" maxWidth="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Renovar suscripcion de <strong>{actionModal.sub.user?.first_name} {actionModal.sub.user?.last_name}</strong>.
+              La nueva suscripcion comenzara al finalizar la actual.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Plan</label>
+              <select value={renewPlanId} onChange={e => setRenewPlanId(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+                <option value="">Selecciona un plan...</option>
+                {plans.map(p => (
+                  <option key={p.id} value={p.id}>{p.name} — {p.duration_days} dias — {fmt(p.price)}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Descuento</label>
+              <input type="number" min="0" step="100" value={renewDiscount} onChange={e => setRenewDiscount(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                placeholder="0" />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={closeAction} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">Volver</button>
+              <button onClick={handleAction} disabled={actionLoading || !renewPlanId}
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                {actionLoading ? 'Procesando...' : 'Renovar'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {toast && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
+
+      {receipt && (
+        <SubscriptionReceipt
+          subscription={receipt.subscription}
+          user={receipt.user}
+          plan={receipt.plan}
+          gymName={gymName}
+          onClose={() => setReceipt(null)}
+        />
       )}
     </div>
   );

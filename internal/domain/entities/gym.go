@@ -24,6 +24,12 @@ type Gym struct {
 	Locale     string    `json:"locale"`
 	Currency   string    `json:"currency"`
 	Status     string    `json:"status"`
+	// SMTP configuration
+	SMTPHost     string `json:"smtp_host,omitempty"`
+	SMTPPort     int    `json:"smtp_port,omitempty"`
+	SMTPUsername string `json:"smtp_username,omitempty"`
+	SMTPPassword string `json:"smtp_password,omitempty"`
+	SMTPFrom     string `json:"smtp_from,omitempty"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }

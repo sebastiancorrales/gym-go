@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
 )
+
 
 type PlanHandler struct {
 	planUseCase *usecases.PlanUseCase
@@ -87,4 +89,71 @@ func (h *PlanHandler) GetByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, plan)
+}
+
+type UpdatePlanRequest struct {
+	Name          string  `json:"name"`
+	Description   string  `json:"description"`
+	DurationDays  int     `json:"duration_days"`
+	Price         float64 `json:"price"`
+	EnrollmentFee float64 `json:"enrollment_fee"`
+}
+
+func (h *PlanHandler) Update(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	var req UpdatePlanRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	plan, err := h.planUseCase.GetPlanByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Plan not found"})
+		return
+	}
+
+	if req.Name != "" {
+		plan.Name = req.Name
+	}
+	if req.Description != "" {
+		plan.Description = req.Description
+	}
+	if req.DurationDays > 0 {
+		plan.DurationDays = req.DurationDays
+	}
+	if req.Price > 0 {
+		plan.Price = req.Price
+	}
+	if req.EnrollmentFee >= 0 {
+		plan.EnrollmentFee = req.EnrollmentFee
+	}
+	plan.UpdatedAt = time.Now()
+
+	if err := h.planUseCase.UpdatePlan(plan); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update plan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": plan})
+}
+
+func (h *PlanHandler) Deactivate(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	if err := h.planUseCase.DeactivatePlan(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to deactivate plan"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Plan deactivated"})
 }
