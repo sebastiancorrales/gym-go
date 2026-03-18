@@ -12,6 +12,16 @@ type Config struct {
 	Database DatabaseConfig
 	JWT      JWTConfig
 	App      AppConfig
+	SMTP     SMTPConfig
+}
+
+// SMTPConfig holds email configuration
+type SMTPConfig struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	From     string
 }
 
 // ServerConfig holds server configuration
@@ -64,6 +74,13 @@ func LoadConfig() *Config {
 		App: AppConfig{
 			Name:    getEnv("APP_NAME", "Gym-Go"),
 			Version: getEnv("APP_VERSION", "1.0.0"),
+		},
+		SMTP: SMTPConfig{
+			Host:     getEnv("SMTP_HOST", ""),
+			Port:     getIntEnv("SMTP_PORT", 587),
+			Username: getEnv("SMTP_USERNAME", ""),
+			Password: getEnv("SMTP_PASSWORD", ""),
+			From:     getEnv("SMTP_FROM", ""),
 		},
 	}
 }

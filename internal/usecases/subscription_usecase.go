@@ -73,6 +73,10 @@ func (uc *SubscriptionUseCase) CancelSubscription(id uuid.UUID, reason string, c
 	return uc.subscriptionRepo.Update(subscription)
 }
 
+func (uc *SubscriptionUseCase) UpdateSubscription(sub *entities.Subscription) error {
+	return uc.subscriptionRepo.Update(sub)
+}
+
 func (uc *SubscriptionUseCase) GetActiveCount(gymID uuid.UUID) (int64, error) {
 	return uc.subscriptionRepo.CountActiveByGymID(gymID)
 }

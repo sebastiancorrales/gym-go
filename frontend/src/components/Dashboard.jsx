@@ -14,9 +14,11 @@ import SalesTab from './inventory/SalesTab';
 import SalesHistory from './inventory/SalesHistory';
 import ReportsTab from './inventory/ReportsTab';
 import PaymentMethodsManagement from './inventory/PaymentMethodsManagement';
+import GymSettings from './GymSettings';
+import ProfileSettings from './ProfileSettings';
+import NotificationBell from './NotificationBell';
 import { SkeletonKpi } from './SkeletonTable';
-import { fmt, saveCurrencyPrefs, USER_LOCALE, USER_CURRENCY } from '../utils/currency';
-import { COUNTRIES, countryByLocale } from '../utils/countries';
+import { fmt } from '../utils/currency';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 const Icon = ({ path, className = 'w-5 h-5' }) => (
@@ -42,6 +44,7 @@ const ICONS = {
   chevronRight:'M9 5l7 7-7 7',
   bolt:       'M13 10V3L4 14h7v7l9-11h-7z',
   settings:   'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
+  profile:    'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
 };
 
 // ── Nav structure ────────────────────────────────────────────────────────────
@@ -77,6 +80,13 @@ const NAV_GROUPS = [
       { id: 'reports',       label: 'Reportes',  icon: 'reports' },
     ],
   },
+  {
+    label: 'Configuración',
+    items: [
+      { id: 'gym-settings', label: 'Gimnasio',  icon: 'settings' },
+      { id: 'profile',      label: 'Mi Perfil',  icon: 'profile' },
+    ],
+  },
 ];
 
 // ── Stat card ────────────────────────────────────────────────────────────────
@@ -101,10 +111,6 @@ const StatCard = ({ title, value, subtitle, iconPath, gradient }) => (
 export default function Dashboard({ user, onLogout }) {
   const [activeTab, setActiveTab]   = useState('dashboard');
   const [collapsed, setCollapsed]   = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [settingsCountry, setSettingsCountry] = useState(
-    () => countryByLocale(USER_LOCALE)?.code ?? 'CO'
-  );
   const [stats, setStats]           = useState({ activeSubscriptions: 0, todayRevenue: 0, todayAccess: 0, totalMembers: 0 });
   const [loading, setLoading]       = useState(true);
   const [revenueChart, setRevenueChart]   = useState([]);
@@ -305,7 +311,7 @@ export default function Dashboard({ user, onLogout }) {
             </div>
           )}
           <button
-            onClick={() => setShowSettings(true)}
+            onClick={() => setActiveTab('gym-settings')}
             title={collapsed ? 'Configuración' : undefined}
             className={`flex items-center text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors mb-1
               ${collapsed ? 'p-2' : 'w-full space-x-2 px-2 py-2'}`}
@@ -336,7 +342,8 @@ export default function Dashboard({ user, onLogout }) {
               {new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           )}
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
+            <NotificationBell />
             <a
               href="/checkin"
               target="_blank"
@@ -491,56 +498,11 @@ export default function Dashboard({ user, onLogout }) {
           {activeTab === 'sales-history'   && <SalesHistory />}
           {activeTab === 'reports'         && <ReportsTab />}
           {activeTab === 'payment-methods' && <PaymentMethodsManagement user={user} />}
+          {activeTab === 'gym-settings'    && <GymSettings />}
+          {activeTab === 'profile'         && <ProfileSettings user={user} />}
         </main>
       </div>
 
-      {/* ── Settings modal ── */}
-      {showSettings && (() => {
-        const selected = COUNTRIES.find(c => c.code === settingsCountry) || COUNTRIES[0];
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-1">Configuración regional</h2>
-              <p className="text-sm text-gray-500 mb-5">Elige el país de tu gimnasio para ajustar la moneda y el formato de números.</p>
-
-              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-                País y Moneda
-              </label>
-              <select
-                value={settingsCountry}
-                onChange={e => setSettingsCountry(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-gray-900 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
-              >
-                {COUNTRIES.map(c => (
-                  <option key={c.code} value={c.code}>
-                    {c.flag} {c.name} — {c.currency}
-                  </option>
-                ))}
-              </select>
-
-              <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-3 mb-5 text-sm text-gray-600">
-                <span className="text-lg">{selected.flag}</span>
-                <span>Los precios se mostrarán en <strong>{selected.currency}</strong> con formato <strong>{selected.locale}</strong></span>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowSettings(false)}
-                  className="flex-1 py-2.5 border border-gray-200 rounded-xl text-gray-700 text-sm font-medium hover:bg-gray-50 transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={() => saveCurrencyPrefs(selected.locale, selected.currency)}
-                  className="flex-1 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl text-sm font-semibold transition"
-                >
-                  Guardar y recargar
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
     </div>
   );
 }

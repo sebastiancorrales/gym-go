@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import api from '../../utils/api';
 import { fmt } from '../../utils/currency';
+import { exportPDF, exportExcel } from '../../utils/exportReport';
 
 const fmtDate = (str) => {
   const [y, m, d] = str.split('-');
@@ -95,13 +96,27 @@ const Card = ({ title, action, children }) => (
   </div>
 );
 
-const CsvBtn = ({ onClick }) => (
-  <button onClick={onClick} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-    </svg>
-    Exportar CSV
-  </button>
+const ExportBtns = ({ onCSV, onPDF, onExcel }) => (
+  <div className="flex gap-1.5">
+    <button onClick={onCSV} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+      CSV
+    </button>
+    <button onClick={onPDF} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition">
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+      </svg>
+      PDF
+    </button>
+    <button onClick={onExcel} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 border border-green-200 rounded-lg hover:bg-green-50 transition">
+      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      Excel
+    </button>
+  </div>
 );
 
 // ── VENTAS tab ────────────────────────────────────────────────────────────────
@@ -161,7 +176,11 @@ function TabVentas({ dateRange, prevDate, genKey }) {
           </div>
 
           {daily.length > 0 && (
-            <Card title="Ingresos por día" action={<CsvBtn onClick={() => exportCSV(csvData, `ventas_${dateRange.s}_${dateRange.e}.csv`)} />}>
+            <Card title="Ingresos por día" action={<ExportBtns
+              onCSV={() => exportCSV(csvData, `ventas_${dateRange.s}_${dateRange.e}.csv`)}
+              onPDF={() => exportPDF('Reporte de Ventas', ['Fecha', 'Ingresos'], csvData.map(d => [d.Fecha, d.Ingresos]), `ventas_${dateRange.s}_${dateRange.e}`)}
+              onExcel={() => exportExcel('Ventas', ['Fecha', 'Ingresos'], csvData.map(d => [d.Fecha, d.Ingresos]), `ventas_${dateRange.s}_${dateRange.e}`)}
+            />}>
               <div className="p-6">
                 <ResponsiveContainer width="100%" height={260}>
                   <AreaChart data={daily} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
@@ -230,7 +249,11 @@ function TabProductos({ dateRange, genKey }) {
             <EmptyState text="Sin ventas de productos en este período" />
           ) : (
             <>
-              <Card title="Top productos por ingresos" action={<CsvBtn onClick={() => exportCSV(csvData, `productos_${dateRange.s}_${dateRange.e}.csv`)} />}>
+              <Card title="Top productos por ingresos" action={<ExportBtns
+                onCSV={() => exportCSV(csvData, `productos_${dateRange.s}_${dateRange.e}.csv`)}
+                onPDF={() => exportPDF('Reporte de Productos', ['Producto', 'Cantidad', 'Ingresos'], csvData.map(d => [d.Producto, d.Cantidad, d.Ingresos]), `productos_${dateRange.s}_${dateRange.e}`)}
+                onExcel={() => exportExcel('Productos', ['Producto', 'Cantidad', 'Ingresos'], csvData.map(d => [d.Producto, d.Cantidad, d.Ingresos]), `productos_${dateRange.s}_${dateRange.e}`)}
+              />}>
                 <div className="p-6">
                   <ResponsiveContainer width="100%" height={Math.max(200, chartData.length * 40)}>
                     <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
@@ -366,7 +389,11 @@ function TabMembresías({ dateRange, genKey }) {
           </div>
 
           {data.byPlan.length > 0 && (
-            <Card title="Ingresos por plan" action={<CsvBtn onClick={() => exportCSV(csvData, `membresías_${dateRange.s}_${dateRange.e}.csv`)} />}>
+            <Card title="Ingresos por plan" action={<ExportBtns
+              onCSV={() => exportCSV(csvData, `membresías_${dateRange.s}_${dateRange.e}.csv`)}
+              onPDF={() => exportPDF('Reporte de Membresías', ['Usuario', 'Plan', 'Inicio', 'Fin', 'Pagado', 'Estado'], csvData.map(d => [d.Usuario, d.Plan, d.Inicio, d.Fin, d.Pagado, d.Estado]), `membresías_${dateRange.s}_${dateRange.e}`)}
+              onExcel={() => exportExcel('Membresías', ['Usuario', 'Plan', 'Inicio', 'Fin', 'Pagado', 'Estado'], csvData.map(d => [d.Usuario, d.Plan, d.Inicio, d.Fin, d.Pagado, d.Estado]), `membresías_${dateRange.s}_${dateRange.e}`)}
+            />}>
               <div className="p-6">
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={data.byPlan} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
@@ -490,7 +517,11 @@ function TabAccesos({ dateRange, genKey }) {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <Card title="Accesos por día de la semana" action={<CsvBtn onClick={() => exportCSV(csvData, `accesos_${dateRange.s}_${dateRange.e}.csv`)} />}>
+            <Card title="Accesos por día de la semana" action={<ExportBtns
+              onCSV={() => exportCSV(csvData, `accesos_${dateRange.s}_${dateRange.e}.csv`)}
+              onPDF={() => exportPDF('Reporte de Accesos', ['Fecha', 'Hora', 'Usuario', 'Metodo', 'Estado'], csvData.map(d => [d.Fecha, d.Hora, d.Usuario, d.Metodo, d.Estado]), `accesos_${dateRange.s}_${dateRange.e}`)}
+              onExcel={() => exportExcel('Accesos', ['Fecha', 'Hora', 'Usuario', 'Metodo', 'Estado'], csvData.map(d => [d.Fecha, d.Hora, d.Usuario, d.Metodo, d.Estado]), `accesos_${dateRange.s}_${dateRange.e}`)}
+            />}>
               <div className="p-5">
                 <ResponsiveContainer width="100%" height={240}>
                   <BarChart data={data.weekday} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>

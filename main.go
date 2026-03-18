@@ -12,9 +12,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/config"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/handlers"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/email"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/persistence"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/persistence/migrations"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
@@ -102,6 +104,10 @@ func main() {
 	paymentMethodRepo := persistence.NewSQLitePaymentMethodRepository(database.DB)
 	saleRepo := persistence.NewSQLiteSaleRepository(database.DB)
 	saleDetailRepo := persistence.NewSQLiteSaleDetailRepository(database.DB)
+	classRepo := persistence.NewSQLiteClassRepository(database.DB)
+	attendanceRepo := persistence.NewSQLiteAttendanceRepository(database.DB)
+	memberRepo := persistence.NewInMemoryMemberRepository()
+	instructorRepo := persistence.NewInMemoryInstructorRepository()
 
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(userRepo)
@@ -112,6 +118,8 @@ func main() {
 	productUseCase := usecases.NewProductUseCase(productRepo)
 	paymentMethodUseCase := usecases.NewPaymentMethodUseCase(paymentMethodRepo)
 	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo)
+	classUseCase := usecases.NewClassUseCase(classRepo, instructorRepo)
+	attendanceUseCase := usecases.NewAttendanceUseCase(attendanceRepo, memberRepo, classRepo)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, gymRepo, jwtManager)
@@ -122,9 +130,20 @@ func main() {
 	productHandler := handlers.NewProductHandler(productUseCase)
 	paymentMethodHandler := handlers.NewPaymentMethodHandler(paymentMethodUseCase)
 	saleHandler := handlers.NewSaleHandler(saleUseCase)
+	gymHandler := handlers.NewGymHandler(gymRepo)
+	classHandler := handlers.NewClassHandler(classUseCase)
+	attendanceHandler := handlers.NewAttendanceHandler(attendanceUseCase)
 	accessHandler := handlers.NewAccessHandler(accessUseCase)
 	uploadHandler := handlers.NewUploadHandler("./uploads")
 	biometricHandler := handlers.NewBiometricHandler(biometricService)
+	emailSender := email.NewSender(email.Config{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		Username: cfg.SMTP.Username,
+		Password: cfg.SMTP.Password,
+		From:     cfg.SMTP.From,
+	})
+	notificationHandler := handlers.NewNotificationHandler(subscriptionUseCase, userUseCase, planUseCase, gymRepo, emailSender)
 
 	// Setup Gin router
 	if cfg.Server.Environment == "production" {
@@ -192,6 +211,57 @@ func main() {
 			upload.DELETE("/image/:filename", uploadHandler.DeleteImage)
 		}
 
+		// Gym settings routes - Only ADMIN_GYM and SUPER_ADMIN
+		gym := protected.Group("/gym")
+		gym.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		{
+			gym.GET("", gymHandler.Get)
+			gym.PUT("", gymHandler.Update)
+		}
+
+		// Profile route - any authenticated user can change their own password
+		protected.PUT("/auth/password", func(c *gin.Context) {
+			userIDStr := c.GetString("user_id")
+			userID, err := uuid.Parse(userIDStr)
+			if err != nil {
+				c.JSON(400, gin.H{"error": "Invalid user ID"})
+				return
+			}
+
+			var req struct {
+				CurrentPassword string `json:"current_password" binding:"required"`
+				NewPassword     string `json:"new_password" binding:"required,min=6"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(400, gin.H{"error": err.Error()})
+				return
+			}
+
+			user, err := userRepo.FindByID(userID)
+			if err != nil {
+				c.JSON(404, gin.H{"error": "User not found"})
+				return
+			}
+
+			if !security.CheckPassword(req.CurrentPassword, user.PasswordHash) {
+				c.JSON(401, gin.H{"error": "La contraseña actual es incorrecta"})
+				return
+			}
+
+			hashed, err := security.HashPassword(req.NewPassword)
+			if err != nil {
+				c.JSON(500, gin.H{"error": "Failed to hash password"})
+				return
+			}
+			user.PasswordHash = hashed
+			if err := userRepo.Update(user); err != nil {
+				c.JSON(500, gin.H{"error": "Failed to update password"})
+				return
+			}
+
+			c.JSON(200, gin.H{"message": "Contraseña actualizada exitosamente"})
+		})
+
 		// User routes - Only SUPER_ADMIN and ADMIN_GYM can manage users
 		users := protected.Group("/users")
 		users.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
@@ -242,6 +312,35 @@ func main() {
 				biometric.GET("/user/:user_id", biometricHandler.GetUserFingerprints)
 				biometric.DELETE("/:fingerprint_id", biometricHandler.DeleteFingerprint)
 			}
+		}
+
+		// Notification routes
+		notifications := protected.Group("/notifications")
+		notifications.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		{
+			notifications.POST("/send-expiring", notificationHandler.SendExpiringReminders)
+			notifications.POST("/test-email", notificationHandler.TestEmail)
+		}
+
+		// Class routes
+		classes := protected.Group("/classes")
+		classes.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		{
+			classes.GET("", classHandler.ListClasses)
+			classes.POST("", classHandler.CreateClass)
+			classes.GET("/:id", classHandler.GetClass)
+			classes.PUT("/:id/cancel", classHandler.CancelClass)
+			classes.PUT("/:id/start", classHandler.StartClass)
+			classes.PUT("/:id/complete", classHandler.CompleteClass)
+		}
+
+		// Attendance routes
+		attendance := protected.Group("/attendance")
+		attendance.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		{
+			attendance.GET("", attendanceHandler.ListAttendance)
+			attendance.POST("", attendanceHandler.CheckIn)
+			attendance.PUT("/:member_id/checkout", attendanceHandler.CheckOut)
 		}
 
 		// Product routes (inventory) - Multiple roles
