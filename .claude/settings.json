@@ -4,7 +4,10 @@
       "Bash(npm run:*)",
       "Bash(grep -E \"\\\\.\\(go\\)$\")",
       "Bash(go build:*)",
-      "Bash(wc -l /c/Users/sebas/OneDrive/Desktop/gym-go/main.go /c/Users/sebas/OneDrive/Desktop/gym-go/internal/usecases/*.go /c/Users/sebas/OneDrive/Desktop/gym-go/internal/infrastructure/persistence/*.go)"
+      "Bash(wc -l /c/Users/sebas/OneDrive/Desktop/gym-go/main.go /c/Users/sebas/OneDrive/Desktop/gym-go/internal/usecases/*.go /c/Users/sebas/OneDrive/Desktop/gym-go/internal/infrastructure/persistence/*.go)",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\" /c/Users/sebas/OneDrive/Desktop/gym-go --include=*.go --include=*.cs)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r password /c/Users/sebas/OneDrive/Desktop/gym-go/internal/infrastructure/http/handlers --include=*.go)"
     ]
   }
 }

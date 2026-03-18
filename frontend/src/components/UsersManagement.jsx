@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import ImageUpload from './ImageUpload';
 import api from '../utils/api';
 import SkeletonTable from './SkeletonTable';
+import Toast from './Toast';
+import ConfirmDialog from './ConfirmDialog';
 import { fmt } from '../utils/currency';
 
 const FINGER_OPTIONS = [
@@ -33,6 +35,8 @@ export default function UsersManagement() {
   const [enrollStatus, setEnrollStatus] = useState('idle');
   const [enrollMessage, setEnrollMessage] = useState('');
   const [userFingerprints, setUserFingerprints] = useState({});
+  const [toast, setToast] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, onConfirm: null, message: '' });
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -140,18 +144,23 @@ export default function UsersManagement() {
     }
   };
 
-  const deleteFingerprint = async (fingerprintId, userId) => {
-    if (!confirm('¿Estás seguro de eliminar esta huella?')) return;
-    try {
-      const res = await api.delete(`/biometric/${fingerprintId}`);
-      if (res.ok) {
-        loadUserFingerprints(userId);
-      } else {
-        alert('Error al eliminar huella');
-      }
-    } catch {
-      alert('Error de conexión');
-    }
+  const deleteFingerprint = (fingerprintId, userId) => {
+    setConfirmDialog({
+      open: true,
+      message: '¿Estás seguro de eliminar esta huella?',
+      onConfirm: async () => {
+        try {
+          const res = await api.delete(`/biometric/${fingerprintId}`);
+          if (res.ok) {
+            loadUserFingerprints(userId);
+          } else {
+            setToast({ message: 'Error al eliminar huella', type: 'error' });
+          }
+        } catch {
+          setToast({ message: 'Error de conexión', type: 'error' });
+        }
+      },
+    });
   };
 
   const openEnrollModal = (user) => {
@@ -184,7 +193,7 @@ export default function UsersManagement() {
       }
     } catch (error) {
       console.error('Error fetching users:', error);
-      alert(error.message);
+      setToast({ message: error.message || 'Error al cargar usuarios', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -233,10 +242,10 @@ export default function UsersManagement() {
         setShowPlanStep(true);
       } else {
         const err = await response.json();
-        alert(err.error || 'Error al crear miembro');
+        setToast({ message: err.error || 'Error al crear miembro', type: 'error' });
       }
     } catch (error) {
-      alert(error.message || 'Error al crear miembro');
+      setToast({ message: error.message || 'Error al crear miembro', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -253,10 +262,10 @@ export default function UsersManagement() {
       });
       if (!res.ok) {
         const err = await res.json();
-        alert(err.error || 'Error al asignar plan');
+        setToast({ message: err.error || 'Error al asignar plan', type: 'error' });
       }
     } catch (err) {
-      alert(err.message || 'Error al asignar plan');
+      setToast({ message: err.message || 'Error al asignar plan', type: 'error' });
     } finally {
       setAssigningPlan(false);
       setShowPlanStep(false);
@@ -334,11 +343,11 @@ export default function UsersManagement() {
         fetchUsers();
       } else {
         const error = await response.json();
-        alert(error.error || 'Error al actualizar usuario');
+        setToast({ message: error.error || 'Error al actualizar usuario', type: 'error' });
       }
     } catch (error) {
       console.error('Error updating user:', error);
-      alert('Error al actualizar usuario');
+      setToast({ message: 'Error al actualizar usuario', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -394,7 +403,7 @@ export default function UsersManagement() {
               setFormStep(1);
             }
           }}
-          className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg"
+          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 shadow-lg"
         >
           {showForm ? 'Cancelar' : '+ Nuevo Usuario'}
         </button>
@@ -410,19 +419,19 @@ export default function UsersManagement() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
                 <input type="text" required autoFocus value={formData.firstName}
                   onChange={e => setFormData({ ...formData, firstName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
                 <input type="text" required value={formData.lastName}
                   onChange={e => setFormData({ ...formData, lastName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
                 <select required value={formData.documentType}
                   onChange={e => setFormData({ ...formData, documentType: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
                   {documentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
@@ -430,13 +439,13 @@ export default function UsersManagement() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
                 <input type="text" required value={formData.documentNumber}
                   onChange={e => setFormData({ ...formData, documentNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                 <input type="tel" value={formData.phone}
                   onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
               </div>
             </div>
             <div className="flex justify-end gap-3 pt-3 border-t">
@@ -445,7 +454,7 @@ export default function UsersManagement() {
                 Cancelar
               </button>
               <button type="submit" disabled={loading}
-                className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg text-sm font-medium disabled:opacity-50">
+                className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-lg text-sm font-medium disabled:opacity-50">
                 {loading ? 'Registrando...' : 'Registrar Miembro'}
               </button>
             </div>
@@ -475,12 +484,12 @@ export default function UsersManagement() {
                   {plans.map(plan => (
                     <label key={plan.id}
                       className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition
-                        ${selectedPlanId === plan.id ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                        ${selectedPlanId === plan.id ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
                       <div className="flex items-center gap-3">
                         <input type="radio" name="plan" value={plan.id}
                           checked={selectedPlanId === plan.id}
                           onChange={() => setSelectedPlanId(plan.id)}
-                          className="accent-purple-600" />
+                          className="accent-emerald-600" />
                         <div>
                           <p className="text-sm font-medium text-gray-800">{plan.name}</p>
                           <p className="text-xs text-gray-400">{plan.duration_days} días</p>
@@ -498,7 +507,7 @@ export default function UsersManagement() {
                     Omitir
                   </button>
                   <button onClick={handleAssignPlan} disabled={!selectedPlanId || assigningPlan}
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:from-purple-700 hover:to-blue-700">
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:from-emerald-600 hover:to-cyan-600">
                     {assigningPlan ? 'Asignando...' : 'Asignar Plan'}
                   </button>
                 </div>
@@ -525,10 +534,10 @@ export default function UsersManagement() {
               <div key={n} className="flex items-center flex-1 last:flex-none">
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
-                    ${formStep === n ? 'bg-purple-600 text-white' : formStep > n ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                    ${formStep === n ? 'bg-emerald-600 text-white' : formStep > n ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
                     {formStep > n ? '✓' : n}
                   </div>
-                  <span className={`text-xs font-medium hidden sm:inline ${formStep === n ? 'text-purple-600' : 'text-gray-400'}`}>{label}</span>
+                  <span className={`text-xs font-medium hidden sm:inline ${formStep === n ? 'text-emerald-600' : 'text-gray-400'}`}>{label}</span>
                 </div>
                 {idx < arr.length - 1 && <div className={`flex-1 h-0.5 mx-2 ${formStep > n ? 'bg-green-400' : 'bg-gray-200'}`} />}
               </div>
@@ -544,36 +553,36 @@ export default function UsersManagement() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
                     <input type="text" required value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
                     <input type="text" required value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
                     <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
                       {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
                     <select required value={formData.documentType} onChange={e => setFormData({ ...formData, documentType: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
                       {documentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
                     <input type="text" required value={formData.documentNumber} onChange={e => setFormData({ ...formData, documentNumber: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento</label>
                     <input type="date" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                   </div>
                 </div>
               </div>
@@ -585,33 +594,33 @@ export default function UsersManagement() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                     <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
                     <input type="text" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
                     <input type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Contacto Emergencia</label>
                     <input type="text" value={formData.emergencyContactName} onChange={e => setFormData({ ...formData, emergencyContactName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tel. Emergencia</label>
                     <input type="tel" value={formData.emergencyContactPhone} onChange={e => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
                   <textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} rows="2"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     placeholder="Información adicional..." />
                 </div>
               </div>
@@ -624,12 +633,12 @@ export default function UsersManagement() {
               </button>
               {formStep < 2 ? (
                 <button type="button" onClick={() => setFormStep(2)}
-                  className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg text-sm font-medium">
+                  className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-lg text-sm font-medium">
                   Siguiente →
                 </button>
               ) : (
                 <button type="submit" disabled={loading}
-                  className="px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg text-sm font-medium disabled:opacity-50">
+                  className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-lg text-sm font-medium disabled:opacity-50">
                   {loading ? 'Guardando...' : 'Guardar Cambios'}
                 </button>
               )}
@@ -649,7 +658,7 @@ export default function UsersManagement() {
             placeholder="Buscar por nombre, documento o email..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           />
         </div>
       </div>
@@ -715,7 +724,7 @@ export default function UsersManagement() {
                             className="h-10 w-10 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-purple-400 to-blue-400 flex items-center justify-center text-white font-bold">
+                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 flex items-center justify-center text-white font-bold">
                             {user.first_name?.[0]}{user.last_name?.[0]}
                           </div>
                         )}
@@ -767,7 +776,7 @@ export default function UsersManagement() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => handleEdit(user)}
-                      className="text-indigo-600 hover:text-indigo-900 mr-3"
+                      className="text-emerald-600 hover:text-emerald-900 mr-3"
                       title="Editar"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -824,7 +833,7 @@ export default function UsersManagement() {
               <select
                 value={fingerIndex}
                 onChange={(e) => setFingerIndex(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                 disabled={enrollStatus === 'enrolling'}
               >
                 {FINGER_OPTIONS.map(opt => (
@@ -873,6 +882,20 @@ export default function UsersManagement() {
           </div>
         </div>
       )}
+
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
+
+      <ConfirmDialog
+        isOpen={confirmDialog.open}
+        onClose={() => setConfirmDialog({ open: false, onConfirm: null, message: '' })}
+        onConfirm={confirmDialog.onConfirm}
+        title="Eliminar huella"
+        message={confirmDialog.message}
+        confirmText="Eliminar"
+        variant="danger"
+      />
     </div>
   );
 }

@@ -80,17 +80,19 @@ const NAV_GROUPS = [
 ];
 
 // ── Stat card ────────────────────────────────────────────────────────────────
-const StatCard = ({ title, value, subtitle, iconPath, bgColor, textColor }) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm text-gray-500 mb-1">{title}</p>
-        <p className={`text-3xl font-bold ${textColor}`}>{value}</p>
-        {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
+const StatCard = ({ title, value, subtitle, iconPath, gradient }) => (
+  <div className={`relative overflow-hidden rounded-2xl p-6 text-white ${gradient} shadow-lg hover:shadow-xl transition-all hover:-translate-y-0.5`}>
+    <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-6 translate-x-6" />
+    <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-4 -translate-x-4" />
+    <div className="relative z-10">
+      <div className="flex items-center justify-between mb-3">
+        <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+          <Icon path={iconPath} className="w-5 h-5 text-white" />
+        </div>
       </div>
-      <div className={`w-12 h-12 ${bgColor} rounded-xl flex items-center justify-center`}>
-        <Icon path={iconPath} className={`w-6 h-6 ${textColor}`} />
-      </div>
+      <p className="text-3xl font-extrabold tracking-tight">{value}</p>
+      <p className="text-sm font-medium text-white/90 mt-1">{title}</p>
+      {subtitle && <p className="text-xs text-white/60 mt-0.5">{subtitle}</p>}
     </div>
   </div>
 );
@@ -215,22 +217,22 @@ export default function Dashboard({ user, onLogout }) {
 
       {/* ── Sidebar ── */}
       <aside
-        className={`flex flex-col bg-gray-900 text-white transition-all duration-300 ease-in-out flex-shrink-0
+        className={`flex flex-col bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 text-white transition-all duration-300 ease-in-out flex-shrink-0
           ${collapsed ? 'w-16' : 'w-60'}`}
       >
         {/* Brand */}
-        <div className={`flex items-center h-16 px-4 border-b border-gray-700 flex-shrink-0
+        <div className={`flex items-center h-16 px-4 border-b border-white/10 flex-shrink-0
           ${collapsed ? 'justify-center' : 'justify-between'}`}>
           {!collapsed && (
             <div className="flex items-center space-x-2 min-w-0">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/20">
                 <Icon path={ICONS.bolt} className="w-4 h-4 text-white" />
               </div>
-              <span className="font-bold text-white truncate">Gym-Go</span>
+              <span className="font-extrabold text-white truncate tracking-tight">Gym-Go</span>
             </div>
           )}
           {collapsed && (
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
               <Icon path={ICONS.bolt} className="w-4 h-4 text-white" />
             </div>
           )}
@@ -269,11 +271,11 @@ export default function Dashboard({ user, onLogout }) {
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
                     title={collapsed ? item.label : undefined}
-                    className={`w-full flex items-center rounded-lg transition-colors mb-0.5
+                    className={`w-full flex items-center rounded-lg transition-all duration-200 mb-0.5
                       ${collapsed ? 'justify-center p-3' : 'space-x-3 px-3 py-2.5'}
                       ${active
-                        ? 'bg-blue-600 text-white'
-                        : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                        ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-md shadow-emerald-500/20'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
                       }`}
                   >
                     <Icon path={ICONS[item.icon]} className="w-5 h-5 flex-shrink-0" />
@@ -288,24 +290,24 @@ export default function Dashboard({ user, onLogout }) {
         </nav>
 
         {/* User + Logout */}
-        <div className={`border-t border-gray-700 p-3 flex-shrink-0 ${collapsed ? 'flex flex-col items-center gap-2' : ''}`}>
+        <div className={`border-t border-white/10 p-3 flex-shrink-0 ${collapsed ? 'flex flex-col items-center gap-2' : ''}`}>
           {!collapsed && (
             <div className="flex items-center space-x-3 mb-3 min-w-0">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-md shadow-emerald-500/20">
                 <span className="text-white text-xs font-bold">
                   {user.first_name?.[0]}{user.last_name?.[0]}
                 </span>
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-white truncate">{user.first_name} {user.last_name}</p>
-                <p className="text-xs text-gray-400 truncate">{user.role}</p>
+                <p className="text-xs text-slate-400 truncate">{user.role}</p>
               </div>
             </div>
           )}
           <button
             onClick={() => setShowSettings(true)}
             title={collapsed ? 'Configuración' : undefined}
-            className={`flex items-center text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors mb-1
+            className={`flex items-center text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors mb-1
               ${collapsed ? 'p-2' : 'w-full space-x-2 px-2 py-2'}`}
           >
             <Icon path={ICONS.settings} className="w-5 h-5 flex-shrink-0" />
@@ -314,7 +316,7 @@ export default function Dashboard({ user, onLogout }) {
           <button
             onClick={handleLogout}
             title={collapsed ? 'Cerrar Sesión' : undefined}
-            className={`flex items-center text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors
+            className={`flex items-center text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors
               ${collapsed ? 'p-2' : 'w-full space-x-2 px-2 py-2'}`}
           >
             <Icon path={ICONS.logout} className="w-5 h-5 flex-shrink-0" />
@@ -327,11 +329,11 @@ export default function Dashboard({ user, onLogout }) {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Top bar */}
-        <header className="bg-white border-b border-gray-200 h-16 flex items-center px-6 flex-shrink-0">
-          <h1 className="text-lg font-semibold text-gray-800">{activeLabel}</h1>
+        <header className="bg-white/80 backdrop-blur-lg border-b border-gray-100 h-16 flex items-center px-6 flex-shrink-0">
+          <h1 className="text-lg font-bold text-gray-900">{activeLabel}</h1>
           {activeTab === 'dashboard' && (
             <p className="ml-3 text-sm text-gray-400 hidden sm:block">
-              — {new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           )}
           <div className="ml-auto">
@@ -339,7 +341,7 @@ export default function Dashboard({ user, onLogout }) {
               href="/checkin"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white text-sm font-medium rounded-xl transition"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white text-sm font-semibold rounded-xl transition shadow-md shadow-emerald-500/20"
             >
               <Icon path={ICONS.access} className="w-4 h-4" />
               <span className="hidden sm:inline">Check-In Kiosk</span>
@@ -367,18 +369,18 @@ export default function Dashboard({ user, onLogout }) {
                   Array.from({ length: 4 }).map((_, i) => <SkeletonKpi key={i} />)
                 ) : (
                   <>
-                    <StatCard title="Suscripciones Activas" value={stats.activeSubscriptions} subtitle="Miembros con plan activo" iconPath={ICONS.users}   bgColor="bg-blue-50"   textColor="text-blue-600" />
-                    <StatCard title="Ingresos de Hoy"       value={fmt(stats.todayRevenue)} subtitle="Pagos recibidos hoy" iconPath={ICONS.payment} bgColor="bg-green-50"  textColor="text-green-600" />
-                    <StatCard title="Accesos Hoy"           value={stats.todayAccess}         subtitle="Entradas registradas" iconPath={ICONS.access}   bgColor="bg-purple-50" textColor="text-purple-600" />
-                    <StatCard title="Total Miembros"        value={stats.totalMembers}         subtitle="Miembros registrados" iconPath={ICONS.users}   bgColor="bg-orange-50" textColor="text-orange-600" />
+                    <StatCard title="Suscripciones Activas" value={stats.activeSubscriptions} subtitle="Miembros con plan activo" iconPath={ICONS.users}   gradient="bg-gradient-to-br from-blue-500 to-blue-700" />
+                    <StatCard title="Ingresos de Hoy"       value={fmt(stats.todayRevenue)} subtitle="Pagos recibidos hoy" iconPath={ICONS.payment} gradient="bg-gradient-to-br from-emerald-500 to-emerald-700" />
+                    <StatCard title="Accesos Hoy"           value={stats.todayAccess}         subtitle="Entradas registradas" iconPath={ICONS.access}   gradient="bg-gradient-to-br from-violet-500 to-violet-700" />
+                    <StatCard title="Total Miembros"        value={stats.totalMembers}         subtitle="Miembros registrados" iconPath={ICONS.users}   gradient="bg-gradient-to-br from-amber-500 to-orange-600" />
                   </>
                 )}
               </div>
 
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Ingresos — últimos 7 días</h3>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <h3 className="text-sm font-bold text-gray-900 mb-4">Ingresos - ultimos 7 dias</h3>
                   <ResponsiveContainer width="100%" height={180}>
                     <AreaChart data={revenueChart} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                       <defs>
@@ -399,8 +401,8 @@ export default function Dashboard({ user, onLogout }) {
                   </ResponsiveContainer>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-4">Accesos — últimos 7 días</h3>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <h3 className="text-sm font-bold text-gray-900 mb-4">Accesos - ultimos 7 dias</h3>
                   <ResponsiveContainer width="100%" height={180}>
                     <BarChart data={accessChart} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
@@ -417,23 +419,23 @@ export default function Dashboard({ user, onLogout }) {
               </div>
 
               {/* Quick actions */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-                <h3 className="text-base font-semibold text-gray-800 mb-4">Acciones Rápidas</h3>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <h3 className="text-base font-bold text-gray-900 mb-4">Acciones Rapidas</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
-                    { label: 'Nuevo Usuario',       tab: 'users',         icon: 'users',   bg: 'bg-blue-50',   hover: 'hover:bg-blue-100',   color: 'bg-blue-500' },
-                    { label: 'Nueva Suscripción',   tab: 'subscriptions', icon: 'subs',    bg: 'bg-green-50',  hover: 'hover:bg-green-100',  color: 'bg-green-500' },
-                    { label: 'Gestionar Planes',    tab: 'plans',         icon: 'plans',   bg: 'bg-purple-50', hover: 'hover:bg-purple-100', color: 'bg-purple-500' },
-                  ].map(({ label, tab, icon, bg, hover, color }) => (
+                    { label: 'Nuevo Usuario',       tab: 'users',         icon: 'users',   gradient: 'from-blue-500 to-blue-600' },
+                    { label: 'Nueva Suscripcion',   tab: 'subscriptions', icon: 'subs',    gradient: 'from-emerald-500 to-emerald-600' },
+                    { label: 'Gestionar Planes',    tab: 'plans',         icon: 'plans',   gradient: 'from-violet-500 to-violet-600' },
+                  ].map(({ label, tab, icon, gradient }) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`flex items-center space-x-3 p-4 ${bg} ${hover} rounded-lg transition-colors text-left`}
+                      className="flex items-center space-x-3 p-4 bg-gray-50 hover:bg-gray-100 rounded-xl transition-all text-left group"
                     >
-                      <div className={`w-9 h-9 ${color} rounded-lg flex items-center justify-center flex-shrink-0`}>
+                      <div className={`w-10 h-10 bg-gradient-to-br ${gradient} rounded-xl flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-105 transition-transform`}>
                         <Icon path={ICONS[icon]} className="w-5 h-5 text-white" />
                       </div>
-                      <span className="font-medium text-gray-700 text-sm">{label}</span>
+                      <span className="font-semibold text-gray-700 text-sm">{label}</span>
                     </button>
                   ))}
                 </div>
@@ -441,32 +443,35 @@ export default function Dashboard({ user, onLogout }) {
 
               {/* Recent access feed */}
               {recentAccess.length > 0 && (
-                <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-base font-semibold text-gray-800">Accesos Recientes</h3>
-                    <button onClick={() => setActiveTab('access')} className="text-xs text-blue-600 hover:underline">Ver todos →</button>
+                    <h3 className="text-base font-bold text-gray-900">Accesos Recientes</h3>
+                    <button onClick={() => setActiveTab('access')} className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition">Ver todos &rarr;</button>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     {recentAccess.map((entry, i) => {
                       const name = entry.user
                         ? `${entry.user.first_name || ''} ${entry.user.last_name || ''}`.trim()
                         : (entry.user_id ? `Usuario #${entry.user_id}` : 'Desconocido');
                       const time = new Date(entry.timestamp || entry.created_at);
-                      const method = entry.method === 'FINGERPRINT' ? '🖐' : '🪪';
+                      const isFingerprint = entry.method === 'FINGERPRINT';
                       return (
-                        <div key={entry.id || i} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                        <div key={entry.id || i} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-gray-50 transition-colors">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center text-xs font-bold text-purple-700">
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center text-xs font-bold text-emerald-700">
                               {name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() || '?'}
                             </div>
                             <div>
-                              <p className="text-sm font-medium text-gray-800">{name}</p>
-                              <p className="text-xs text-gray-400">{method} {entry.method === 'FINGERPRINT' ? 'Huella' : 'Manual'}</p>
+                              <p className="text-sm font-semibold text-gray-800">{name}</p>
+                              <p className="text-xs text-gray-400">{isFingerprint ? 'Huella digital' : 'Manual'}</p>
                             </div>
                           </div>
-                          <span className="text-xs text-gray-400">
-                            {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
-                          </span>
+                          <div className="text-right">
+                            <span className="text-xs font-medium text-gray-500">
+                              {time.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <div className={`mt-0.5 w-2 h-2 rounded-full ml-auto ${entry.status === 'GRANTED' ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                          </div>
                         </div>
                       );
                     })}

@@ -228,32 +228,32 @@ export default function MembersTab() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
               <input type="text" name="first_name" value={formData.first_name} onChange={handleChange} required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Apellido *</label>
               <input type="text" name="last_name" value={formData.last_name} onChange={handleChange} required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
               <input type="email" name="email" value={formData.email} onChange={handleChange} required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
               <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Fecha de Nacimiento *</label>
               <input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
             </div>
           </div>
 
           <button type="submit"
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+            className="w-full bg-gradient-to-r from-emerald-500 to-cyan-500 text-white py-3 px-4 rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-colors font-medium">
             Registrar Miembro
           </button>
         </form>
@@ -359,7 +359,7 @@ export default function MembersTab() {
               <select
                 value={fingerIndex}
                 onChange={(e) => setFingerIndex(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
                 disabled={enrollStatus === 'enrolling'}
               >
                 {FINGER_OPTIONS.map(opt => (
@@ -417,27 +417,27 @@ export default function MembersTab() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
                   <input type="text" name="first_name" value={editFormData.first_name} onChange={handleEditChange} required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Apellido *</label>
                   <input type="text" name="last_name" value={editFormData.last_name} onChange={handleEditChange} required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
                   <input type="email" name="email" value={editFormData.email} onChange={handleEditChange} required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
                   <input type="tel" name="phone" value={editFormData.phone} onChange={handleEditChange} required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Fecha de Nacimiento *</label>
                   <input type="date" name="date_of_birth" value={editFormData.date_of_birth} onChange={handleEditChange} required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
                 </div>
               </div>
 
@@ -479,7 +479,7 @@ export default function MembersTab() {
 
               <div className="flex gap-3 pt-2">
                 <button type="submit"
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                  className="flex-1 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white py-2 px-4 rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-colors font-medium">
                   Guardar Cambios
                 </button>
                 <button type="button" onClick={() => setEditingMember(null)}

@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import api from '../../utils/api';
+import Toast from '../Toast';
+import ConfirmDialog from '../ConfirmDialog';
+import Modal from '../Modal';
 import { fmt } from '../../utils/currency';
 
 export default function ProductsManagement() {
@@ -8,6 +11,11 @@ export default function ProductsManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, onConfirm: null, message: '' });
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [stockProduct, setStockProduct] = useState(null);
+  const [newStock, setNewStock] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -95,43 +103,57 @@ export default function ProductsManagement() {
 
       if (response.ok) {
         setShowModal(false);
+        setToast({ message: editingProduct ? 'Producto actualizado' : 'Producto creado exitosamente', type: 'success' });
         fetchProducts();
       } else {
         const error = await response.json();
-        alert(error.error || 'Error al guardar el producto');
+        setToast({ message: error.error || 'Error al guardar el producto', type: 'error' });
       }
     } catch (error) {
       console.error('Error saving product:', error);
-      alert('Error al guardar el producto');
+      setToast({ message: 'Error al guardar el producto', type: 'error' });
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este producto?')) return;
-
-    try {
-      const response = await api.delete(`/products/${id}`);
-      if (response.ok) {
-        fetchProducts();
-      }
-    } catch (error) {
-      console.error('Error deleting product:', error);
-    }
+  const handleDelete = (id) => {
+    setConfirmDialog({
+      open: true,
+      message: '¿Estás seguro de eliminar este producto? Esta acción no se puede deshacer.',
+      onConfirm: async () => {
+        try {
+          const response = await api.delete(`/products/${id}`);
+          if (response.ok) {
+            setToast({ message: 'Producto eliminado', type: 'success' });
+            fetchProducts();
+          }
+        } catch (error) {
+          console.error('Error deleting product:', error);
+          setToast({ message: 'Error al eliminar producto', type: 'error' });
+        }
+      },
+    });
   };
 
-  const updateStock = async (id, currentStock) => {
-    const newStock = prompt(`Stock actual: ${currentStock}\nIngrese nuevo stock:`, currentStock);
-    if (newStock === null) return;
+  const openStockModal = (product) => {
+    setStockProduct(product);
+    setNewStock(String(product.stock));
+    setShowStockModal(true);
+  };
 
+  const handleUpdateStock = async () => {
+    if (!stockProduct) return;
     try {
-      const response = await api.patch(`/products/${id}/stock`, {
+      const response = await api.patch(`/products/${stockProduct.id}/stock`, {
         stock: parseInt(newStock)
       });
       if (response.ok) {
+        setToast({ message: 'Stock actualizado', type: 'success' });
+        setShowStockModal(false);
         fetchProducts();
       }
     } catch (error) {
       console.error('Error updating stock:', error);
+      setToast({ message: 'Error al actualizar stock', type: 'error' });
     }
   };
 
@@ -155,7 +177,7 @@ export default function ProductsManagement() {
         </div>
         <button
           onClick={openCreateModal}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2"
+          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition flex items-center space-x-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -172,7 +194,7 @@ export default function ProductsManagement() {
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder="Buscar productos por nombre..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           />
           <svg
             className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -189,7 +211,7 @@ export default function ProductsManagement() {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
             <p className="text-gray-600 mt-4">Cargando productos...</p>
           </div>
         ) : products.length === 0 ? (
@@ -254,8 +276,8 @@ export default function ProductsManagement() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => updateStock(product.id, product.stock)}
-                          className="text-blue-600 hover:text-blue-900 font-medium"
+                          onClick={() => openStockModal(product)}
+                          className="text-emerald-600 hover:text-emerald-900 font-medium"
                           title="Actualizar stock"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -264,7 +286,7 @@ export default function ProductsManagement() {
                         </button>
                         <button
                           onClick={() => openEditModal(product)}
-                          className="text-indigo-600 hover:text-indigo-900 font-medium"
+                          className="text-emerald-600 hover:text-emerald-900 font-medium"
                           title="Editar"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -308,7 +330,7 @@ export default function ProductsManagement() {
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
 
@@ -320,7 +342,7 @@ export default function ProductsManagement() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
 
@@ -335,7 +357,7 @@ export default function ProductsManagement() {
                     min="0"
                     value={formData.unit_price}
                     onChange={(e) => setFormData({ ...formData, unit_price: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
 
@@ -349,7 +371,7 @@ export default function ProductsManagement() {
                     min="0"
                     value={formData.stock}
                     onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
 
@@ -360,7 +382,7 @@ export default function ProductsManagement() {
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   >
                     <option value="active">Activo</option>
                     <option value="inactive">Inactivo</option>
@@ -377,7 +399,7 @@ export default function ProductsManagement() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition"
                   >
                     {editingProduct ? 'Actualizar' : 'Crear'}
                   </button>
@@ -386,6 +408,61 @@ export default function ProductsManagement() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Stock Update Modal */}
+      <Modal
+        isOpen={showStockModal && !!stockProduct}
+        onClose={() => setShowStockModal(false)}
+        title="Actualizar Stock"
+        maxWidth="sm"
+      >
+        {stockProduct && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Producto: <span className="font-semibold text-gray-900">{stockProduct.name}</span>
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nuevo Stock</label>
+              <input
+                type="number"
+                min="0"
+                value={newStock}
+                onChange={(e) => setNewStock(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowStockModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleUpdateStock}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition"
+              >
+                Actualizar
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        isOpen={confirmDialog.open}
+        onClose={() => setConfirmDialog({ open: false, onConfirm: null, message: '' })}
+        onConfirm={confirmDialog.onConfirm}
+        title="Eliminar producto"
+        message={confirmDialog.message}
+        confirmText="Eliminar"
+        variant="danger"
+      />
+
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
     </div>
   );

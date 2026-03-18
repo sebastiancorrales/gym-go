@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import api from '../../utils/api';
+import Toast from '../Toast';
+import ConfirmDialog from '../ConfirmDialog';
 
 export default function PaymentMethodsManagement({ user }) {
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingMethod, setEditingMethod] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, onConfirm: null, message: '' });
   const [formData, setFormData] = useState({
     name: '',
     type: 'cash',
@@ -64,32 +68,38 @@ export default function PaymentMethodsManagement({ user }) {
 
       if (response.ok) {
         setShowModal(false);
+        setToast({ message: editingMethod ? 'Método actualizado' : 'Método creado exitosamente', type: 'success' });
         fetchPaymentMethods();
       } else {
         const error = await response.json();
-        alert(error.error || 'Error al guardar el método de pago');
+        setToast({ message: error.error || 'Error al guardar el método de pago', type: 'error' });
       }
     } catch (error) {
       console.error('Error saving payment method:', error);
-      alert('Error al guardar el método de pago');
+      setToast({ message: 'Error al guardar el método de pago', type: 'error' });
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('¿Estás seguro de eliminar este método de pago?')) return;
-
-    try {
-      const response = await api.delete(`/payment-methods/${id}`);
-      if (response.ok) {
-        fetchPaymentMethods();
-      } else {
-        const error = await response.json();
-        alert(error.error || 'Error al eliminar el método de pago');
-      }
-    } catch (error) {
-      console.error('Error deleting payment method:', error);
-      alert('Error al eliminar el método de pago');
-    }
+  const handleDelete = (id) => {
+    setConfirmDialog({
+      open: true,
+      message: '¿Estás seguro de eliminar este método de pago?',
+      onConfirm: async () => {
+        try {
+          const response = await api.delete(`/payment-methods/${id}`);
+          if (response.ok) {
+            setToast({ message: 'Método de pago eliminado', type: 'success' });
+            fetchPaymentMethods();
+          } else {
+            const error = await response.json();
+            setToast({ message: error.error || 'Error al eliminar el método de pago', type: 'error' });
+          }
+        } catch (error) {
+          console.error('Error deleting payment method:', error);
+          setToast({ message: 'Error al eliminar el método de pago', type: 'error' });
+        }
+      },
+    });
   };
 
   const getTypeLabel = (type) => {
@@ -134,7 +144,7 @@ export default function PaymentMethodsManagement({ user }) {
         </div>
         <button
           onClick={openCreateModal}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2"
+          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition flex items-center space-x-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -147,7 +157,7 @@ export default function PaymentMethodsManagement({ user }) {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
             <p className="text-gray-600 mt-4">Cargando métodos de pago...</p>
           </div>
         ) : paymentMethods.length === 0 ? (
@@ -197,7 +207,7 @@ export default function PaymentMethodsManagement({ user }) {
                       <div className="flex items-center space-x-3">
                         <button
                           onClick={() => openEditModal(method)}
-                          className="text-indigo-600 hover:text-indigo-900 font-medium"
+                          className="text-emerald-600 hover:text-emerald-900 font-medium"
                           title="Editar"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -242,7 +252,7 @@ export default function PaymentMethodsManagement({ user }) {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Ej: Efectivo, Tarjeta de Débito, etc."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
 
@@ -253,7 +263,7 @@ export default function PaymentMethodsManagement({ user }) {
                   <select
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     required
                   >
                     <option value="cash">💵 Efectivo</option>
@@ -269,7 +279,7 @@ export default function PaymentMethodsManagement({ user }) {
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   >
                     <option value="active">Activo</option>
                     <option value="inactive">Inactivo</option>
@@ -286,7 +296,7 @@ export default function PaymentMethodsManagement({ user }) {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition"
                   >
                     {editingMethod ? 'Actualizar' : 'Crear'}
                   </button>
@@ -295,6 +305,20 @@ export default function PaymentMethodsManagement({ user }) {
             </div>
           </div>
         </div>
+      )}
+
+      <ConfirmDialog
+        isOpen={confirmDialog.open}
+        onClose={() => setConfirmDialog({ open: false, onConfirm: null, message: '' })}
+        onConfirm={confirmDialog.onConfirm}
+        title="Eliminar método de pago"
+        message={confirmDialog.message}
+        confirmText="Eliminar"
+        variant="danger"
+      />
+
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
     </div>
   );

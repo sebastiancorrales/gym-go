@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { applyGymPrefs } from '../utils/currency';
 
 export default function Login({ onLoginSuccess, onShowRegister }) {
-  const [email, setEmail]       = useState('admin@gym-go.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
@@ -37,26 +37,26 @@ export default function Login({ onLoginSuccess, onShowRegister }) {
     <div className="min-h-screen flex bg-gray-50">
 
       {/* ── Left panel ── */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gray-900 flex-col justify-between p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 flex-col justify-between p-12 relative overflow-hidden">
         {/* Background glow */}
-        <div className="absolute top-0 left-0 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none" />
+        <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-500/15 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-500/15 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none" />
 
         {/* Brand */}
         <div className="relative z-10 flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+          <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <span className="text-white font-bold text-xl tracking-tight">Gym-Go</span>
+          <span className="text-white font-extrabold text-xl tracking-tight">Gym-Go</span>
         </div>
 
         {/* Center content */}
         <div className="relative z-10 space-y-6">
           <h2 className="text-4xl font-bold text-white leading-tight">
             Gestiona tu<br />gimnasio desde<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
               un solo lugar
             </span>
           </h2>
@@ -66,8 +66,8 @@ export default function Login({ onLoginSuccess, onShowRegister }) {
 
           {/* Feature pills */}
           <div className="flex flex-wrap gap-2 pt-2">
-            {['Acceso biométrico', 'Control de stock', 'Reportes', 'Check-in kiosk'].map(f => (
-              <span key={f} className="px-3 py-1.5 bg-white/10 text-gray-300 text-xs font-medium rounded-full border border-white/10">
+            {['Acceso biometrico', 'Control de stock', 'Reportes', 'Check-in kiosk'].map(f => (
+              <span key={f} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-300 text-xs font-medium rounded-full border border-emerald-500/20">
                 {f}
               </span>
             ))}
@@ -84,7 +84,7 @@ export default function Login({ onLoginSuccess, onShowRegister }) {
 
           {/* Mobile brand */}
           <div className="flex items-center space-x-3 mb-8 lg:hidden">
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <div className="w-9 h-9 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-xl flex items-center justify-center">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
@@ -162,7 +162,7 @@ export default function Login({ onLoginSuccess, onShowRegister }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"
+              className="w-full py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white font-semibold rounded-xl transition shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

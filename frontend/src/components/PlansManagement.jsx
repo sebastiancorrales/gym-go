@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import api from '../utils/api';
+import Toast from './Toast';
 import { fmt } from '../utils/currency';
 
 export default function PlansManagement() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [toast, setToast] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -20,13 +23,7 @@ export default function PlansManagement() {
   const fetchPlans = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8080/api/v1/plans', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
+      const response = await api.get('/plans');
       if (response.ok) {
         const data = await response.json();
         setPlans(data || []);
@@ -41,40 +38,26 @@ export default function PlansManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8080/api/v1/plans', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...formData,
-          duration_days: parseInt(formData.duration_days),
-          price: parseFloat(formData.price),
-          enrollment_fee: parseFloat(formData.enrollment_fee)
-        })
+      const response = await api.post('/plans', {
+        ...formData,
+        duration_days: parseInt(formData.duration_days),
+        price: parseFloat(formData.price),
+        enrollment_fee: parseFloat(formData.enrollment_fee)
       });
 
       if (response.ok) {
         setShowForm(false);
-        setFormData({
-          name: '',
-          description: '',
-          duration_days: 30,
-          price: 0,
-          enrollment_fee: 0
-        });
+        setFormData({ name: '', description: '', duration_days: 30, price: 0, enrollment_fee: 0 });
+        setToast({ message: 'Plan creado exitosamente', type: 'success' });
         fetchPlans();
       } else {
         const error = await response.json();
-        alert(error.error || 'Error al crear plan');
+        setToast({ message: error.error || 'Error al crear plan', type: 'error' });
       }
     } catch (error) {
       console.error('Error creating plan:', error);
-      alert('Error al crear plan');
+      setToast({ message: 'Error al crear plan', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -89,7 +72,7 @@ export default function PlansManagement() {
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg"
+          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 shadow-lg"
         >
           {showForm ? 'Cancelar' : '+ Nuevo Plan'}
         </button>
@@ -108,7 +91,7 @@ export default function PlansManagement() {
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 placeholder="ej. Plan Mensual, Plan Trimestral"
               />
             </div>
@@ -120,7 +103,7 @@ export default function PlansManagement() {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 rows="3"
                 placeholder="Describe las características del plan..."
               />
@@ -136,7 +119,7 @@ export default function PlansManagement() {
                 min="1"
                 value={formData.duration_days}
                 onChange={(e) => setFormData({ ...formData, duration_days: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             </div>
 
@@ -151,7 +134,7 @@ export default function PlansManagement() {
                 step="0.01"
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             </div>
 
@@ -165,7 +148,7 @@ export default function PlansManagement() {
                 step="0.01"
                 value={formData.enrollment_fee}
                 onChange={(e) => setFormData({ ...formData, enrollment_fee: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
             </div>
 
@@ -173,7 +156,7 @@ export default function PlansManagement() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg disabled:opacity-50"
+                className="w-full px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 shadow-lg disabled:opacity-50"
               >
                 {loading ? 'Creando...' : 'Crear Plan'}
               </button>
@@ -195,7 +178,7 @@ export default function PlansManagement() {
           plans.map((plan) => (
             <div
               key={plan.id}
-              className="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200 hover:border-purple-500 transition-all duration-200"
+              className="bg-white rounded-xl shadow-lg p-6 border-2 border-gray-200 hover:border-emerald-500 transition-all duration-200"
             >
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-xl font-bold text-gray-900">{plan.name}</h3>
@@ -217,7 +200,7 @@ export default function PlansManagement() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Precio:</span>
-                  <span className="font-bold text-purple-600 text-lg">
+                  <span className="font-bold text-emerald-600 text-lg">
                     {fmt(plan.price)}
                   </span>
                 </div>
@@ -240,6 +223,10 @@ export default function PlansManagement() {
           ))
         )}
       </div>
+
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
     </div>
   );
 }

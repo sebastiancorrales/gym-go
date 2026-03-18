@@ -40,7 +40,7 @@ function Avatar({ user, size = 'lg' }) {
   }
   const initials = `${user?.first_name?.[0] || ''}${user?.last_name?.[0] || ''}`.toUpperCase();
   return (
-    <div className={`${sz} rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center border-4 border-white shadow-xl`}>
+    <div className={`${sz} rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center border-4 border-white shadow-xl`}>
       <span className="font-bold text-white">{initials}</span>
     </div>
   );
@@ -202,7 +202,7 @@ export default function CheckIn() {
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-950 to-black pointer-events-none" />
       <div className="absolute inset-0 opacity-10 pointer-events-none"
-        style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #3b82f6 0%, transparent 50%), radial-gradient(circle at 80% 20%, #8b5cf6 0%, transparent 40%)' }}
+        style={{ backgroundImage: 'radial-gradient(circle at 20% 50%, #10b981 0%, transparent 50%), radial-gradient(circle at 80% 20%, #06b6d4 0%, transparent 40%)' }}
       />
 
       {/* Back button */}
@@ -225,7 +225,7 @@ export default function CheckIn() {
         {/* Logo + clock */}
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
               <Svg path={BOLT_PATH} className="w-5 h-5 text-white" />
             </div>
             <span className="text-2xl font-bold text-white tracking-wide">GYM-GO</span>
@@ -265,12 +265,12 @@ export default function CheckIn() {
                   placeholder="Número de documento"
                   disabled={loading}
                   autoFocus
-                  className="w-full px-5 py-4 text-xl text-center bg-white/10 border border-white/20 text-white placeholder-white/30 rounded-2xl focus:outline-none focus:border-blue-400 focus:bg-white/15 transition"
+                  className="w-full px-5 py-4 text-xl text-center bg-white/10 border border-white/20 text-white placeholder-white/30 rounded-2xl focus:outline-none focus:border-emerald-400 focus:bg-white/15 transition"
                 />
                 <button
                   type="submit"
                   disabled={loading || !documentNumber.trim()}
-                  className="w-full py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white text-lg font-bold rounded-2xl transition-all shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full py-4 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white text-lg font-bold rounded-2xl transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {loading
                     ? <span className="flex items-center justify-center gap-2"><svg className="animate-spin w-5 h-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>Verificando...</span>
@@ -284,8 +284,8 @@ export default function CheckIn() {
             {checkInMethod === 'fingerprint' && (
               <div className="space-y-4 text-center">
                 <div className={`mx-auto w-28 h-28 rounded-full flex items-center justify-center
-                  ${capturingFingerprint ? 'bg-blue-500/20 animate-pulse' : 'bg-white/10'}`}>
-                  <Svg path={FINGERPRINT_PATH} className={`w-14 h-14 ${capturingFingerprint ? 'text-blue-400' : 'text-white/50'}`} />
+                  ${capturingFingerprint ? 'bg-emerald-500/20 animate-pulse' : 'bg-white/10'}`}>
+                  <Svg path={FINGERPRINT_PATH} className={`w-14 h-14 ${capturingFingerprint ? 'text-emerald-400' : 'text-white/50'}`} />
                 </div>
                 <p className="text-white/70 text-sm">
                   {capturingFingerprint ? 'Mantén el dedo sobre el lector...' : 'Coloca tu dedo en el lector'}
@@ -293,7 +293,7 @@ export default function CheckIn() {
                 <button
                   onClick={handleFingerprintCheckIn}
                   disabled={loading}
-                  className="w-full py-4 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 text-white text-lg font-bold rounded-2xl transition-all shadow-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full py-4 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white text-lg font-bold rounded-2xl transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Procesando...' : 'Iniciar Escaneo'}
                 </button>

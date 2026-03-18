@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
 import SkeletonTable from './SkeletonTable';
+import Toast from './Toast';
 
 const ROLES = [
   { value: 'ADMIN_GYM',      label: 'Administrador',  color: 'bg-indigo-100 text-indigo-800' },
@@ -39,6 +40,7 @@ export default function StaffManagement() {
   const [formData, setFormData]       = useState(emptyForm);
   const [saving, setSaving]           = useState(false);
   const [showPass, setShowPass]       = useState(false);
+  const [toast, setToast]             = useState(null);
 
   useEffect(() => { fetchStaff(); }, []);
 
@@ -94,7 +96,7 @@ export default function StaffManagement() {
         };
         if (formData.password) payload.password = formData.password;
         const res = await api.put(`/users/${editingUser.id}`, payload);
-        if (!res.ok) { const e = await res.json(); alert(e.error || 'Error al actualizar'); return; }
+        if (!res.ok) { const e = await res.json(); setToast({ message: e.error || 'Error al actualizar', type: 'error' }); return; }
       } else {
         const payload = {
           first_name: formData.firstName,
@@ -105,13 +107,14 @@ export default function StaffManagement() {
           role:       formData.role,
         };
         const res = await api.post('/users', payload);
-        if (!res.ok) { const e = await res.json(); alert(e.error || 'Error al crear'); return; }
+        if (!res.ok) { const e = await res.json(); setToast({ message: e.error || 'Error al crear', type: 'error' }); return; }
       }
       setShowModal(false);
+      setToast({ message: editingUser ? 'Staff actualizado' : 'Staff creado exitosamente', type: 'success' });
       fetchStaff();
     } catch (err) {
       console.error('Error saving staff:', err);
-      alert('Error al guardar');
+      setToast({ message: 'Error al guardar', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -149,7 +152,7 @@ export default function StaffManagement() {
         </div>
         <button
           onClick={openCreate}
-          className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -169,7 +172,7 @@ export default function StaffManagement() {
             placeholder="Buscar por nombre o correo..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
           />
         </div>
       </div>
@@ -206,7 +209,7 @@ export default function StaffManagement() {
                   <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                           {initials || '?'}
                         </div>
                         <div>
@@ -232,7 +235,7 @@ export default function StaffManagement() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => openEdit(user)}
-                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                          className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
                           title="Editar"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -301,7 +304,7 @@ export default function StaffManagement() {
                       type="text"
                       value={formData.firstName}
                       onChange={e => setFormData({ ...formData, firstName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -311,7 +314,7 @@ export default function StaffManagement() {
                       type="text"
                       value={formData.lastName}
                       onChange={e => setFormData({ ...formData, lastName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -322,7 +325,7 @@ export default function StaffManagement() {
                   <select
                     value={formData.role}
                     onChange={e => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   >
                     {ROLES.map(r => (
                       <option key={r.value} value={r.value}>{r.label}</option>
@@ -338,7 +341,7 @@ export default function StaffManagement() {
                     value={formData.phone}
                     onChange={e => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="3001234567"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                   />
                 </div>
 
@@ -352,7 +355,7 @@ export default function StaffManagement() {
                       value={formData.email}
                       onChange={e => setFormData({ ...formData, email: e.target.value })}
                       placeholder="nombre@gimnasio.com"
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                   </div>
                 )}
@@ -370,7 +373,7 @@ export default function StaffManagement() {
                       onChange={e => setFormData({ ...formData, password: e.target.value })}
                       placeholder={editingUser ? 'Nueva contraseña...' : 'Mínimo 6 caracteres'}
                       minLength={formData.password ? 6 : undefined}
-                      className="w-full px-3 py-2 pr-10 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 pr-10 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                     />
                     <button
                       type="button"
@@ -403,7 +406,7 @@ export default function StaffManagement() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition text-sm font-medium disabled:opacity-60"
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition text-sm font-medium disabled:opacity-60"
                   >
                     {saving ? 'Guardando...' : editingUser ? 'Actualizar' : 'Crear Staff'}
                   </button>
@@ -412,6 +415,10 @@ export default function StaffManagement() {
             </div>
           </div>
         </div>
+      )}
+
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
     </div>
   );

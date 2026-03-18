@@ -531,7 +531,7 @@ function TabAccesos({ dateRange, genKey }) {
                   return (
                     <div key={i} className="flex items-center gap-4 px-5 py-3">
                       <span className="text-sm font-bold text-gray-300 w-5 text-center">{i + 1}</span>
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                         {u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
                       </div>
                       <div className="flex-1 min-w-0">
