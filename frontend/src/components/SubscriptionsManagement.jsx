@@ -72,6 +72,8 @@ const StepIndicator = ({ current }) => {
 export default function SubscriptionsManagement() {
   const [subscriptions, setSubscriptions] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
   const [users, setUsers] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -254,6 +256,20 @@ export default function SubscriptionsManagement() {
     ? Math.max(0, (selectedPlan.price + (selectedPlan.enrollment_fee || 0)) - (parseFloat(discount) || 0))
     : 0;
 
+  const filteredSubs = (() => {
+    const q = searchQuery.toLowerCase();
+    return q
+      ? subscriptions.filter(s =>
+          `${s.user?.first_name} ${s.user?.last_name}`.toLowerCase().includes(q) ||
+          (s.user?.document_number || '').toLowerCase().includes(q) ||
+          (s.user?.email || '').toLowerCase().includes(q) ||
+          (s.plan?.name || '').toLowerCase().includes(q)
+        )
+      : subscriptions;
+  })();
+  const totalPages = Math.ceil(filteredSubs.length / PAGE_SIZE);
+  const paginatedSubs = filteredSubs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -278,7 +294,7 @@ export default function SubscriptionsManagement() {
           type="text"
           placeholder="Buscar por nombre, documento, email o plan..."
           value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
+          onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
           className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
         />
       </div>
@@ -299,28 +315,17 @@ export default function SubscriptionsManagement() {
           <tbody className="divide-y divide-gray-50">
             {loading ? (
               <tr><td colSpan="6" className="p-0"><SkeletonTable cols={6} rows={5} /></td></tr>
-            ) : (() => {
-              const q = searchQuery.toLowerCase();
-              const filtered = q
-                ? subscriptions.filter(s =>
-                    `${s.user?.first_name} ${s.user?.last_name}`.toLowerCase().includes(q) ||
-                    (s.user?.document_number || '').toLowerCase().includes(q) ||
-                    (s.user?.email || '').toLowerCase().includes(q) ||
-                    (s.plan?.name || '').toLowerCase().includes(q)
-                  )
-                : subscriptions;
-              if (filtered.length === 0) return (
-                <tr>
-                  <td colSpan="6">
-                    <EmptyState
-                      icon="list"
-                      title={searchQuery ? `Sin resultados para "${searchQuery}"` : 'No hay suscripciones'}
-                      description="Crea la primera suscripcion para un miembro"
-                    />
-                  </td>
-                </tr>
-              );
-              return filtered.map((sub) => {
+            ) : filteredSubs.length === 0 ? (
+              <tr>
+                <td colSpan="6">
+                  <EmptyState
+                    icon="list"
+                    title={searchQuery ? `Sin resultados para "${searchQuery}"` : 'No hay suscripciones'}
+                    description="Crea la primera suscripcion para un miembro"
+                  />
+                </td>
+              </tr>
+            ) : paginatedSubs.map((sub) => {
                 const daysLeft = sub.end_date
                   ? Math.max(0, Math.ceil((new Date(sub.end_date) - new Date()) / (1000 * 60 * 60 * 24)))
                   : null;
@@ -397,10 +402,26 @@ export default function SubscriptionsManagement() {
                     </td>
                   </tr>
                 );
-              });
-            })()}
+            })}
           </tbody>
         </table>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              {filteredSubs.length} resultados — Página {page} de {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                Anterior
+              </button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Wizard Modal ── */}

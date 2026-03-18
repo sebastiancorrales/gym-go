@@ -20,6 +20,8 @@ export default function UsersManagement() {
   const [users, setUsers] = useState([]);
   const [plans, setPlans] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -422,6 +424,16 @@ export default function UsersManagement() {
     );
   }
 
+  const filteredUsers = searchQuery.toLowerCase().trim()
+    ? users.filter(u =>
+        `${u.first_name} ${u.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (u.document_number || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (u.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : users;
+  const totalPages = Math.ceil(filteredUsers.length / PAGE_SIZE);
+  const paginatedUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
@@ -692,7 +704,7 @@ export default function UsersManagement() {
             type="text"
             placeholder="Buscar por nombre, documento o email..."
             value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
+            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
             className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           />
         </div>
@@ -731,23 +743,13 @@ export default function UsersManagement() {
           <tbody className="bg-white divide-y divide-gray-200">
             {loading ? (
               <tr><td colSpan="8" className="p-0"><SkeletonTable cols={8} rows={6} /></td></tr>
-            ) : (() => {
-              const q = searchQuery.toLowerCase();
-              const filtered = q
-                ? users.filter(u =>
-                    `${u.first_name} ${u.last_name}`.toLowerCase().includes(q) ||
-                    (u.document_number || '').toLowerCase().includes(q) ||
-                    (u.email || '').toLowerCase().includes(q)
-                  )
-                : users;
-              if (filtered.length === 0) return (
-                <tr>
-                  <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
-                    {searchQuery ? `Sin resultados para "${searchQuery}"` : 'No hay usuarios registrados'}
-                  </td>
-                </tr>
-              );
-              return filtered.map((user) => (
+            ) : filteredUsers.length === 0 ? (
+              <tr>
+                <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                  {searchQuery ? `Sin resultados para "${searchQuery}"` : 'No hay usuarios registrados'}
+                </td>
+              </tr>
+            ) : paginatedUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -849,10 +851,26 @@ export default function UsersManagement() {
                     </button>
                   </td>
                 </tr>
-              ));
-            })()}
+            ))}
           </tbody>
         </table>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              {filteredUsers.length} resultados — Página {page} de {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                Anterior
+              </button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Fingerprint Enrollment Modal */}
