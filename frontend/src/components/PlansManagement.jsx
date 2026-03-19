@@ -10,6 +10,7 @@ const emptyForm = {
   duration_days: 30,
   price: 0,
   enrollment_fee: 0,
+  max_members: 1,
 };
 
 export default function PlansManagement() {
@@ -54,6 +55,7 @@ export default function PlansManagement() {
       duration_days: plan.duration_days || 30,
       price: plan.price || 0,
       enrollment_fee: plan.enrollment_fee || 0,
+      max_members: plan.max_members || 1,
     });
     setShowForm(true);
   };
@@ -72,6 +74,7 @@ export default function PlansManagement() {
       duration_days: parseInt(formData.duration_days),
       price: parseFloat(formData.price),
       enrollment_fee: parseFloat(formData.enrollment_fee),
+      max_members: parseInt(formData.max_members) || 1,
     };
 
     try {
@@ -198,7 +201,7 @@ export default function PlansManagement() {
               />
             </div>
 
-            <div className="col-span-2">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Cuota de Inscripción (COP)
               </label>
@@ -210,6 +213,21 @@ export default function PlansManagement() {
                 onChange={(e) => setFormData({ ...formData, enrollment_fee: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Máximo de miembros
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="10"
+                value={formData.max_members}
+                onChange={(e) => setFormData({ ...formData, max_members: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+              <p className="text-xs text-gray-400 mt-1">1 = individual · 2 = pareja · 3 = trío · 4 = cuarteto</p>
             </div>
 
             <div className="col-span-2 flex gap-3">

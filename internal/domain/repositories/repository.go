@@ -52,6 +52,15 @@ type SubscriptionRepository interface {
 	MarkExpiredSubscriptions() (int64, error)
 }
 
+// SubscriptionMemberRepository defines group membership repository interface
+type SubscriptionMemberRepository interface {
+	Create(member *entities.SubscriptionMember) error
+	FindBySubscriptionID(subscriptionID uuid.UUID) ([]*entities.SubscriptionMember, error)
+	FindActiveSubscriptionByUserID(userID uuid.UUID) (*entities.Subscription, error)
+	FindSubscriptionsByMemberUserID(userID uuid.UUID) ([]*entities.Subscription, error)
+	DeleteBySubscriptionID(subscriptionID uuid.UUID) error
+}
+
 // PaymentRepository defines payment repository interface
 type PaymentRepository interface {
 	Create(payment *entities.Payment) error

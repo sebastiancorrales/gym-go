@@ -27,16 +27,24 @@ func NewSubscriptionHandler(
 	}
 }
 
+type MemberInfo struct {
+	UserID    uuid.UUID      `json:"user_id"`
+	IsPrimary bool           `json:"is_primary"`
+	User      *entities.User `json:"user,omitempty"`
+}
+
 type SubscriptionResponse struct {
 	*entities.Subscription
-	User *entities.User `json:"user,omitempty"`
-	Plan *entities.Plan `json:"plan,omitempty"`
+	User    *entities.User `json:"user,omitempty"`
+	Plan    *entities.Plan `json:"plan,omitempty"`
+	Members []MemberInfo   `json:"members,omitempty"`
 }
 
 type CreateSubscriptionRequest struct {
-	UserID   string  `json:"user_id" binding:"required"`
-	PlanID   string  `json:"plan_id" binding:"required"`
-	Discount float64 `json:"discount"`
+	UserID            string   `json:"user_id" binding:"required"`
+	PlanID            string   `json:"plan_id" binding:"required"`
+	Discount          float64  `json:"discount"`
+	AdditionalMembers []string `json:"additional_members"`
 }
 
 func (h *SubscriptionHandler) Create(c *gin.Context) {
@@ -65,9 +73,18 @@ func (h *SubscriptionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	subscription, err := h.subscriptionUseCase.CreateSubscription(userID, planID, gymID, req.Discount)
+	// Parse additional member IDs
+	additionalIDs := make([]uuid.UUID, 0, len(req.AdditionalMembers))
+	for _, idStr := range req.AdditionalMembers {
+		id, err := uuid.Parse(idStr)
+		if err == nil {
+			additionalIDs = append(additionalIDs, id)
+		}
+	}
+
+	subscription, err := h.subscriptionUseCase.CreateSubscription(userID, planID, gymID, req.Discount, additionalIDs)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create subscription"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -82,27 +99,32 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 		return
 	}
 
-	subscriptions, err := h.subscriptionUseCase.ListSubscriptionsByGym(gymID, 100, 0)
+	subscriptions, err := h.subscriptionUseCase.ListSubscriptionsByGym(gymID, 500, 0)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list subscriptions"})
 		return
 	}
 
-	// Enrich subscriptions with user and plan data
 	response := make([]*SubscriptionResponse, 0, len(subscriptions))
 	for _, sub := range subscriptions {
-		subResp := &SubscriptionResponse{
-			Subscription: sub,
-		}
+		subResp := &SubscriptionResponse{Subscription: sub}
 
-		// Load user
 		if user, err := h.userUseCase.GetUserByID(sub.UserID); err == nil {
 			subResp.User = user
 		}
-
-		// Load plan
 		if plan, err := h.planUseCase.GetPlanByID(sub.PlanID); err == nil {
 			subResp.Plan = plan
+		}
+
+		// Load group members if any
+		if members, err := h.subscriptionUseCase.GetSubscriptionMembers(sub.ID); err == nil && len(members) > 0 {
+			for _, m := range members {
+				info := MemberInfo{UserID: m.UserID, IsPrimary: m.IsPrimary}
+				if u, err := h.userUseCase.GetUserByID(m.UserID); err == nil {
+					info.User = u
+				}
+				subResp.Members = append(subResp.Members, info)
+			}
 		}
 
 		response = append(response, subResp)

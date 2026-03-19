@@ -1,20 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import api from '../utils/api';
 
-export default function NotificationBell() {
+export default function NotificationBell({ onUserClick }) {
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
   const ref = useRef(null);
+  const btnRef = useRef(null);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     loadExpiring();
-    const interval = setInterval(loadExpiring, 5 * 60 * 1000); // refresh every 5 min
+    const interval = setInterval(loadExpiring, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     const handleClick = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      const inBtn = ref.current?.contains(e.target);
+      const inDropdown = dropdownRef.current?.contains(e.target);
+      if (!inBtn && !inDropdown) setOpen(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -42,6 +48,7 @@ export default function NotificationBell() {
             : 'Miembro';
           return {
             id: s.id,
+            userId: s.user_id || s.user?.id,
             name,
             plan: s.plan?.name || '',
             daysLeft,
@@ -58,10 +65,22 @@ export default function NotificationBell() {
 
   const count = notifications.length;
 
+  const handleToggle = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + window.scrollY + 8,
+        right: window.innerWidth - rect.right,
+      });
+    }
+    setOpen(!open);
+  };
+
   return (
-    <div className="relative" ref={ref}>
+    <div ref={ref}>
       <button
-        onClick={() => setOpen(!open)}
+        ref={btnRef}
+        onClick={handleToggle}
         className="relative p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -74,8 +93,12 @@ export default function NotificationBell() {
         )}
       </button>
 
-      {open && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+      {open && createPortal(
+        <div
+          ref={dropdownRef}
+          style={{ position: 'fixed', top: dropdownPos.top, right: dropdownPos.right, zIndex: 9999 }}
+          className="w-80 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden"
+        >
           <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
             <h3 className="text-sm font-bold text-gray-900">Notificaciones</h3>
             <p className="text-xs text-gray-500">Suscripciones por vencer</p>
@@ -94,7 +117,11 @@ export default function NotificationBell() {
               </div>
             ) : (
               notifications.map(n => (
-                <div key={n.id} className="px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                <div
+                  key={n.id}
+                  onClick={() => { if (onUserClick && n.userId) { onUserClick(n.userId); setOpen(false); } }}
+                  className={`px-4 py-3 border-b border-gray-50 transition-colors ${onUserClick && n.userId ? 'hover:bg-emerald-50 cursor-pointer' : 'hover:bg-gray-50'}`}
+                >
                   <div className="flex items-start gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                       n.daysLeft <= 1 ? 'bg-red-100 text-red-600' :
@@ -147,7 +174,8 @@ export default function NotificationBell() {
               </button>
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

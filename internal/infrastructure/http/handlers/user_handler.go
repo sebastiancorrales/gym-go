@@ -334,12 +334,33 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 	// Load subscription history
 	type SubWithPlan struct {
 		*entities.Subscription
-		Plan *entities.Plan `json:"plan,omitempty"`
+		Plan           *entities.Plan `json:"plan,omitempty"`
+		MembershipType string         `json:"membership_type"` // "TITULAR" | "BENEFICIARIO"
 	}
+
+	subsWithPlan := make([]SubWithPlan, 0)
+
+	// Subscriptions where user is the primary owner
 	subs, _ := h.subscriptionUseCase.GetSubscriptionsByUser(id)
-	subsWithPlan := make([]SubWithPlan, 0, len(subs))
 	for _, s := range subs {
-		swp := SubWithPlan{Subscription: s}
+		swp := SubWithPlan{Subscription: s, MembershipType: "TITULAR"}
+		if plan, err := h.planUseCase.GetPlanByID(s.PlanID); err == nil {
+			swp.Plan = plan
+		}
+		subsWithPlan = append(subsWithPlan, swp)
+	}
+
+	// Subscriptions where user is a beneficiary (group plan)
+	memberSubs, _ := h.subscriptionUseCase.GetSubscriptionsAsMember(id)
+	primaryIDs := make(map[string]bool)
+	for _, s := range subs {
+		primaryIDs[s.ID.String()] = true
+	}
+	for _, s := range memberSubs {
+		if primaryIDs[s.ID.String()] {
+			continue // already included as titular
+		}
+		swp := SubWithPlan{Subscription: s, MembershipType: "BENEFICIARIO"}
 		if plan, err := h.planUseCase.GetPlanByID(s.PlanID); err == nil {
 			swp.Plan = plan
 		}

@@ -41,12 +41,10 @@ const StatusBadge = ({ status }) => {
 };
 
 // ── Wizard: step indicator ──
-const StepIndicator = ({ current }) => {
-  const steps = [
-    { n: 1, label: 'Miembro' },
-    { n: 2, label: 'Plan' },
-    { n: 3, label: 'Confirmar' },
-  ];
+const StepIndicator = ({ current, isGroup }) => {
+  const steps = isGroup
+    ? [{ n: 1, label: 'Titular' }, { n: 2, label: 'Plan' }, { n: 3, label: 'Grupo' }, { n: 4, label: 'Confirmar' }]
+    : [{ n: 1, label: 'Miembro' }, { n: 2, label: 'Plan' }, { n: 3, label: 'Confirmar' }];
   return (
     <div className="flex items-center justify-center gap-2 mb-6">
       {steps.map((s, i) => (
@@ -70,7 +68,7 @@ const StepIndicator = ({ current }) => {
   );
 };
 
-export default function SubscriptionsManagement() {
+export default function SubscriptionsManagement({ initialUser = null, onInitialUserConsumed }) {
   const [profileUserId, setProfileUserId] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -100,6 +98,9 @@ export default function SubscriptionsManagement() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [discount, setDiscount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  // Group members
+  const [additionalMembers, setAdditionalMembers] = useState([]); // [{user}]
+  const [addMemberSearch, setAddMemberSearch] = useState('');
 
   useEffect(() => {
     fetchSubscriptions();
@@ -147,6 +148,16 @@ export default function SubscriptionsManagement() {
     }
   };
 
+  // Si viene un usuario pre-seleccionado, abrir wizard en paso 2
+  useEffect(() => {
+    if (initialUser) {
+      setSelectedMember(initialUser);
+      setWizardStep(2);
+      setShowWizard(true);
+      onInitialUserConsumed?.();
+    }
+  }, [initialUser]);
+
   // ── Wizard helpers ──
   const openWizard = () => {
     setShowWizard(true);
@@ -155,6 +166,8 @@ export default function SubscriptionsManagement() {
     setSelectedMember(null);
     setSelectedPlan(null);
     setDiscount(0);
+    setAdditionalMembers([]);
+    setAddMemberSearch('');
   };
 
   const closeWizard = () => {
@@ -163,7 +176,22 @@ export default function SubscriptionsManagement() {
     setSelectedMember(null);
     setSelectedPlan(null);
     setDiscount(0);
+    setAdditionalMembers([]);
+    setAddMemberSearch('');
   };
+
+  const maxAdditional = selectedPlan ? (selectedPlan.max_members || 1) - 1 : 0;
+  const allSelectedIds = new Set([
+    selectedMember?.id,
+    ...additionalMembers.map(m => m.id),
+  ]);
+  const filteredAddMembers = addMemberSearch.trim().length < 2 ? [] :
+    users.filter(u => {
+      if (allSelectedIds.has(u.id)) return false;
+      const q = addMemberSearch.toLowerCase();
+      return `${u.first_name} ${u.last_name}`.toLowerCase().includes(q) ||
+        (u.document_number || '').toLowerCase().includes(q);
+    }).slice(0, 6);
 
   const getMemberActiveSub = (userId) => {
     return subscriptions.find(s => s.user_id === userId && s.status === 'ACTIVE');
@@ -187,6 +215,7 @@ export default function SubscriptionsManagement() {
         user_id: selectedMember.id,
         plan_id: selectedPlan.id,
         discount: parseFloat(discount) || 0,
+        additional_members: additionalMembers.map(m => m.id),
       });
 
       if (response.ok) {
@@ -339,23 +368,44 @@ export default function SubscriptionsManagement() {
                 return (
                   <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4">
-                      <button
-                        onClick={() => setProfileUserId(sub.user_id)}
-                        className="flex items-center gap-3 group text-left"
-                        title="Ver perfil del miembro"
-                      >
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center flex-shrink-0 group-hover:from-emerald-200 group-hover:to-cyan-200 transition-colors">
-                          <span className="text-xs font-bold text-emerald-700">
-                            {(sub.user?.first_name?.[0] || '')}{(sub.user?.last_name?.[0] || '')}
-                          </span>
+                      {sub.members && sub.members.length > 0 ? (
+                        // Group subscription — show all members
+                        <div className="space-y-1.5">
+                          {sub.members.map(m => (
+                            <button key={m.user_id} onClick={() => setProfileUserId(m.user_id)}
+                              className="flex items-center gap-2 group text-left w-full">
+                              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold transition-colors
+                                ${m.is_primary
+                                  ? 'bg-gradient-to-br from-emerald-400 to-cyan-400 text-white group-hover:from-emerald-500 group-hover:to-cyan-500'
+                                  : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'}`}>
+                                {m.user?.first_name?.[0]}{m.user?.last_name?.[0]}
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-gray-900 group-hover:text-emerald-600 transition-colors">
+                                  {m.user?.first_name} {m.user?.last_name}
+                                  {m.is_primary && <span className="ml-1 text-emerald-500 font-normal">(titular)</span>}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900 group-hover:text-emerald-600 transition-colors underline-offset-2 group-hover:underline">
-                            {sub.user?.first_name} {sub.user?.last_name}
-                          </p>
-                          <p className="text-xs text-gray-400">{sub.user?.document_type} {sub.user?.document_number}</p>
-                        </div>
-                      </button>
+                      ) : (
+                        // Individual subscription
+                        <button onClick={() => setProfileUserId(sub.user_id)}
+                          className="flex items-center gap-3 group text-left" title="Ver perfil del miembro">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center flex-shrink-0 group-hover:from-emerald-200 group-hover:to-cyan-200 transition-colors">
+                            <span className="text-xs font-bold text-emerald-700">
+                              {(sub.user?.first_name?.[0] || '')}{(sub.user?.last_name?.[0] || '')}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900 group-hover:text-emerald-600 transition-colors underline-offset-2 group-hover:underline">
+                              {sub.user?.first_name} {sub.user?.last_name}
+                            </p>
+                            <p className="text-xs text-gray-400">{sub.user?.document_type} {sub.user?.document_number}</p>
+                          </div>
+                        </button>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm font-medium text-gray-900">{sub.plan?.name}</span>
@@ -439,7 +489,7 @@ export default function SubscriptionsManagement() {
 
       {/* ── Wizard Modal ── */}
       <Modal isOpen={showWizard} onClose={closeWizard} title="Nueva Suscripcion" maxWidth="2xl">
-        <StepIndicator current={wizardStep} />
+        <StepIndicator current={wizardStep} isGroup={maxAdditional > 0} />
 
         {/* ── Step 1: Select Member ── */}
         {wizardStep === 1 && (
@@ -627,7 +677,7 @@ export default function SubscriptionsManagement() {
               </button>
               <button
                 disabled={!selectedPlan}
-                onClick={() => setWizardStep(3)}
+                onClick={() => setWizardStep(maxAdditional > 0 ? 3 : 4)}
                 className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Continuar
@@ -636,11 +686,88 @@ export default function SubscriptionsManagement() {
           </div>
         )}
 
-        {/* ── Step 3: Summary & Confirm ── */}
-        {wizardStep === 3 && selectedMember && selectedPlan && (
-          <div className="space-y-5">
+        {/* ── Step 3: Miembros adicionales (solo planes grupales) ── */}
+        {wizardStep === 3 && selectedPlan && maxAdditional > 0 && (
+          <div className="space-y-4">
             <button onClick={() => setWizardStep(2)} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition mb-1">
               <Svg path={ICONS.back} className="w-4 h-4" /> Cambiar plan
+            </button>
+
+            <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+              <p className="text-sm font-semibold text-emerald-800">
+                {selectedPlan.name} — hasta {selectedPlan.max_members} personas
+              </p>
+              <p className="text-xs text-emerald-600 mt-0.5">
+                Titular: <strong>{selectedMember?.first_name} {selectedMember?.last_name}</strong>
+                &nbsp;·&nbsp; Adicionales: {additionalMembers.length} / {maxAdditional}
+              </p>
+            </div>
+
+            {additionalMembers.length < maxAdditional && (
+              <div className="relative">
+                <Svg path={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={addMemberSearch}
+                  onChange={e => setAddMemberSearch(e.target.value)}
+                  placeholder="Buscar miembro adicional..."
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            )}
+
+            {filteredAddMembers.length > 0 && (
+              <div className="max-h-48 overflow-y-auto space-y-1 border border-gray-100 rounded-xl p-1">
+                {filteredAddMembers.map(u => (
+                  <button key={u.id} onClick={() => { setAdditionalMembers(prev => [...prev, u]); setAddMemberSearch(''); }}
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition text-left">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-emerald-700">{u.first_name?.[0]}{u.last_name?.[0]}</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{u.first_name} {u.last_name}</p>
+                      <p className="text-xs text-gray-400">{u.document_number}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {additionalMembers.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Miembros del grupo</p>
+                {additionalMembers.map((m, idx) => (
+                  <div key={m.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-emerald-400 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-white">{m.first_name?.[0]}{m.last_name?.[0]}</span>
+                    </div>
+                    <p className="text-sm font-medium text-gray-800 flex-1">{m.first_name} {m.last_name}</p>
+                    <button onClick={() => setAdditionalMembers(prev => prev.filter((_, i) => i !== idx))}
+                      className="text-gray-400 hover:text-red-500 transition">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-between pt-2">
+              <button onClick={() => setWizardStep(2)} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">Atrás</button>
+              <button onClick={() => setWizardStep(4)}
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-md">
+                Continuar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 4: Summary & Confirm ── */}
+        {wizardStep === 4 && selectedMember && selectedPlan && (
+          <div className="space-y-5">
+            <button onClick={() => setWizardStep(maxAdditional > 0 ? 3 : 2)} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition mb-1">
+              <Svg path={ICONS.back} className="w-4 h-4" /> {maxAdditional > 0 ? 'Editar grupo' : 'Cambiar plan'}
             </button>
 
             {/* Member summary */}
@@ -655,6 +782,23 @@ export default function SubscriptionsManagement() {
                 <p className="text-xs text-gray-400">{selectedMember.document_type} {selectedMember.document_number}</p>
               </div>
             </div>
+
+            {/* Additional group members */}
+            {additionalMembers.length > 0 && (
+              <div className="space-y-1.5">
+                {additionalMembers.map(m => (
+                  <div key={m.id} className="flex items-center gap-3 px-4 py-2.5 bg-gray-50 rounded-xl">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-emerald-400 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-white">{m.first_name?.[0]}{m.last_name?.[0]}</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{m.first_name} {m.last_name}</p>
+                      <p className="text-xs text-gray-400">{m.document_number}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Plan summary */}
             <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">

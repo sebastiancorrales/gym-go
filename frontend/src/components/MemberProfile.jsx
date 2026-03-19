@@ -27,7 +27,7 @@ function fmtDateTime(d) {
   return new Date(d).toLocaleString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-export default function MemberProfile({ userId, onBack }) {
+export default function MemberProfile({ userId, onBack, onEdit, onNewSubscription }) {
   const [data, setData] = useState(null);
   const [accessLogs, setAccessLogs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +54,7 @@ export default function MemberProfile({ userId, onBack }) {
 
   const { user, subscriptions = [] } = data;
   const activeSub = subscriptions.find(s => s.status === 'ACTIVE' || s.status === 'FROZEN');
+  const activeMembershipType = activeSub?.membership_type || 'TITULAR';
   const initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
 
   const totalPaid = subscriptions.reduce((sum, s) => sum + (s.total_paid || 0), 0);
@@ -84,11 +85,33 @@ export default function MemberProfile({ userId, onBack }) {
             <p className="text-white/80 text-sm mt-0.5">{user.document_type} {user.document_number}</p>
             {user.phone && <p className="text-white/70 text-sm">{user.phone}</p>}
           </div>
-          <div className="text-right hidden sm:block">
-            <p className="text-white/70 text-xs uppercase tracking-wide mb-1">Estado</p>
-            <span className={`px-3 py-1 rounded-full text-xs font-bold ${user.status === 'ACTIVE' ? 'bg-white/20 text-white' : 'bg-red-400/30 text-white'}`}>
-              {user.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
-            </span>
+          <div className="text-right hidden sm:flex flex-col items-end gap-2">
+            <div>
+              <p className="text-white/70 text-xs uppercase tracking-wide mb-1">Estado</p>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${user.status === 'ACTIVE' ? 'bg-white/20 text-white' : 'bg-red-400/30 text-white'}`}>
+                {user.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              {onNewSubscription && (
+                <button
+                  onClick={() => onNewSubscription(user)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg transition"
+                >
+                  <Svg path="M12 4v16m8-8H4" className="w-3.5 h-3.5" />
+                  Nueva Sub.
+                </button>
+              )}
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(user)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold rounded-lg transition"
+                >
+                  <Svg path="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" className="w-3.5 h-3.5" />
+                  Editar
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -98,7 +121,7 @@ export default function MemberProfile({ userId, onBack }) {
         {[
           { label: 'Suscripciones', value: subscriptions.length, icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', color: 'text-emerald-600' },
           { label: 'Total pagado', value: fmt(totalPaid), icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-cyan-600' },
-          { label: 'Plan activo', value: activeSub ? activeSub.plan?.name || 'Plan' : 'Sin plan', icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', color: 'text-violet-600' },
+          { label: 'Plan activo', value: activeSub ? activeSub.plan?.name || 'Plan' : 'Sin plan', badge: activeSub ? activeMembershipType : null, icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', color: 'text-violet-600' },
           { label: 'Dias restantes', value: daysLeft !== null ? daysLeft : '—', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', color: daysLeft !== null && daysLeft <= 5 ? 'text-red-500' : 'text-amber-500' },
           { label: 'Accesos registrados', value: accessLogs.length, icon: 'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1', color: 'text-indigo-500' },
         ].map(stat => (
@@ -108,6 +131,15 @@ export default function MemberProfile({ userId, onBack }) {
             </div>
             <p className="text-xl font-bold text-gray-900">{stat.value}</p>
             <p className="text-xs text-gray-400 mt-0.5">{stat.label}</p>
+            {stat.badge && (
+              <span className={`inline-block mt-1.5 px-2 py-0.5 text-xs font-semibold rounded-full ${
+                stat.badge === 'TITULAR'
+                  ? 'bg-violet-100 text-violet-700'
+                  : 'bg-amber-100 text-amber-700'
+              }`}>
+                {stat.badge === 'TITULAR' ? 'Titular' : 'Beneficiario'}
+              </span>
+            )}
           </div>
         ))}
       </div>
@@ -123,7 +155,7 @@ export default function MemberProfile({ userId, onBack }) {
           <table className="min-w-full divide-y divide-gray-50">
             <thead>
               <tr className="bg-gray-50/80">
-                {['Plan', 'Inicio', 'Vencimiento', 'Pagado', 'Descuento', 'Estado'].map(h => (
+                {['Plan', 'Rol', 'Inicio', 'Vencimiento', 'Pagado', 'Descuento', 'Estado'].map(h => (
                   <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
@@ -136,6 +168,15 @@ export default function MemberProfile({ userId, onBack }) {
                   return (
                     <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-5 py-3 text-sm font-medium text-gray-900">{sub.plan?.name || '—'}</td>
+                      <td className="px-5 py-3">
+                        <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                          sub.membership_type === 'BENEFICIARIO'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-violet-100 text-violet-700'
+                        }`}>
+                          {sub.membership_type === 'BENEFICIARIO' ? 'Beneficiario' : 'Titular'}
+                        </span>
+                      </td>
                       <td className="px-5 py-3 text-sm text-gray-600">{fmtDate(sub.start_date)}</td>
                       <td className="px-5 py-3 text-sm text-gray-600">{fmtDate(sub.end_date)}</td>
                       <td className="px-5 py-3 text-sm font-semibold text-gray-900">{fmt(sub.total_paid)}</td>

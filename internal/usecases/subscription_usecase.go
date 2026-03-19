@@ -11,24 +11,27 @@ import (
 
 type SubscriptionUseCase struct {
 	subscriptionRepo repositories.SubscriptionRepository
+	memberRepo       repositories.SubscriptionMemberRepository
 	planRepo         repositories.PlanRepository
 	userRepo         repositories.UserRepository
 }
 
 func NewSubscriptionUseCase(
 	subscriptionRepo repositories.SubscriptionRepository,
+	memberRepo repositories.SubscriptionMemberRepository,
 	planRepo repositories.PlanRepository,
 	userRepo repositories.UserRepository,
 ) *SubscriptionUseCase {
 	return &SubscriptionUseCase{
 		subscriptionRepo: subscriptionRepo,
+		memberRepo:       memberRepo,
 		planRepo:         planRepo,
 		userRepo:         userRepo,
 	}
 }
 
-func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUID, discount float64) (*entities.Subscription, error) {
-	// Block if user already has an active subscription
+func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUID, discount float64, additionalMemberIDs []uuid.UUID) (*entities.Subscription, error) {
+	// Block if primary user already has an active subscription
 	if active, err := uc.subscriptionRepo.FindActiveByUserID(userID); err == nil && active != nil {
 		return nil, errors.New("el usuario ya tiene una suscripción activa")
 	}
@@ -54,6 +57,31 @@ func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUI
 	if err := uc.subscriptionRepo.Create(subscription); err != nil {
 		return nil, err
 	}
+
+	// Register group members if plan supports multiple members
+	if len(additionalMemberIDs) > 0 {
+		// Primary member entry
+		primary := &entities.SubscriptionMember{
+			ID:             uuid.New(),
+			SubscriptionID: subscription.ID,
+			UserID:         userID,
+			IsPrimary:      true,
+			CreatedAt:      time.Now(),
+		}
+		uc.memberRepo.Create(primary)
+
+		for _, memberID := range additionalMemberIDs {
+			m := &entities.SubscriptionMember{
+				ID:             uuid.New(),
+				SubscriptionID: subscription.ID,
+				UserID:         memberID,
+				IsPrimary:      false,
+				CreatedAt:      time.Now(),
+			}
+			uc.memberRepo.Create(m)
+		}
+	}
+
 	return subscription, nil
 }
 
@@ -133,4 +161,13 @@ func (uc *SubscriptionUseCase) GetActiveCount(gymID uuid.UUID) (int64, error) {
 
 func (uc *SubscriptionUseCase) GetSubscriptionsByUser(userID uuid.UUID) ([]*entities.Subscription, error) {
 	return uc.subscriptionRepo.FindByUserID(userID)
+}
+
+func (uc *SubscriptionUseCase) GetSubscriptionMembers(subscriptionID uuid.UUID) ([]*entities.SubscriptionMember, error) {
+	return uc.memberRepo.FindBySubscriptionID(subscriptionID)
+}
+
+// GetSubscriptionsAsMember returns subscriptions where the user is a group member (beneficiary).
+func (uc *SubscriptionUseCase) GetSubscriptionsAsMember(userID uuid.UUID) ([]*entities.Subscription, error) {
+	return uc.memberRepo.FindSubscriptionsByMemberUserID(userID)
 }

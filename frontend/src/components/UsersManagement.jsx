@@ -16,7 +16,7 @@ const FINGER_OPTIONS = [
   { value: 'left_middle', label: 'Medio Izquierdo' },
 ];
 
-export default function UsersManagement() {
+export default function UsersManagement({ initialProfileUserId = null, onDeepLinkConsumed, onNewSubscription }) {
   const [users, setUsers] = useState([]);
   const [plans, setPlans] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,7 +40,14 @@ export default function UsersManagement() {
   const [userFingerprints, setUserFingerprints] = useState({});
   const [toast, setToast] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ open: false, onConfirm: null, message: '', title: 'Confirmar', confirmText: 'Confirmar' });
-  const [profileUserId, setProfileUserId] = useState(null);
+  const [profileUserId, setProfileUserId] = useState(initialProfileUserId);
+
+  useEffect(() => {
+    if (initialProfileUserId) {
+      setProfileUserId(initialProfileUserId);
+      onDeepLinkConsumed?.();
+    }
+  }, [initialProfileUserId]);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -419,7 +426,12 @@ export default function UsersManagement() {
   if (profileUserId) {
     return (
       <div className="p-6">
-        <MemberProfile userId={profileUserId} onBack={() => setProfileUserId(null)} />
+        <MemberProfile
+          userId={profileUserId}
+          onBack={() => setProfileUserId(null)}
+          onEdit={(u) => { setProfileUserId(null); handleEdit(u); }}
+          onNewSubscription={onNewSubscription}
+        />
       </div>
     );
   }

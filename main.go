@@ -96,6 +96,7 @@ func main() {
 	// Initialize repositories
 	userRepo := persistence.NewSQLiteUserRepository(database.DB)
 	subscriptionRepo := persistence.NewSQLiteSubscriptionRepository(database.DB)
+	subscriptionMemberRepo := persistence.NewSQLiteSubscriptionMemberRepository(database.DB)
 	accessLogRepo := persistence.NewSQLiteAccessLogRepository(database.DB)
 	planRepo := persistence.NewSQLitePlanRepository(database.DB)
 	gymRepo := persistence.NewSQLiteGymRepository(database.DB)
@@ -112,8 +113,8 @@ func main() {
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(userRepo)
 	planUseCase := usecases.NewPlanUseCase(planRepo)
-	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, planRepo, userRepo)
-	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo)
+	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, subscriptionMemberRepo, planRepo, userRepo)
+	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
 	biometricService := usecases.NewBiometricService(fingerprintRepo, userRepo)
 	productUseCase := usecases.NewProductUseCase(productRepo)
 	paymentMethodUseCase := usecases.NewPaymentMethodUseCase(paymentMethodRepo)

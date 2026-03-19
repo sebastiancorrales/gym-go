@@ -109,8 +109,10 @@ const StatCard = ({ title, value, subtitle, iconPath, gradient }) => (
 
 // ── Main component ───────────────────────────────────────────────────────────
 export default function Dashboard({ user, onLogout }) {
-  const [activeTab, setActiveTab]   = useState('dashboard');
-  const [collapsed, setCollapsed]   = useState(false);
+  const [activeTab, setActiveTab]     = useState('dashboard');
+  const [collapsed, setCollapsed]     = useState(false);
+  const [deepLinkUserId, setDeepLinkUserId]   = useState(null);
+  const [initialSubUser, setInitialSubUser]   = useState(null);
   const [stats, setStats]           = useState({ activeSubscriptions: 0, todayRevenue: 0, todayAccess: 0, totalMembers: 0 });
   const [loading, setLoading]       = useState(true);
   const [revenueChart, setRevenueChart]   = useState([]);
@@ -343,7 +345,7 @@ export default function Dashboard({ user, onLogout }) {
             </p>
           )}
           <div className="ml-auto flex items-center gap-3">
-            <NotificationBell />
+            <NotificationBell onUserClick={(userId) => { setDeepLinkUserId(userId); setActiveTab('users'); }} />
             <a
               href="/checkin"
               target="_blank"
@@ -488,10 +490,17 @@ export default function Dashboard({ user, onLogout }) {
             </div>
           )}
 
-          {activeTab === 'users'           && <UsersManagement />}
+          {activeTab === 'users'           && <UsersManagement
+            initialProfileUserId={deepLinkUserId}
+            onDeepLinkConsumed={() => setDeepLinkUserId(null)}
+            onNewSubscription={(u) => { setInitialSubUser(u); setActiveTab('subscriptions'); }}
+          />}
           {activeTab === 'staff'           && <StaffManagement />}
           {activeTab === 'plans'           && <PlansManagement />}
-          {activeTab === 'subscriptions'   && <SubscriptionsManagement />}
+          {activeTab === 'subscriptions'   && <SubscriptionsManagement
+            initialUser={initialSubUser}
+            onInitialUserConsumed={() => setInitialSubUser(null)}
+          />}
           {activeTab === 'access'          && <AccessManagement />}
           {activeTab === 'products'        && <ProductsManagement />}
           {activeTab === 'sales'           && <SalesTab user={user} />}

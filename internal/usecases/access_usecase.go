@@ -13,17 +13,20 @@ type AccessUseCase struct {
 	accessLogRepo    repositories.AccessLogRepository
 	userRepo         repositories.UserRepository
 	subscriptionRepo repositories.SubscriptionRepository
+	memberRepo       repositories.SubscriptionMemberRepository
 }
 
 func NewAccessUseCase(
 	accessLogRepo repositories.AccessLogRepository,
 	userRepo repositories.UserRepository,
 	subscriptionRepo repositories.SubscriptionRepository,
+	memberRepo repositories.SubscriptionMemberRepository,
 ) *AccessUseCase {
 	return &AccessUseCase{
 		accessLogRepo:    accessLogRepo,
 		userRepo:         userRepo,
 		subscriptionRepo: subscriptionRepo,
+		memberRepo:       memberRepo,
 	}
 }
 
@@ -35,8 +38,12 @@ func (uc *AccessUseCase) RecordEntry(userID, gymID uuid.UUID, method entities.Ac
 		return nil, errors.New("user not found")
 	}
 
-	// Check if user has active subscription
+	// Check if user has active subscription (direct or via group membership)
 	subscription, err := uc.subscriptionRepo.FindActiveByUserID(userID)
+	if err != nil || subscription == nil {
+		// Check if user is a member of an active group subscription
+		subscription, err = uc.memberRepo.FindActiveSubscriptionByUserID(userID)
+	}
 	if err != nil || subscription == nil {
 		accessLog := entities.NewAccessLog(gymID, userID, entities.AccessLogTypeEntry, method)
 		accessLog.Deny("No active subscription")
