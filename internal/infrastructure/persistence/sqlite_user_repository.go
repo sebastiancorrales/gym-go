@@ -31,6 +31,15 @@ func (r *SQLiteUserRepository) FindByID(id uuid.UUID) (*entities.User, error) {
 	return &user, nil
 }
 
+func (r *SQLiteUserRepository) FindByDocumentAndGym(docNumber string, gymID uuid.UUID) (*entities.User, error) {
+	var user entities.User
+	err := r.db.Where("document_number = ? AND gym_id = ?", docNumber, gymID).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *SQLiteUserRepository) FindByEmail(email string) (*entities.User, error) {
 	var user entities.User
 	err := r.db.Where("email = ?", email).First(&user).Error

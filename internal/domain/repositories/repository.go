@@ -11,6 +11,7 @@ type UserRepository interface {
 	FindByID(id uuid.UUID) (*entities.User, error)
 	FindByEmail(email string) (*entities.User, error)
 	FindByGymID(gymID uuid.UUID) ([]*entities.User, error)
+	FindByDocumentAndGym(docNumber string, gymID uuid.UUID) (*entities.User, error)
 	Update(user *entities.User) error
 	Delete(id uuid.UUID) error
 	List(limit, offset int) ([]*entities.User, error)

@@ -69,6 +69,14 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// Bloquear documento duplicado dentro del mismo gimnasio
+	if req.DocumentNumber != "" {
+		if _, err := h.userUseCase.FindByDocumentAndGym(req.DocumentNumber, gymID); err == nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "Ya existe un usuario con ese número de documento"})
+			return
+		}
+	}
+
 	// Role por defecto MEMBER
 	role := entities.UserRole(req.Role)
 	if role == "" {

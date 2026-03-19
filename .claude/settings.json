@@ -8,7 +8,11 @@
       "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\" /c/Users/sebas/OneDrive/Desktop/gym-go --include=*.go --include=*.cs)",
       "Bash(xargs grep:*)",
       "Bash(grep -r password /c/Users/sebas/OneDrive/Desktop/gym-go/internal/infrastructure/http/handlers --include=*.go)",
-      "Bash(grep -E \"\\\\.jsx$\")"
+      "Bash(grep -E \"\\\\.jsx$\")",
+      "Read(//c/Program Files \\(x86\\)/NSIS/**)",
+      "Bash(go version:*)",
+      "Bash(dotnet --version)",
+      "Bash(\"C:\\\\Program Files \\(x86\\)\\\\NSIS\\\\makensis.exe\" \"c:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\installer.nsi\")"
     ]
   }
 }

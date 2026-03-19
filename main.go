@@ -32,7 +32,7 @@ func adjustDatabasePath(cfg *config.Config) {
 	exePath, err := os.Executable()
 	if err == nil {
 		// Check if running from Program Files
-		if len(exePath) > 15 && (exePath[:15] == "C:\\Program Files" || exePath[:19] == "C:\\Program Files (x") {
+		if len(exePath) > 16 && (exePath[:16] == "C:\\Program Files" || exePath[:19] == "C:\\Program Files (x") {
 			// Use ProgramData for database storage
 			dataDir := os.Getenv("PROGRAMDATA")
 			if dataDir == "" {

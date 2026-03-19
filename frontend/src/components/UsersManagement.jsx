@@ -752,29 +752,33 @@ export default function UsersManagement() {
             ) : paginatedUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
+                    <button
+                      onClick={() => setProfileUserId(user.id)}
+                      className="flex items-center group text-left"
+                      title="Ver perfil"
+                    >
                       <div className="h-10 w-10 flex-shrink-0">
                         {user.photo_url ? (
                           <img
                             src={user.photo_url}
                             alt={`${user.first_name} ${user.last_name}`}
-                            className="h-10 w-10 rounded-full object-cover"
+                            className="h-10 w-10 rounded-full object-cover group-hover:ring-2 group-hover:ring-emerald-400 transition"
                           />
                         ) : (
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 flex items-center justify-center text-white font-bold">
+                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 flex items-center justify-center text-white font-bold group-hover:from-emerald-500 group-hover:to-cyan-500 transition">
                             {user.first_name?.[0]}{user.last_name?.[0]}
                           </div>
                         )}
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-gray-900 group-hover:text-emerald-600 transition-colors underline-offset-2 group-hover:underline">
                           {user.first_name} {user.last_name}
                         </div>
                         <div className="text-xs text-gray-500">
                           {user.city || 'Sin ciudad'}
                         </div>
                       </div>
-                    </div>
+                    </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{user.document_type}</div>

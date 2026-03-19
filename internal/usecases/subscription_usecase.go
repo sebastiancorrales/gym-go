@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,6 +28,11 @@ func NewSubscriptionUseCase(
 }
 
 func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUID, discount float64) (*entities.Subscription, error) {
+	// Block if user already has an active subscription
+	if active, err := uc.subscriptionRepo.FindActiveByUserID(userID); err == nil && active != nil {
+		return nil, errors.New("el usuario ya tiene una suscripción activa")
+	}
+
 	plan, err := uc.planRepo.FindByID(planID)
 	if err != nil {
 		return nil, err

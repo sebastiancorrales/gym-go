@@ -6,6 +6,7 @@ import EmptyState from './EmptyState';
 import Toast from './Toast';
 import { fmt } from '../utils/currency';
 import SubscriptionReceipt from './SubscriptionReceipt';
+import MemberProfile from './MemberProfile';
 
 // ── Icons ──
 const Svg = ({ path, className = 'w-5 h-5' }) => (
@@ -70,6 +71,7 @@ const StepIndicator = ({ current }) => {
 };
 
 export default function SubscriptionsManagement() {
+  const [profileUserId, setProfileUserId] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
@@ -192,11 +194,12 @@ export default function SubscriptionsManagement() {
         closeWizard();
         setToast({ message: 'Suscripcion creada exitosamente', type: 'success' });
         fetchSubscriptions();
-        // Show receipt
         setReceipt({ subscription: newSub, user: selectedMember, plan: selectedPlan });
       } else {
         const err = await response.json();
-        setToast({ message: err.error || 'Error al crear suscripcion', type: 'error' });
+        const msg = err.error || 'Error al crear suscripcion';
+        // Show error inside wizard (step 3) instead of closing it
+        setToast({ message: msg, type: 'error' });
       }
     } catch (error) {
       console.error('Error creating subscription:', error);
@@ -270,6 +273,10 @@ export default function SubscriptionsManagement() {
   const totalPages = Math.ceil(filteredSubs.length / PAGE_SIZE);
   const paginatedSubs = filteredSubs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  if (profileUserId) {
+    return <MemberProfile userId={profileUserId} onBack={() => setProfileUserId(null)} />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -332,17 +339,23 @@ export default function SubscriptionsManagement() {
                 return (
                   <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center flex-shrink-0">
+                      <button
+                        onClick={() => setProfileUserId(sub.user_id)}
+                        className="flex items-center gap-3 group text-left"
+                        title="Ver perfil del miembro"
+                      >
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center flex-shrink-0 group-hover:from-emerald-200 group-hover:to-cyan-200 transition-colors">
                           <span className="text-xs font-bold text-emerald-700">
                             {(sub.user?.first_name?.[0] || '')}{(sub.user?.last_name?.[0] || '')}
                           </span>
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-gray-900">{sub.user?.first_name} {sub.user?.last_name}</p>
+                          <p className="text-sm font-semibold text-gray-900 group-hover:text-emerald-600 transition-colors underline-offset-2 group-hover:underline">
+                            {sub.user?.first_name} {sub.user?.last_name}
+                          </p>
                           <p className="text-xs text-gray-400">{sub.user?.document_type} {sub.user?.document_number}</p>
                         </div>
-                      </div>
+                      </button>
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm font-medium text-gray-900">{sub.plan?.name}</span>

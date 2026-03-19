@@ -45,10 +45,23 @@ type Subscription struct {
 	UpdatedAt           time.Time          `json:"updated_at"`
 }
 
+// addPlanDuration calculates end date using calendar months when possible,
+// avoiding the "February problem" with fixed 30-day math.
+func addPlanDuration(start time.Time, durationDays int) time.Time {
+	switch {
+	case durationDays == 365:
+		return start.AddDate(1, 0, 0)
+	case durationDays%30 == 0:
+		return start.AddDate(0, durationDays/30, 0)
+	default:
+		return start.AddDate(0, 0, durationDays)
+	}
+}
+
 // NewSubscription creates a new subscription
 func NewSubscription(userID, planID, gymID uuid.UUID, startDate time.Time, durationDays int, price, enrollmentFee, discount float64) *Subscription {
 	now := time.Now()
-	endDate := startDate.AddDate(0, 0, durationDays)
+	endDate := addPlanDuration(startDate, durationDays)
 	total := price + enrollmentFee - discount
 
 	return &Subscription{
@@ -135,7 +148,7 @@ func (s *Subscription) Expire() {
 // Renew renews the subscription
 func (s *Subscription) Renew(durationDays int) {
 	s.StartDate = s.EndDate
-	s.EndDate = s.EndDate.AddDate(0, 0, durationDays)
+	s.EndDate = addPlanDuration(s.EndDate, durationDays)
 	s.Status = SubscriptionStatusActive
 	s.UpdatedAt = time.Now()
 }
