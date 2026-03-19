@@ -14,6 +14,7 @@ type SubscriptionUseCase struct {
 	memberRepo       repositories.SubscriptionMemberRepository
 	planRepo         repositories.PlanRepository
 	userRepo         repositories.UserRepository
+	auditRepo        repositories.SubscriptionAuditLogRepository
 }
 
 func NewSubscriptionUseCase(
@@ -21,16 +22,18 @@ func NewSubscriptionUseCase(
 	memberRepo repositories.SubscriptionMemberRepository,
 	planRepo repositories.PlanRepository,
 	userRepo repositories.UserRepository,
+	auditRepo repositories.SubscriptionAuditLogRepository,
 ) *SubscriptionUseCase {
 	return &SubscriptionUseCase{
 		subscriptionRepo: subscriptionRepo,
 		memberRepo:       memberRepo,
 		planRepo:         planRepo,
 		userRepo:         userRepo,
+		auditRepo:        auditRepo,
 	}
 }
 
-func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUID, discount float64, additionalMemberIDs []uuid.UUID) (*entities.Subscription, error) {
+func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUID, discount float64, paymentMethod string, additionalMemberIDs []uuid.UUID) (*entities.Subscription, error) {
 	// Block if primary user already has an active subscription
 	if active, err := uc.subscriptionRepo.FindActiveByUserID(userID); err == nil && active != nil {
 		return nil, errors.New("el usuario ya tiene una suscripción activa")
@@ -52,6 +55,7 @@ func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUI
 		time.Now(), plan.DurationDays,
 		plan.Price, enrollmentFee, discount,
 	)
+	subscription.PaymentMethod = paymentMethod
 	subscription.Activate()
 
 	if err := uc.subscriptionRepo.Create(subscription); err != nil {
@@ -107,7 +111,7 @@ func (uc *SubscriptionUseCase) UpdateSubscription(sub *entities.Subscription) er
 	return uc.subscriptionRepo.Update(sub)
 }
 
-func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID uuid.UUID, gymID uuid.UUID, discount float64) (*entities.Subscription, error) {
+func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID uuid.UUID, gymID uuid.UUID, discount float64, paymentMethod string) (*entities.Subscription, error) {
 	current, err := uc.subscriptionRepo.FindByID(currentSubID)
 	if err != nil {
 		return nil, err
@@ -116,8 +120,19 @@ func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID 
 	if err != nil {
 		return nil, err
 	}
-	// New sub starts from current end date (or now if already expired)
-	startDate := current.EndDate
+
+	// Find the latest end date across all user subscriptions (chain from the furthest)
+	latestEnd := current.EndDate
+	if allSubs, err := uc.subscriptionRepo.FindByUserID(current.UserID); err == nil {
+		for _, s := range allSubs {
+			if s.EndDate.After(latestEnd) {
+				latestEnd = s.EndDate
+			}
+		}
+	}
+
+	// Start from the latest end date, or today if it's already in the past
+	startDate := latestEnd
 	if startDate.Before(time.Now()) {
 		startDate = time.Now()
 	}
@@ -126,8 +141,27 @@ func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID 
 		startDate, plan.DurationDays,
 		plan.Price, plan.EnrollmentFee, discount,
 	)
+	newSub.PaymentMethod = paymentMethod
 	newSub.Activate()
-	return newSub, uc.subscriptionRepo.Create(newSub)
+	if err := uc.subscriptionRepo.Create(newSub); err != nil {
+		return nil, err
+	}
+
+	// Re-register group members from the previous subscription
+	if members, err := uc.memberRepo.FindBySubscriptionID(currentSubID); err == nil && len(members) > 0 {
+		for _, m := range members {
+			newMember := &entities.SubscriptionMember{
+				ID:             uuid.New(),
+				SubscriptionID: newSub.ID,
+				UserID:         m.UserID,
+				IsPrimary:      m.IsPrimary,
+				CreatedAt:      time.Now(),
+			}
+			uc.memberRepo.Create(newMember)
+		}
+	}
+
+	return newSub, nil
 }
 
 func (uc *SubscriptionUseCase) FreezeSubscription(id uuid.UUID, days int, reason string) error {
@@ -170,4 +204,43 @@ func (uc *SubscriptionUseCase) GetSubscriptionMembers(subscriptionID uuid.UUID) 
 // GetSubscriptionsAsMember returns subscriptions where the user is a group member (beneficiary).
 func (uc *SubscriptionUseCase) GetSubscriptionsAsMember(userID uuid.UUID) ([]*entities.Subscription, error) {
 	return uc.memberRepo.FindSubscriptionsByMemberUserID(userID)
+}
+
+// UpdateDates changes start/end dates and records the change in the audit log.
+func (uc *SubscriptionUseCase) UpdateDates(subID uuid.UUID, newStart, newEnd time.Time, changedByID uuid.UUID, changedByName string) error {
+	sub, err := uc.subscriptionRepo.FindByID(subID)
+	if err != nil {
+		return err
+	}
+
+	log := &entities.SubscriptionAuditLog{
+		ID:             uuid.New(),
+		SubscriptionID: subID,
+		ChangedByID:    changedByID,
+		ChangedByName:  changedByName,
+		Description:    "Fechas editadas manualmente",
+		OldStartDate:   sub.StartDate,
+		NewStartDate:   newStart,
+		OldEndDate:     sub.EndDate,
+		NewEndDate:     newEnd,
+		CreatedAt:      time.Now(),
+	}
+
+	sub.StartDate = newStart
+	sub.EndDate = newEnd
+	sub.UpdatedAt = time.Now()
+	// Reactivate if it was expired and new end is in the future
+	if sub.Status == entities.SubscriptionStatusExpired && newEnd.After(time.Now()) {
+		sub.Status = entities.SubscriptionStatusActive
+	}
+
+	if err := uc.subscriptionRepo.Update(sub); err != nil {
+		return err
+	}
+	return uc.auditRepo.Create(log)
+}
+
+// GetAuditLog returns the edit history of a subscription.
+func (uc *SubscriptionUseCase) GetAuditLog(subID uuid.UUID) ([]*entities.SubscriptionAuditLog, error) {
+	return uc.auditRepo.FindBySubscriptionID(subID)
 }

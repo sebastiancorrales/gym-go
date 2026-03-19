@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -44,6 +45,7 @@ type CreateSubscriptionRequest struct {
 	UserID            string   `json:"user_id" binding:"required"`
 	PlanID            string   `json:"plan_id" binding:"required"`
 	Discount          float64  `json:"discount"`
+	PaymentMethod     string   `json:"payment_method"`
 	AdditionalMembers []string `json:"additional_members"`
 }
 
@@ -82,7 +84,7 @@ func (h *SubscriptionHandler) Create(c *gin.Context) {
 		}
 	}
 
-	subscription, err := h.subscriptionUseCase.CreateSubscription(userID, planID, gymID, req.Discount, additionalIDs)
+	subscription, err := h.subscriptionUseCase.CreateSubscription(userID, planID, gymID, req.Discount, req.PaymentMethod, additionalIDs)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -161,8 +163,9 @@ func (h *SubscriptionHandler) Renew(c *gin.Context) {
 		return
 	}
 	var req struct {
-		PlanID   string  `json:"plan_id" binding:"required"`
-		Discount float64 `json:"discount"`
+		PlanID        string  `json:"plan_id" binding:"required"`
+		Discount      float64 `json:"discount"`
+		PaymentMethod string  `json:"payment_method"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -175,12 +178,65 @@ func (h *SubscriptionHandler) Renew(c *gin.Context) {
 	}
 	gymIDStr := c.GetString("gym_id")
 	gymID, _ := uuid.Parse(gymIDStr)
-	newSub, err := h.subscriptionUseCase.RenewSubscription(id, planID, gymID, req.Discount)
+	newSub, err := h.subscriptionUseCase.RenewSubscription(id, planID, gymID, req.Discount, req.PaymentMethod)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to renew subscription"})
 		return
 	}
 	c.JSON(http.StatusCreated, newSub)
+}
+
+func (h *SubscriptionHandler) UpdateDates(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+	var req struct {
+		StartDate string `json:"start_date" binding:"required"`
+		EndDate   string `json:"end_date" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	startParsed, err := time.Parse("2006-01-02", req.StartDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de fecha inválido, use YYYY-MM-DD"})
+		return
+	}
+	endParsed, err := time.Parse("2006-01-02", req.EndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de fecha inválido, use YYYY-MM-DD"})
+		return
+	}
+	// Set noon UTC to avoid off-by-one when client is UTC-5 (Colombia)
+	start := time.Date(startParsed.Year(), startParsed.Month(), startParsed.Day(), 12, 0, 0, 0, time.UTC)
+	end := time.Date(endParsed.Year(), endParsed.Month(), endParsed.Day(), 12, 0, 0, 0, time.UTC)
+	changedByIDStr := c.GetString("user_id")
+	changedByID, _ := uuid.Parse(changedByIDStr)
+	changedByName := c.GetString("user_name")
+	if err := h.subscriptionUseCase.UpdateDates(id, start, end, changedByID, changedByName); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Fechas actualizadas"})
+}
+
+func (h *SubscriptionHandler) GetAuditLog(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+	logs, err := h.subscriptionUseCase.GetAuditLog(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, logs)
 }
 
 func (h *SubscriptionHandler) Freeze(c *gin.Context) {

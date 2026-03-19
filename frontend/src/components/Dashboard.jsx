@@ -118,6 +118,7 @@ export default function Dashboard({ user, onLogout }) {
   const [revenueChart, setRevenueChart]   = useState([]);
   const [accessChart, setAccessChart]     = useState([]);
   const [recentAccess, setRecentAccess]   = useState([]);
+  const [todaySubs, setTodaySubs]         = useState({ list: [], byMethod: {} });
 
   useEffect(() => { fetchStats(); }, []);
 
@@ -140,9 +141,18 @@ export default function Dashboard({ user, onLogout }) {
       if (allSubsRes.ok) {
         const all = await allSubsRes.json();
         const today = new Date().toDateString();
-        newStats.todayRevenue = (all || [])
-          .filter(s => new Date(s.created_at).toDateString() === today)
-          .reduce((sum, s) => sum + (s.total_paid || 0), 0);
+        const todayList = (all || []).filter(s => new Date(s.created_at).toDateString() === today);
+        newStats.todayRevenue = todayList.reduce((sum, s) => sum + (s.total_paid || 0), 0);
+
+        // Daily summary by payment method
+        const byMethod = {};
+        for (const s of todayList) {
+          const m = s.payment_method || 'SIN ESPECIFICAR';
+          if (!byMethod[m]) byMethod[m] = { count: 0, total: 0 };
+          byMethod[m].count++;
+          byMethod[m].total += s.total_paid || 0;
+        }
+        setTodaySubs({ list: todayList, byMethod });
 
         // Build last-7-days revenue chart
         const days = Array.from({ length: 7 }, (_, i) => {
@@ -385,6 +395,77 @@ export default function Dashboard({ user, onLogout }) {
                   </>
                 )}
               </div>
+
+              {/* Daily Summary */}
+              {!loading && todaySubs.list.length > 0 && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900">Resumen del Dia</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">{todaySubs.list.length} suscripcion{todaySubs.list.length !== 1 ? 'es' : ''} registradas hoy</p>
+                    </div>
+                    <span className="text-xl font-extrabold text-emerald-600">{fmt(stats.todayRevenue)}</span>
+                  </div>
+
+                  {/* Payment method breakdown */}
+                  <div className="grid grid-cols-3 gap-3 mb-5">
+                    {[
+                      { key: 'EFECTIVO',      label: 'Efectivo',      icon: '💵', color: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
+                      { key: 'TRANSFERENCIA', label: 'Transferencia', icon: '📲', color: 'bg-blue-50 border-blue-100 text-blue-700' },
+                      { key: 'OTRO',          label: 'Otro',          icon: '💳', color: 'bg-violet-50 border-violet-100 text-violet-700' },
+                    ].map(({ key, label, icon, color }) => {
+                      const d = todaySubs.byMethod[key];
+                      if (!d) return null;
+                      return (
+                        <div key={key} className={`rounded-xl border p-3 ${color}`}>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className="text-base">{icon}</span>
+                            <span className="text-xs font-semibold">{label}</span>
+                          </div>
+                          <p className="text-lg font-extrabold">{fmt(d.total)}</p>
+                          <p className="text-xs opacity-70">{d.count} pago{d.count !== 1 ? 's' : ''}</p>
+                        </div>
+                      );
+                    })}
+                    {todaySubs.byMethod['SIN ESPECIFICAR'] && (
+                      <div className="rounded-xl border bg-gray-50 border-gray-100 text-gray-600 p-3">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="text-base">❔</span>
+                          <span className="text-xs font-semibold">Sin metodo</span>
+                        </div>
+                        <p className="text-lg font-extrabold">{fmt(todaySubs.byMethod['SIN ESPECIFICAR'].total)}</p>
+                        <p className="text-xs opacity-70">{todaySubs.byMethod['SIN ESPECIFICAR'].count} pago{todaySubs.byMethod['SIN ESPECIFICAR'].count !== 1 ? 's' : ''}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Today's subscriptions list */}
+                  <div className="space-y-1">
+                    {todaySubs.list.map(s => {
+                      const name = s.user ? `${s.user.first_name || ''} ${s.user.last_name || ''}`.trim() : 'Miembro';
+                      const methodIcons = { EFECTIVO: '💵', TRANSFERENCIA: '📲', OTRO: '💳' };
+                      const hour = new Date(s.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+                      return (
+                        <div key={s.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center text-xs font-bold text-emerald-700 flex-shrink-0">
+                              {name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase() || '?'}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-800">{name}</p>
+                              <p className="text-xs text-gray-400">{s.plan?.name || '—'} · {hour}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs">{methodIcons[s.payment_method] || '❔'}</span>
+                            <span className="text-sm font-bold text-gray-900">{fmt(s.total_paid)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

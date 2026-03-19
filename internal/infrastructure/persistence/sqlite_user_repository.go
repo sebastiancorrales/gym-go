@@ -51,7 +51,7 @@ func (r *SQLiteUserRepository) FindByEmail(email string) (*entities.User, error)
 
 func (r *SQLiteUserRepository) FindByGymID(gymID uuid.UUID) ([]*entities.User, error) {
 	var users []*entities.User
-	err := r.db.Where("gym_id = ?", gymID).Find(&users).Error
+	err := r.db.Where("gym_id = ?", gymID).Order("created_at DESC").Find(&users).Error
 	return users, err
 }
 
@@ -66,7 +66,7 @@ func (r *SQLiteUserRepository) Delete(id uuid.UUID) error {
 
 func (r *SQLiteUserRepository) List(limit, offset int) ([]*entities.User, error) {
 	var users []*entities.User
-	err := r.db.Limit(limit).Offset(offset).Find(&users).Error
+	err := r.db.Order("created_at DESC").Limit(limit).Offset(offset).Find(&users).Error
 	return users, err
 }
 

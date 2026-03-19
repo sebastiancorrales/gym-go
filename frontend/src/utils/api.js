@@ -85,7 +85,14 @@ export const api = {
       body: JSON.stringify(body),
     }),
   
-  delete: (endpoint, options = {}) => 
+  patch: (endpoint, body, options = {}) =>
+    apiFetch(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  delete: (endpoint, options = {}) =>
     apiFetch(endpoint, { ...options, method: 'DELETE' }),
 };
 

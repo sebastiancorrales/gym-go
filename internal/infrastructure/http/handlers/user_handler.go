@@ -115,8 +115,9 @@ func (h *UserHandler) Create(c *gin.Context) {
 
 	// Parse date of birth if provided
 	if req.DateOfBirth != "" {
-		dob, err := time.Parse("2006-01-02", req.DateOfBirth)
+		dobParsed, err := time.Parse("2006-01-02", req.DateOfBirth)
 		if err == nil {
+			dob := time.Date(dobParsed.Year(), dobParsed.Month(), dobParsed.Day(), 12, 0, 0, 0, time.UTC)
 			user.DateOfBirth = &dob
 		}
 	}
@@ -284,8 +285,9 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 	// Parse date of birth if provided
 	if req.DateOfBirth != "" {
-		dob, err := time.Parse("2006-01-02", req.DateOfBirth)
+		dobParsed, err := time.Parse("2006-01-02", req.DateOfBirth)
 		if err == nil {
+			dob := time.Date(dobParsed.Year(), dobParsed.Month(), dobParsed.Day(), 12, 0, 0, 0, time.UTC)
 			user.DateOfBirth = &dob
 		}
 	}

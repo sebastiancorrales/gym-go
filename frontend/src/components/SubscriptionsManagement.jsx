@@ -97,10 +97,17 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
   const [selectedMember, setSelectedMember] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [discount, setDiscount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
   const [submitting, setSubmitting] = useState(false);
   // Group members
   const [additionalMembers, setAdditionalMembers] = useState([]); // [{user}]
   const [addMemberSearch, setAddMemberSearch] = useState('');
+  // Renew payment method
+  const [renewPaymentMethod, setRenewPaymentMethod] = useState('EFECTIVO');
+  // Edit dates
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [editAuditLog, setEditAuditLog] = useState([]);
 
   useEffect(() => {
     fetchSubscriptions();
@@ -166,6 +173,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     setSelectedMember(null);
     setSelectedPlan(null);
     setDiscount(0);
+    setPaymentMethod('EFECTIVO');
     setAdditionalMembers([]);
     setAddMemberSearch('');
   };
@@ -176,6 +184,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     setSelectedMember(null);
     setSelectedPlan(null);
     setDiscount(0);
+    setPaymentMethod('EFECTIVO');
     setAdditionalMembers([]);
     setAddMemberSearch('');
   };
@@ -215,6 +224,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
         user_id: selectedMember.id,
         plan_id: selectedPlan.id,
         discount: parseFloat(discount) || 0,
+        payment_method: paymentMethod,
         additional_members: additionalMembers.map(m => m.id),
       });
 
@@ -238,13 +248,21 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     }
   };
 
-  const openAction = (type, sub) => {
+  const openAction = async (type, sub) => {
     setActionModal({ type, sub });
     setFreezeDays(7);
     setFreezeReason('');
     setCancelReason('');
     setRenewPlanId(sub.plan_id || '');
     setRenewDiscount(0);
+    setRenewPaymentMethod('EFECTIVO');
+    if (type === 'editDates') {
+      setEditStartDate(sub.start_date ? sub.start_date.slice(0, 10) : '');
+      setEditEndDate(sub.end_date ? sub.end_date.slice(0, 10) : '');
+      setEditAuditLog([]);
+      const res = await api.get(`/subscriptions/${sub.id}/audit`);
+      if (res.ok) setEditAuditLog(await res.json());
+    }
   };
   const closeAction = () => setActionModal(null);
 
@@ -261,12 +279,14 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
       } else if (type === 'unfreeze') {
         res = await api.post(`/subscriptions/${sub.id}/unfreeze`, {});
       } else if (type === 'renew') {
-        res = await api.post(`/subscriptions/${sub.id}/renew`, { plan_id: renewPlanId, discount: parseFloat(renewDiscount) || 0 });
+        res = await api.post(`/subscriptions/${sub.id}/renew`, { plan_id: renewPlanId, discount: parseFloat(renewDiscount) || 0, payment_method: renewPaymentMethod });
+      } else if (type === 'editDates') {
+        res = await api.patch(`/subscriptions/${sub.id}/dates`, { start_date: editStartDate, end_date: editEndDate });
       }
       if (res?.ok) {
         const data = await res.json().catch(() => null);
         closeAction();
-        const labels = { cancel: 'cancelada', freeze: 'congelada', unfreeze: 'descongelada', renew: 'renovada' };
+        const labels = { cancel: 'cancelada', freeze: 'congelada', unfreeze: 'descongelada', renew: 'renovada', editDates: 'actualizada' };
         setToast({ message: `Suscripcion ${labels[type]} exitosamente`, type: 'success' });
         fetchSubscriptions();
         // Show receipt for renewals
@@ -290,7 +310,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
 
   const filteredSubs = (() => {
     const q = searchQuery.toLowerCase();
-    return q
+    const list = q
       ? subscriptions.filter(s =>
           `${s.user?.first_name} ${s.user?.last_name}`.toLowerCase().includes(q) ||
           (s.user?.document_number || '').toLowerCase().includes(q) ||
@@ -298,6 +318,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
           (s.plan?.name || '').toLowerCase().includes(q)
         )
       : subscriptions;
+    return [...list].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   })();
   const totalPages = Math.ceil(filteredSubs.length / PAGE_SIZE);
   const paginatedSubs = filteredSubs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -344,16 +365,17 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Plan</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Periodo</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Precio</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Pago</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {loading ? (
-              <tr><td colSpan="6" className="p-0"><SkeletonTable cols={6} rows={5} /></td></tr>
+              <tr><td colSpan="7" className="p-0"><SkeletonTable cols={7} rows={5} /></td></tr>
             ) : filteredSubs.length === 0 ? (
               <tr>
-                <td colSpan="6">
+                <td colSpan="7">
                   <EmptyState
                     icon="list"
                     title={searchQuery ? `Sin resultados para "${searchQuery}"` : 'No hay suscripciones'}
@@ -429,6 +451,14 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                       )}
                     </td>
                     <td className="px-6 py-4">
+                      <span className="text-sm text-gray-600">
+                        {sub.payment_method === 'EFECTIVO' ? '💵 Efectivo'
+                          : sub.payment_method === 'TRANSFERENCIA' ? '📲 Transferencia'
+                          : sub.payment_method ? `💳 ${sub.payment_method}`
+                          : <span className="text-gray-300">—</span>}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
                       <StatusBadge status={sub.status} />
                     </td>
                     <td className="px-6 py-4">
@@ -461,6 +491,10 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                             Renovar
                           </button>
                         )}
+                        <button onClick={() => openAction('editDates', sub)}
+                          className="px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 rounded-lg transition" title="Editar fechas">
+                          Fechas
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -809,6 +843,19 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
               {selectedPlan.description && <p className="text-xs text-gray-500 mb-3">{selectedPlan.description}</p>}
             </div>
 
+            {/* Payment method */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Metodo de pago</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[['EFECTIVO','💵','Efectivo'],['TRANSFERENCIA','📲','Transferencia'],['OTRO','💳','Otro']].map(([val, icon, label]) => (
+                  <button key={val} type="button" onClick={() => setPaymentMethod(val)}
+                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-sm font-medium ${paymentMethod === val ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-gray-100 text-gray-500 hover:border-gray-200'}`}>
+                    <span className="text-lg">{icon}</span>{label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Price breakdown */}
             <div className="space-y-3 p-4 bg-white rounded-xl border border-gray-200">
               <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Desglose</h4>
@@ -955,11 +1002,74 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 placeholder="0" />
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Metodo de pago</label>
+              <div className="grid grid-cols-3 gap-2">
+                {[['EFECTIVO','💵','Efectivo'],['TRANSFERENCIA','📲','Transferencia'],['OTRO','💳','Otro']].map(([val, icon, label]) => (
+                  <button key={val} type="button" onClick={() => setRenewPaymentMethod(val)}
+                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-sm font-medium ${renewPaymentMethod === val ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-gray-100 text-gray-500 hover:border-gray-200'}`}>
+                    <span className="text-lg">{icon}</span>{label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={closeAction} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">Volver</button>
               <button onClick={handleAction} disabled={actionLoading || !renewPlanId}
                 className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
                 {actionLoading ? 'Procesando...' : 'Renovar'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {actionModal && actionModal.type === 'editDates' && (
+        <Modal isOpen onClose={closeAction} title="Editar Fechas de Suscripcion" maxWidth="sm">
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3">
+              <p className="text-xs text-amber-700 font-medium">Los cambios quedan registrados en la bitacora de auditoria.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Fecha inicio</label>
+                <input type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-400 focus:border-transparent" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Fecha fin</label>
+                <input type="date" value={editEndDate} onChange={e => setEditEndDate(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-400 focus:border-transparent" />
+              </div>
+            </div>
+
+            {editAuditLog.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Bitacora de cambios</p>
+                <div className="max-h-40 overflow-y-auto space-y-2">
+                  {editAuditLog.map(log => (
+                    <div key={log.id} className="text-xs bg-gray-50 rounded-lg p-2.5">
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="font-semibold text-gray-700">{log.changed_by_name || 'Admin'}</span>
+                        <span className="text-gray-400">{new Date(log.created_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}</span>
+                      </div>
+                      <p className="text-gray-500">
+                        Inicio: <span className="text-gray-700">{new Date(log.old_start_date).toLocaleDateString('es-CO')} → {new Date(log.new_start_date).toLocaleDateString('es-CO')}</span>
+                      </p>
+                      <p className="text-gray-500">
+                        Fin: <span className="text-gray-700">{new Date(log.old_end_date).toLocaleDateString('es-CO')} → {new Date(log.new_end_date).toLocaleDateString('es-CO')}</span>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={closeAction} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">Volver</button>
+              <button onClick={handleAction} disabled={actionLoading || !editStartDate || !editEndDate}
+                className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed">
+                {actionLoading ? 'Guardando...' : 'Guardar Fechas'}
               </button>
             </div>
           </div>

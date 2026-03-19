@@ -97,6 +97,7 @@ func main() {
 	userRepo := persistence.NewSQLiteUserRepository(database.DB)
 	subscriptionRepo := persistence.NewSQLiteSubscriptionRepository(database.DB)
 	subscriptionMemberRepo := persistence.NewSQLiteSubscriptionMemberRepository(database.DB)
+	subscriptionAuditRepo := persistence.NewSQLiteSubscriptionAuditLogRepository(database.DB)
 	accessLogRepo := persistence.NewSQLiteAccessLogRepository(database.DB)
 	planRepo := persistence.NewSQLitePlanRepository(database.DB)
 	gymRepo := persistence.NewSQLiteGymRepository(database.DB)
@@ -113,7 +114,7 @@ func main() {
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(userRepo)
 	planUseCase := usecases.NewPlanUseCase(planRepo)
-	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, subscriptionMemberRepo, planRepo, userRepo)
+	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, subscriptionMemberRepo, planRepo, userRepo, subscriptionAuditRepo)
 	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
 	biometricService := usecases.NewBiometricService(fingerprintRepo, userRepo)
 	productUseCase := usecases.NewProductUseCase(productRepo)
@@ -297,6 +298,8 @@ func main() {
 			subscriptions.POST("/:id/renew", subscriptionHandler.Renew)
 			subscriptions.POST("/:id/freeze", subscriptionHandler.Freeze)
 			subscriptions.POST("/:id/unfreeze", subscriptionHandler.Unfreeze)
+			subscriptions.PATCH("/:id/dates", subscriptionHandler.UpdateDates)
+			subscriptions.GET("/:id/audit", subscriptionHandler.GetAuditLog)
 		}
 
 		// Access routes - Multiple roles can access

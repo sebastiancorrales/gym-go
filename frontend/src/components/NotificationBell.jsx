@@ -69,7 +69,7 @@ export default function NotificationBell({ onUserClick }) {
     if (!open && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
       setDropdownPos({
-        top: rect.bottom + window.scrollY + 8,
+        top: rect.bottom + 8,
         right: window.innerWidth - rect.right,
       });
     }

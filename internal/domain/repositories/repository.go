@@ -61,6 +61,12 @@ type SubscriptionMemberRepository interface {
 	DeleteBySubscriptionID(subscriptionID uuid.UUID) error
 }
 
+// SubscriptionAuditLogRepository defines audit log repository interface
+type SubscriptionAuditLogRepository interface {
+	Create(log *entities.SubscriptionAuditLog) error
+	FindBySubscriptionID(subscriptionID uuid.UUID) ([]*entities.SubscriptionAuditLog, error)
+}
+
 // PaymentRepository defines payment repository interface
 type PaymentRepository interface {
 	Create(payment *entities.Payment) error

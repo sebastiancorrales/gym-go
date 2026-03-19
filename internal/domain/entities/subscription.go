@@ -32,6 +32,7 @@ type Subscription struct {
 	EnrollmentFeePaid   float64            `json:"enrollment_fee_paid"`
 	DiscountApplied     float64            `json:"discount_applied"`
 	TotalPaid           float64            `json:"total_paid"`
+	PaymentMethod       string             `json:"payment_method,omitempty"`
 	Status              SubscriptionStatus `json:"status"`
 	FrozenUntil         *time.Time         `json:"frozen_until,omitempty"`
 	FreezeReason        string             `json:"freeze_reason,omitempty"`
