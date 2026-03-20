@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(grep -E \"\\\\.\\(go\\)$\")",
+      "Bash(go build:*)",
+      "Bash(wc -l /c/Users/sebas/OneDrive/Desktop/gym-go/main.go /c/Users/sebas/OneDrive/Desktop/gym-go/internal/usecases/*.go /c/Users/sebas/OneDrive/Desktop/gym-go/internal/infrastructure/persistence/*.go)",
+      "Bash(grep -r \"TODO\\\\|FIXME\\\\|XXX\" /c/Users/sebas/OneDrive/Desktop/gym-go --include=*.go --include=*.cs)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -r password /c/Users/sebas/OneDrive/Desktop/gym-go/internal/infrastructure/http/handlers --include=*.go)",
+      "Bash(grep -E \"\\\\.jsx$\")",
+      "Read(//c/Program Files \\(x86\\)/NSIS/**)",
+      "Bash(go version:*)",
+      "Bash(dotnet --version)",
+      "Bash(\"C:\\\\Program Files \\(x86\\)\\\\NSIS\\\\makensis.exe\" \"c:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\installer.nsi\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNWQyNGI5NjEtNmQ4Zi00MzYyLTk5Y2ItNjE0NWNkMGI2YzU2IiwiZ3ltX2lkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwiZW1haWwiOiJhZG1pbkBneW0tZ28uY29tIiwicm9sZSI6IlNVUEVSX0FETUlOIiwidG9rZW5fdHlwZSI6ImFjY2VzcyIsImlzcyI6Imd5bS1nbyIsInN1YiI6IjVkMjRiOTYxLTZkOGYtNDM2Mi05OWNiLTYxNDVjZDBiNmM1NiIsImV4cCI6MTc3Mzk4MTk1OCwibmJmIjoxNzczODk1NTU4LCJpYXQiOjE3NzM4OTU1NTh9.1F98pcWP3Xlk2lwLYNV8xLBHWzL9CBDuLwjqj0NuS1o\")",
+      "Bash(curl -s http://localhost:8080/api/v1/gyms -H \"Authorization: Bearer $TOKEN\")",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiNWQyNGI5NjEtNmQ4Zi00MzYyLTk5Y2ItNjE0NWNkMGI2YzU2IiwiZ3ltX2lkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwiZW1haWwiOiJhZG1pbkBneW0tZ28uY29tIiwicm9sZSI6IlNVUEVSX0FETUlOIiwidG9rZW5fdHlwZSI6ImFjY2VzcyIsImlzcyI6Imd5bS1nbyIsInN1YiI6IjVkMjRiOTYxLTZkOGYtNDM2Mi05OWNiLTYxNDVjZDBiNmM1NiIsImV4cCI6MTc3Mzk4MTk1OCwibmJmIjoxNzczODk1NTU4LCJpYXQiOjE3NzM4OTU1NTh9.1F98pcWP3Xlk2lwLYNV8xLBHWzL9CBDuLwjqj0NuS1o\" curl -s http://localhost:8080/api/v1/gym -H \"Authorization: Bearer $TOKEN\" 2)",
+      "Bash(1 echo:*)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(''''Usuarios:'''', len\\(d.get\\(''''data'''',d if isinstance\\(d,list\\) else []\\)\\)\\)\")",
+      "Read(//c/ProgramData/Gym-Go 2>/dev/**)",
+      "Read(//c/ProgramData/**)",
+      "Bash(python import_clientes.py --dry-run)",
+      "Bash(python -X utf8 import_clientes.py --dry-run)",
+      "Bash(python -X utf8 import_clientes.py)",
+      "Bash(python -c \":*)",
+      "Bash(sqlite3 gym-go.db \":*)",
+      "Bash(npx vite:*)"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 // Utilidad para manejar peticiones HTTP con autorización automática
 
-const API_BASE_URL = 'http://localhost:8080/api/v1';
+const API_BASE_URL = `${window.location.protocol}//${window.location.host}/api/v1`;
 
 /**
  * Wrapper de fetch que maneja automáticamente:
@@ -85,7 +85,14 @@ export const api = {
       body: JSON.stringify(body),
     }),
   
-  delete: (endpoint, options = {}) => 
+  patch: (endpoint, body, options = {}) =>
+    apiFetch(endpoint, {
+      ...options,
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  delete: (endpoint, options = {}) =>
     apiFetch(endpoint, { ...options, method: 'DELETE' }),
 };
 

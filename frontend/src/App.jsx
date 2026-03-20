@@ -20,13 +20,23 @@ function App() {
 
     const token = localStorage.getItem('access_token');
     const savedUser = localStorage.getItem('user');
-    
+
     if (token && savedUser) {
-      setUser(JSON.parse(savedUser));
+      const u = JSON.parse(savedUser);
+      setUser(u);
     }
-    
+
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    const gymName = localStorage.getItem('gym_name');
+    if (user && gymName) {
+      document.title = `Gym-Go — ${gymName}`;
+    } else {
+      document.title = 'Gym-Go';
+    }
+  }, [user]);
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);

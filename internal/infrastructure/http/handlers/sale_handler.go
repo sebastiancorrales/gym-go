@@ -243,7 +243,7 @@ func (h *SaleHandler) GetSalesByDateRange(c *gin.Context) {
 		return
 	}
 
-	startDate, err := time.Parse("2006-01-02", startDateStr)
+	startDateParsed, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error:   "Bad Request",
@@ -252,8 +252,9 @@ func (h *SaleHandler) GetSalesByDateRange(c *gin.Context) {
 		})
 		return
 	}
+	startDate := time.Date(startDateParsed.Year(), startDateParsed.Month(), startDateParsed.Day(), 0, 0, 0, 0, time.UTC)
 
-	endDate, err := time.Parse("2006-01-02", endDateStr)
+	endDateParsed, err := time.Parse("2006-01-02", endDateStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error:   "Bad Request",
@@ -262,6 +263,7 @@ func (h *SaleHandler) GetSalesByDateRange(c *gin.Context) {
 		})
 		return
 	}
+	endDate := time.Date(endDateParsed.Year(), endDateParsed.Month(), endDateParsed.Day(), 0, 0, 0, 0, time.UTC)
 
 	// Ajustar endDate al final del día (23:59:59.999999999)
 	endDate = endDate.Add(24*time.Hour - time.Nanosecond)
@@ -309,7 +311,7 @@ func (h *SaleHandler) GetSalesReport(c *gin.Context) {
 		return
 	}
 
-	startDate, err := time.Parse("2006-01-02", startDateStr)
+	startDateParsed, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error:   "Bad Request",
@@ -318,8 +320,9 @@ func (h *SaleHandler) GetSalesReport(c *gin.Context) {
 		})
 		return
 	}
+	startDate := time.Date(startDateParsed.Year(), startDateParsed.Month(), startDateParsed.Day(), 0, 0, 0, 0, time.UTC)
 
-	endDate, err := time.Parse("2006-01-02", endDateStr)
+	endDateParsed, err := time.Parse("2006-01-02", endDateStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error:   "Bad Request",
@@ -328,6 +331,7 @@ func (h *SaleHandler) GetSalesReport(c *gin.Context) {
 		})
 		return
 	}
+	endDate := time.Date(endDateParsed.Year(), endDateParsed.Month(), endDateParsed.Day(), 0, 0, 0, 0, time.UTC)
 
 	// Ajustar endDate al final del día (23:59:59.999999999)
 	endDate = endDate.Add(24*time.Hour - time.Nanosecond)
@@ -386,7 +390,7 @@ func (h *SaleHandler) GetSalesReportByProduct(c *gin.Context) {
 		return
 	}
 
-	startDate, err := time.Parse("2006-01-02", startDateStr)
+	startDateParsed, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error:   "Bad Request",
@@ -395,8 +399,9 @@ func (h *SaleHandler) GetSalesReportByProduct(c *gin.Context) {
 		})
 		return
 	}
+	startDate := time.Date(startDateParsed.Year(), startDateParsed.Month(), startDateParsed.Day(), 0, 0, 0, 0, time.UTC)
 
-	endDate, err := time.Parse("2006-01-02", endDateStr)
+	endDateParsed, err := time.Parse("2006-01-02", endDateStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
 			Error:   "Bad Request",
@@ -405,6 +410,7 @@ func (h *SaleHandler) GetSalesReportByProduct(c *gin.Context) {
 		})
 		return
 	}
+	endDate := time.Date(endDateParsed.Year(), endDateParsed.Month(), endDateParsed.Day(), 0, 0, 0, 0, time.UTC)
 
 	// Ajustar endDate al final del día (23:59:59.999999999)
 	endDate = endDate.Add(24*time.Hour - time.Nanosecond)

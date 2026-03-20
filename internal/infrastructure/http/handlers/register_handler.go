@@ -35,6 +35,8 @@ type RegisterGymRequest struct {
 	City         string `json:"city"`
 	Country      string `json:"country"`
 	Timezone     string `json:"timezone"`
+	Locale       string `json:"locale"`
+	Currency     string `json:"currency"`
 }
 
 type RegisterAdminRequest struct {
@@ -76,7 +78,8 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 		City:      req.Gym.City,
 		Country:   req.Gym.Country,
 		Timezone:  req.Gym.Timezone,
-		Currency:  "COP",
+		Locale:    req.Gym.Locale,
+		Currency:  req.Gym.Currency,
 		Status:    "ACTIVE",
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),

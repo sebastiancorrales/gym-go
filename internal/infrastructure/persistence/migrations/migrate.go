@@ -28,6 +28,10 @@ func Migrate(db *gorm.DB) error {
 		&entities.SalePaymentMethod{},
 		&entities.Sale{},
 		&entities.SaleDetail{},
+		&entities.Class{},
+		&entities.Attendance{},
+		&entities.SubscriptionMember{},
+		&entities.SubscriptionAuditLog{},
 	)
 
 	if err != nil {

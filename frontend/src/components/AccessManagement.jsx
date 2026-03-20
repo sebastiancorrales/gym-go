@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import api from '../utils/api';
+import Toast from './Toast';
 
 export default function AccessManagement() {
   const [todayAccess, setTodayAccess] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [toast, setToast] = useState(null);
   const [formData, setFormData] = useState({
     user_id: '',
     method: 'MANUAL'
@@ -18,13 +21,7 @@ export default function AccessManagement() {
   const fetchTodayAccess = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8080/api/v1/access/today', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
+      const response = await api.get('/access/today');
       if (response.ok) {
         const data = await response.json();
         setTodayAccess(data || []);
@@ -38,13 +35,7 @@ export default function AccessManagement() {
 
   const fetchUsers = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8080/api/v1/users', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
+      const response = await api.get('/users');
       if (response.ok) {
         const result = await response.json();
         setUsers(result.data || result || []);
@@ -57,33 +48,20 @@ export default function AccessManagement() {
   const handleCheckIn = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8080/api/v1/access/checkin', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-
+      const response = await api.post('/access/checkin', formData);
       if (response.ok) {
         setShowForm(false);
-        setFormData({
-          user_id: '',
-          method: 'MANUAL'
-        });
+        setFormData({ user_id: '', method: 'MANUAL' });
         fetchTodayAccess();
-        alert('Check-in registrado exitosamente');
+        setToast({ message: 'Check-in registrado exitosamente', type: 'success' });
       } else {
         const error = await response.json();
-        alert(error.error || error.reason || 'Error al registrar check-in');
+        setToast({ message: error.error || error.reason || 'Error al registrar check-in', type: 'error' });
       }
     } catch (error) {
       console.error('Error checking in:', error);
-      alert('Error al registrar check-in');
+      setToast({ message: 'Error al registrar check-in', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -133,7 +111,7 @@ export default function AccessManagement() {
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg"
+          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 shadow-lg"
         >
           {showForm ? 'Cancelar' : '+ Registrar Entrada'}
         </button>
@@ -177,12 +155,12 @@ export default function AccessManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Registros</p>
-              <p className="text-3xl font-bold text-blue-600">
+              <p className="text-3xl font-bold text-emerald-600">
                 {todayAccess.length}
               </p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
@@ -202,7 +180,7 @@ export default function AccessManagement() {
                 required
                 value={formData.user_id}
                 onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               >
                 <option value="">Seleccionar usuario...</option>
                 {users.map(user => (
@@ -220,7 +198,7 @@ export default function AccessManagement() {
               <select
                 value={formData.method}
                 onChange={(e) => setFormData({ ...formData, method: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               >
                 <option value="MANUAL">Manual</option>
                 <option value="QR">Código QR</option>
@@ -233,7 +211,7 @@ export default function AccessManagement() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg disabled:opacity-50"
+                className="w-full px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 shadow-lg disabled:opacity-50"
               >
                 {loading ? 'Registrando...' : 'Registrar Entrada'}
               </button>
@@ -327,6 +305,10 @@ export default function AccessManagement() {
           </table>
         </div>
       </div>
+
+      {toast && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
     </div>
   );
 }

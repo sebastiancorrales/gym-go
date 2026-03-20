@@ -1,11 +1,12 @@
 package handlers
 
 import (
-	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/dto"
-	"github.com/sebastiancorrales/gym-go/internal/usecases"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/dto"
+	"github.com/sebastiancorrales/gym-go/internal/usecases"
 )
 
 // AttendanceHandler maneja las peticiones HTTP relacionadas con asistencias
@@ -52,6 +53,32 @@ func (h *AttendanceHandler) CheckIn(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, response)
+}
+
+// ListAttendance lista todas las asistencias
+func (h *AttendanceHandler) ListAttendance(c *gin.Context) {
+	attendances, err := h.attendanceUseCase.ListAttendances(c.Request.Context(), repositories.AttendanceFilters{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error:   "Internal Server Error",
+			Message: "Error al listar asistencias",
+			Details: map[string]string{"detail": err.Error()},
+		})
+		return
+	}
+
+	response := make([]*dto.AttendanceResponse, 0, len(attendances))
+	for _, a := range attendances {
+		response = append(response, &dto.AttendanceResponse{
+			ID:        a.ID,
+			MemberID:  a.MemberID,
+			ClassID:   a.ClassID,
+			CheckIn:   a.CheckIn,
+			CheckOut:  a.CheckOut,
+			CreatedAt: a.CreatedAt,
+		})
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 // CheckOut maneja el check-out de un miembro

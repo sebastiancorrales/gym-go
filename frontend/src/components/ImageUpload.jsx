@@ -45,7 +45,8 @@ export default function ImageUpload({ value, onChange, label = "Foto de Perfil" 
       formData.append('file', file);
 
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8080/api/v1/upload/image', {
+      const base = `${window.location.protocol}//${window.location.host}`;
+      const response = await fetch(`${base}/api/v1/upload/image`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -58,9 +59,9 @@ export default function ImageUpload({ value, onChange, label = "Foto de Perfil" 
       }
 
       const data = await response.json();
-      
-      // Call onChange with the full URL
-      const fullURL = `http://localhost:8080${data.url}`;
+
+      // Build full URL using current host (works in dev and production)
+      const fullURL = `${base}${data.url}`;
       onChange(fullURL);
 
     } catch (err) {

@@ -19,6 +19,7 @@ type Plan struct {
 	Icon          string    `json:"icon,omitempty"`
 	DisplayOrder  int       `json:"display_order"`
 	IsFeatured    bool      `json:"is_featured"`
+	MaxMembers    int       `json:"max_members"`
 	Status        string    `json:"status"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
@@ -35,6 +36,7 @@ func NewPlan(gymID uuid.UUID, name string, durationDays int, price float64) *Pla
 		Price:         price,
 		EnrollmentFee: 0,
 		Color:         "#3B82F6",
+		MaxMembers:    1,
 		Status:        "ACTIVE",
 		CreatedAt:     now,
 		UpdatedAt:     now,

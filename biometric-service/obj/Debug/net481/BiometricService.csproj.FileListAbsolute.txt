@@ -1,0 +1,13 @@
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net481\BiometricService.exe.config
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net481\BiometricService.exe
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net481\BiometricService.pdb
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\bin\Debug\net481\Newtonsoft.Json.dll
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\obj\Debug\net481\BiometricService.csproj.AssemblyReference.cache
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\obj\Debug\net481\BiometricService.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\obj\Debug\net481\BiometricService.AssemblyInfoInputs.cache
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\obj\Debug\net481\BiometricService.AssemblyInfo.cs
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\obj\Debug\net481\BiometricService.csproj.CoreCompileInputs.cache
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\obj\Debug\net481\BiometricService.sourcelink.json
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\obj\Debug\net481\Biometri.E3DC26EA.Up2Date
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\obj\Debug\net481\BiometricService.exe
+C:\Users\sebas\OneDrive\Desktop\gym-go\biometric-service\obj\Debug\net481\BiometricService.pdb

@@ -1,255 +1,238 @@
 import { useState, useEffect } from 'react';
+import api from '../utils/api';
+import Toast from './Toast';
+
+const Svg = ({ path, className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={path} />
+  </svg>
+);
+
+const PAGE_SIZE = 15;
 
 export default function AttendanceTab() {
   const [attendances, setAttendances] = useState([]);
-  const [members, setMembers] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [formData, setFormData] = useState({
-    member_id: '',
-    class_id: '',
-    date: new Date().toISOString().split('T')[0],
-    status: 'present',
-  });
-  const [message, setMessage] = useState(null);
+  const [users, setUsers]             = useState([]);
+  const [classes, setClasses]         = useState([]);
+  const [formData, setFormData]       = useState({ member_id: '', class_id: '' });
+  const [toast, setToast]             = useState(null);
+  const [loading, setLoading]         = useState(false);
+
+  // Filters
+  const [search, setSearch]       = useState('');
+  const [dateFrom, setDateFrom]   = useState('');
+  const [dateTo, setDateTo]       = useState('');
+  const [page, setPage]           = useState(1);
 
   useEffect(() => {
-    loadAttendances();
-    loadMembers();
-    loadClasses();
+    loadAll();
   }, []);
 
-  const loadAttendances = async () => {
+  const loadAll = async () => {
+    setLoading(true);
     try {
-      const response = await fetch('http://localhost:8080/api/v1/attendance');
-      if (response.ok) {
-        const data = await response.json();
-        setAttendances(data || []);
+      const [attRes, usrRes, clsRes] = await Promise.all([
+        api.get('/attendance'),
+        api.get('/users'),
+        api.get('/classes'),
+      ]);
+      if (attRes.ok) setAttendances(await attRes.json() || []);
+      if (usrRes.ok) {
+        const d = await usrRes.json();
+        setUsers((d?.data || d || []).filter(u => u.role === 'MEMBER'));
       }
-    } catch (error) {
-      console.error('Error loading attendances:', error);
-    }
-  };
-
-  const loadMembers = async () => {
-    try {
-      const response = await fetch('http://localhost:8080/api/v1/members');
-      if (response.ok) {
-        const data = await response.json();
-        setMembers(data || []);
-      }
-    } catch (error) {
-      console.error('Error loading members:', error);
-    }
-  };
-
-  const loadClasses = async () => {
-    try {
-      const response = await fetch('http://localhost:8080/api/v1/classes');
-      if (response.ok) {
-        const data = await response.json();
-        setClasses(data || []);
-      }
-    } catch (error) {
-      console.error('Error loading classes:', error);
-    }
+      if (clsRes.ok) setClasses(await clsRes.json() || []);
+    } catch { /* silent */ }
+    finally { setLoading(false); }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:8080/api/v1/attendance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...formData,
-          date: new Date(formData.date).toISOString(),
-        }),
-      });
-
-      if (response.ok) {
-        setMessage({ type: 'success', text: '✅ Asistencia registrada exitosamente!' });
-        setFormData({
-          member_id: '',
-          class_id: '',
-          date: new Date().toISOString().split('T')[0],
-          status: 'present',
-        });
-        await loadAttendances();
-        setTimeout(() => setMessage(null), 3000);
+      const body = { member_id: formData.member_id };
+      if (formData.class_id) body.class_id = formData.class_id;
+      const r = await api.post('/attendance', body);
+      if (r.ok) {
+        setToast({ message: 'Asistencia registrada exitosamente', type: 'success' });
+        setFormData({ member_id: '', class_id: '' });
+        loadAll();
       } else {
-        setMessage({ type: 'error', text: '❌ Error al registrar asistencia' });
-        setTimeout(() => setMessage(null), 3000);
+        const err = await r.json().catch(() => ({}));
+        setToast({ message: err.error || err.Message || 'Error al registrar', type: 'error' });
       }
-    } catch (error) {
-      setMessage({ type: 'error', text: '❌ Error de conexión con el servidor' });
-      setTimeout(() => setMessage(null), 3000);
+    } catch {
+      setToast({ message: 'Error de conexion', type: 'error' });
     }
   };
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+  const userName = (id) => {
+    const u = users.find(u => u.id === id);
+    return u ? `${u.first_name} ${u.last_name}` : id || '—';
   };
 
-  const getMemberName = (memberId) => {
-    const member = members.find(m => m.id === memberId);
-    return member ? `${member.first_name} ${member.last_name}` : memberId;
+  const className = (id) => {
+    if (!id) return 'General';
+    return classes.find(c => c.id === id)?.name || id;
   };
 
-  const getClassName = (classId) => {
-    const gymClass = classes.find(c => c.id === classId);
-    return gymClass ? gymClass.name : classId;
-  };
+  // Filter
+  const filtered = attendances.filter(a => {
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      if (!userName(a.member_id).toLowerCase().includes(q) &&
+          !className(a.class_id).toLowerCase().includes(q)) return false;
+    }
+    if (dateFrom) {
+      const d = new Date(a.check_in);
+      if (d < new Date(dateFrom)) return false;
+    }
+    if (dateTo) {
+      const d = new Date(a.check_in);
+      const end = new Date(dateTo);
+      end.setHours(23, 59, 59);
+      if (d > end) return false;
+    }
+    return true;
+  });
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const resetFilters = () => { setSearch(''); setDateFrom(''); setDateTo(''); setPage(1); };
 
   return (
     <div className="space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">Registrar Asistencia</h2>
 
-        {message && (
-          <div className={`p-4 rounded mb-4 ${
-            message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-          }`}>
-            {message.text}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Miembro *
-              </label>
-              <select
-                name="member_id"
-                value={formData.member_id}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Seleccionar miembro...</option>
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.first_name} {member.last_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Clase *
-              </label>
-              <select
-                name="class_id"
-                value={formData.class_id}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Seleccionar clase...</option>
-                {classes.map((gymClass) => (
-                  <option key={gymClass.id} value={gymClass.id}>
-                    {gymClass.name} - {gymClass.schedule}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fecha *
-              </label>
-              <input
-                type="date"
-                name="date"
-                value={formData.date}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Estado *
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="present">Presente</option>
-                <option value="absent">Ausente</option>
-                <option value="late">Tarde</option>
-              </select>
-            </div>
+      {/* Register form */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-5">Registrar Asistencia</h2>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Miembro *</label>
+            <select required value={formData.member_id}
+              onChange={e => setFormData({ ...formData, member_id: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white">
+              <option value="">Seleccionar miembro...</option>
+              {users.map(u => (
+                <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>
+              ))}
+            </select>
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            Registrar Asistencia
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Clase (opcional)</label>
+            <select value={formData.class_id}
+              onChange={e => setFormData({ ...formData, class_id: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white">
+              <option value="">Asistencia general</option>
+              {classes.filter(c => c.status === 'scheduled' || c.status === 'ongoing').map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <button type="submit"
+            className="px-4 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-sm shadow-emerald-500/20">
+            Registrar Check-In
           </button>
         </form>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">Historial de Asistencias</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Miembro
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Clase
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fecha
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {attendances.map((attendance) => (
-                <tr key={attendance.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {getMemberName(attendance.member_id)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {getClassName(attendance.class_id)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(attendance.date).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      attendance.status === 'present' 
-                        ? 'bg-green-100 text-green-800' 
-                        : attendance.status === 'late'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {attendance.status === 'present' ? 'Presente' : attendance.status === 'late' ? 'Tarde' : 'Ausente'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* History */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-50">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Historial de Asistencias</h2>
+
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="relative flex-1 min-w-[200px]">
+              <Svg path="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input type="text" placeholder="Buscar miembro o clase..."
+                value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500 whitespace-nowrap">Desde</label>
+              <input type="date" value={dateFrom}
+                onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500 whitespace-nowrap">Hasta</label>
+              <input type="date" value={dateTo}
+                onChange={e => { setDateTo(e.target.value); setPage(1); }}
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            {(search || dateFrom || dateTo) && (
+              <button onClick={resetFilters}
+                className="px-3 py-2 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                Limpiar
+              </button>
+            )}
+          </div>
         </div>
+
+        <table className="min-w-full divide-y divide-gray-100">
+          <thead>
+            <tr className="bg-gray-50/80">
+              {['Miembro', 'Clase', 'Check-In', 'Check-Out'].map(h => (
+                <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {loading ? (
+              <tr><td colSpan={4} className="px-5 py-12 text-center text-sm text-gray-400">Cargando...</td></tr>
+            ) : paginated.length === 0 ? (
+              <tr><td colSpan={4} className="px-5 py-12 text-center text-sm text-gray-400">
+                {filtered.length === 0 && (search || dateFrom || dateTo)
+                  ? 'Sin resultados para los filtros aplicados'
+                  : 'No hay registros de asistencia'}
+              </td></tr>
+            ) : paginated.map(a => (
+              <tr key={a.id} className="hover:bg-gray-50/50 transition-colors">
+                <td className="px-5 py-3 text-sm font-medium text-gray-900">{userName(a.member_id)}</td>
+                <td className="px-5 py-3 text-sm text-gray-500">{className(a.class_id)}</td>
+                <td className="px-5 py-3 text-sm text-gray-600 whitespace-nowrap">
+                  {new Date(a.check_in).toLocaleString('es-CO', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </td>
+                <td className="px-5 py-3 whitespace-nowrap">
+                  {a.check_out ? (
+                    <span className="text-sm text-gray-600">
+                      {new Date(a.check_out).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                      En el gym
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              {filtered.length} registros — Página {page} de {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                Anterior
+              </button>
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }

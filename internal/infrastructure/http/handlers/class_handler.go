@@ -1,12 +1,13 @@
 package handlers
 
 import (
-	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
-	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/dto"
-	"github.com/sebastiancorrales/gym-go/internal/usecases"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
+	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/dto"
+	"github.com/sebastiancorrales/gym-go/internal/usecases"
 )
 
 // ClassHandler maneja las peticiones HTTP relacionadas con clases
@@ -128,6 +129,25 @@ func (h *ClassHandler) CompleteClass(c *gin.Context) {
 		Success: true,
 		Message: "Clase completada exitosamente",
 	})
+}
+
+// ListClasses lista todas las clases
+func (h *ClassHandler) ListClasses(c *gin.Context) {
+	classes, err := h.classUseCase.ListClasses(c.Request.Context(), repositories.ClassFilters{})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
+			Error:   "Internal Server Error",
+			Message: "Error al listar clases",
+			Details: map[string]string{"detail": err.Error()},
+		})
+		return
+	}
+
+	response := make([]*dto.ClassResponse, 0, len(classes))
+	for _, class := range classes {
+		response = append(response, mapClassToResponse(class))
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 // mapClassToResponse convierte una entidad Class a ClassResponse

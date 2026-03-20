@@ -2,7 +2,6 @@ package usecases
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,11 +45,6 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 	}
 	if len(sale.Details) == 0 {
 		return errors.ErrInvalidInput
-	}
-
-	log.Printf("🔍 DEBUG CreateSale - Received %d details", len(sale.Details))
-	for i, d := range sale.Details {
-		log.Printf("🔍 DEBUG CreateSale - Detail %d: ProductID=%s, Quantity=%d", i, d.ProductID, d.Quantity)
 	}
 
 	// Validate payment method
@@ -128,7 +122,6 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 	}
 
 	// Create sale details
-	log.Printf("📝 DEBUG CreateSale - Creating %d detail records in database", len(sale.Details))
 	if err := uc.saleDetailRepo.CreateBatch(ctx, sale.ID, sale.Details); err != nil {
 		return err
 	}
@@ -148,7 +141,6 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 			if err := product.DecreaseStock(totalQty); err != nil {
 				return err
 			}
-			log.Printf("➖ DEBUG CreateSale - Decreasing stock for product %s: -%d", productID, totalQty)
 			if err := uc.productRepo.UpdateStock(ctx, productID, -totalQty); err != nil {
 				return err
 			}
@@ -179,13 +171,6 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 	details, err := uc.saleDetailRepo.GetBySaleID(ctx, saleID)
 	if err != nil {
 		return nil, err
-	}
-
-	// DEBUG: Log details to understand the issue
-	log.Printf("🔍 DEBUG VoidSale - Original sale ID: %s", originalSale.ID)
-	log.Printf("🔍 DEBUG VoidSale - Details count: %d", len(details))
-	for i, detail := range details {
-		log.Printf("🔍 DEBUG VoidSale - Detail %d: ProductID=%s, Quantity=%d", i, detail.ProductID, detail.Quantity)
 	}
 
 	// Update original sale status
@@ -239,7 +224,6 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 	for _, detail := range details {
 		// Skip if already restored (in case of duplicate details)
 		if restoredProducts[detail.ProductID] {
-			log.Printf("⚠️ DEBUG VoidSale - Skipping duplicate product: %s", detail.ProductID)
 			continue
 		}
 
@@ -251,7 +235,6 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 			}
 		}
 
-		log.Printf("✅ DEBUG VoidSale - Restoring stock for product %s: +%d", detail.ProductID, totalQty)
 		if err := uc.productRepo.UpdateStock(ctx, detail.ProductID, totalQty); err != nil {
 			return nil, err
 		}
@@ -276,24 +259,68 @@ func (uc *SaleUseCase) GetSaleByID(ctx context.Context, id uuid.UUID) (*entities
 	if err != nil {
 		return nil, err
 	}
+
+	// Load product info for each detail
+	for i := range details {
+		product, err := uc.productRepo.GetByID(ctx, details[i].ProductID)
+		if err == nil && product != nil {
+			details[i].Product = product
+		}
+	}
 	sale.Details = details
+
+	// Load payment method
+	pm, err := uc.paymentMethodRepo.GetByID(ctx, sale.PaymentMethodID)
+	if err == nil && pm != nil {
+		sale.PaymentMethod = pm
+	}
 
 	return sale, nil
 }
 
 // GetAllSales retrieves all sales
 func (uc *SaleUseCase) GetAllSales(ctx context.Context) ([]entities.Sale, error) {
-	return uc.saleRepo.GetAll(ctx)
+	sales, err := uc.saleRepo.GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	uc.loadPaymentMethods(ctx, sales)
+	return sales, nil
 }
 
 // GetSalesByDateRange retrieves sales within a date range
 func (uc *SaleUseCase) GetSalesByDateRange(ctx context.Context, startDate, endDate time.Time, userID *uuid.UUID) ([]entities.Sale, error) {
-	return uc.saleRepo.GetByDateRange(ctx, startDate, endDate, userID)
+	sales, err := uc.saleRepo.GetByDateRange(ctx, startDate, endDate, userID)
+	if err != nil {
+		return nil, err
+	}
+	uc.loadPaymentMethods(ctx, sales)
+	return sales, nil
 }
 
 // GetSalesReport generates a sales report for a date range
 func (uc *SaleUseCase) GetSalesReport(ctx context.Context, startDate, endDate time.Time, userID *uuid.UUID) ([]repositories.SaleReport, error) {
 	return uc.saleRepo.GetSalesReport(ctx, startDate, endDate, userID)
+}
+
+// loadPaymentMethods batch-loads payment methods for a list of sales
+func (uc *SaleUseCase) loadPaymentMethods(ctx context.Context, sales []entities.Sale) {
+	pmMap := make(map[uuid.UUID]*entities.SalePaymentMethod)
+	for i := range sales {
+		pmID := sales[i].PaymentMethodID
+		if _, exists := pmMap[pmID]; exists {
+			continue
+		}
+		pm, err := uc.paymentMethodRepo.GetByID(ctx, pmID)
+		if err == nil && pm != nil {
+			pmMap[pmID] = pm
+		}
+	}
+	for i := range sales {
+		if pm, ok := pmMap[sales[i].PaymentMethodID]; ok {
+			sales[i].PaymentMethod = pm
+		}
+	}
 }
 
 // GetSalesReportByProduct generates a sales report grouped by product

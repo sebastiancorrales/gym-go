@@ -11,6 +11,7 @@ type UserRepository interface {
 	FindByID(id uuid.UUID) (*entities.User, error)
 	FindByEmail(email string) (*entities.User, error)
 	FindByGymID(gymID uuid.UUID) ([]*entities.User, error)
+	FindByDocumentAndGym(docNumber string, gymID uuid.UUID) (*entities.User, error)
 	Update(user *entities.User) error
 	Delete(id uuid.UUID) error
 	List(limit, offset int) ([]*entities.User, error)
@@ -48,6 +49,22 @@ type SubscriptionRepository interface {
 	Update(subscription *entities.Subscription) error
 	Delete(id uuid.UUID) error
 	CountActiveByGymID(gymID uuid.UUID) (int64, error)
+	MarkExpiredSubscriptions() (int64, error)
+}
+
+// SubscriptionMemberRepository defines group membership repository interface
+type SubscriptionMemberRepository interface {
+	Create(member *entities.SubscriptionMember) error
+	FindBySubscriptionID(subscriptionID uuid.UUID) ([]*entities.SubscriptionMember, error)
+	FindActiveSubscriptionByUserID(userID uuid.UUID) (*entities.Subscription, error)
+	FindSubscriptionsByMemberUserID(userID uuid.UUID) ([]*entities.Subscription, error)
+	DeleteBySubscriptionID(subscriptionID uuid.UUID) error
+}
+
+// SubscriptionAuditLogRepository defines audit log repository interface
+type SubscriptionAuditLogRepository interface {
+	Create(log *entities.SubscriptionAuditLog) error
+	FindBySubscriptionID(subscriptionID uuid.UUID) ([]*entities.SubscriptionAuditLog, error)
 }
 
 // PaymentRepository defines payment repository interface

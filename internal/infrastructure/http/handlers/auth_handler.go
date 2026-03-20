@@ -14,13 +14,15 @@ import (
 // AuthHandler handles authentication requests
 type AuthHandler struct {
 	userRepo   repositories.UserRepository
+	gymRepo    repositories.GymRepository
 	jwtManager *security.JWTManager
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(userRepo repositories.UserRepository, jwtManager *security.JWTManager) *AuthHandler {
+func NewAuthHandler(userRepo repositories.UserRepository, gymRepo repositories.GymRepository, jwtManager *security.JWTManager) *AuthHandler {
 	return &AuthHandler{
 		userRepo:   userRepo,
+		gymRepo:    gymRepo,
 		jwtManager: jwtManager,
 	}
 }
@@ -111,16 +113,31 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	gymID := user.GymID.String()
 
-	c.JSON(http.StatusOK, LoginResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		User: &dto.UserResponse{
-			ID:        user.ID.String(),
-			Email:     user.Email,
-			FirstName: user.FirstName,
-			LastName:  user.LastName,
-			Role:      string(user.Role),
-			GymID:     gymID,
+	// Load gym to include currency/locale in response
+	gymCurrency := "COP"
+	gymLocale   := "es-CO"
+	gymName     := ""
+	if gym, err := h.gymRepo.FindByID(user.GymID); err == nil {
+		if gym.Currency != "" { gymCurrency = gym.Currency }
+		if gym.Locale   != "" { gymLocale   = gym.Locale   }
+		gymName = gym.Name
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"user": gin.H{
+			"id":         user.ID.String(),
+			"email":      user.Email,
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"role":       string(user.Role),
+			"gym_id":     gymID,
+		},
+		"gym": gin.H{
+			"currency": gymCurrency,
+			"locale":   gymLocale,
+			"name":     gymName,
 		},
 	})
 }

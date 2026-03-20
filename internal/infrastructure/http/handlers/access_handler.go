@@ -136,6 +136,20 @@ func (h *AccessHandler) ListHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, logs)
 }
 
+func (h *AccessHandler) ListByUser(c *gin.Context) {
+	userID, err := uuid.Parse(c.Param("user_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+	logs, err := h.accessUseCase.GetUserAccessHistory(userID, 50, 0)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user access history"})
+		return
+	}
+	c.JSON(http.StatusOK, logs)
+}
+
 func (h *AccessHandler) GetStats(c *gin.Context) {
 	gymIDStr := c.GetString("gym_id")
 	gymID, err := uuid.Parse(gymIDStr)

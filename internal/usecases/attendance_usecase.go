@@ -119,6 +119,11 @@ func (uc *AttendanceUseCase) GetMemberAttendanceHistory(
 	return uc.attendanceRepo.List(ctx, filters)
 }
 
+// ListAttendances lista asistencias con filtros opcionales
+func (uc *AttendanceUseCase) ListAttendances(ctx context.Context, filters repositories.AttendanceFilters) ([]*entities.Attendance, error) {
+	return uc.attendanceRepo.List(ctx, filters)
+}
+
 // GetAttendanceStats obtiene estadísticas de asistencia de un miembro
 func (uc *AttendanceUseCase) GetAttendanceStats(
 	ctx context.Context,

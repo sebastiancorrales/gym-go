@@ -42,3 +42,17 @@ func (uc *UserUseCase) UpdateUser(user *entities.User) error {
 func (uc *UserUseCase) DeleteUser(id uuid.UUID) error {
 	return uc.userRepo.Delete(id)
 }
+
+func (uc *UserUseCase) FindByDocumentAndGym(docNumber string, gymID uuid.UUID) (*entities.User, error) {
+	return uc.userRepo.FindByDocumentAndGym(docNumber, gymID)
+}
+
+func (uc *UserUseCase) DeactivateUser(id uuid.UUID) error {
+	user, err := uc.userRepo.FindByID(id)
+	if err != nil {
+		return err
+	}
+
+	user.Status = "INACTIVE"
+	return uc.userRepo.Update(user)
+}

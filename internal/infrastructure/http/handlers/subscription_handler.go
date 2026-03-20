@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -27,16 +28,25 @@ func NewSubscriptionHandler(
 	}
 }
 
+type MemberInfo struct {
+	UserID    uuid.UUID      `json:"user_id"`
+	IsPrimary bool           `json:"is_primary"`
+	User      *entities.User `json:"user,omitempty"`
+}
+
 type SubscriptionResponse struct {
 	*entities.Subscription
-	User *entities.User `json:"user,omitempty"`
-	Plan *entities.Plan `json:"plan,omitempty"`
+	User    *entities.User `json:"user,omitempty"`
+	Plan    *entities.Plan `json:"plan,omitempty"`
+	Members []MemberInfo   `json:"members,omitempty"`
 }
 
 type CreateSubscriptionRequest struct {
-	UserID   string  `json:"user_id" binding:"required"`
-	PlanID   string  `json:"plan_id" binding:"required"`
-	Discount float64 `json:"discount"`
+	UserID            string   `json:"user_id" binding:"required"`
+	PlanID            string   `json:"plan_id" binding:"required"`
+	Discount          float64  `json:"discount"`
+	PaymentMethod     string   `json:"payment_method"`
+	AdditionalMembers []string `json:"additional_members"`
 }
 
 func (h *SubscriptionHandler) Create(c *gin.Context) {
@@ -65,9 +75,18 @@ func (h *SubscriptionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	subscription, err := h.subscriptionUseCase.CreateSubscription(userID, planID, gymID, req.Discount)
+	// Parse additional member IDs
+	additionalIDs := make([]uuid.UUID, 0, len(req.AdditionalMembers))
+	for _, idStr := range req.AdditionalMembers {
+		id, err := uuid.Parse(idStr)
+		if err == nil {
+			additionalIDs = append(additionalIDs, id)
+		}
+	}
+
+	subscription, err := h.subscriptionUseCase.CreateSubscription(userID, planID, gymID, req.Discount, req.PaymentMethod, additionalIDs)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create subscription"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -82,33 +101,178 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 		return
 	}
 
-	subscriptions, err := h.subscriptionUseCase.ListSubscriptionsByGym(gymID, 100, 0)
+	subscriptions, err := h.subscriptionUseCase.ListSubscriptionsByGym(gymID, 500, 0)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list subscriptions"})
 		return
 	}
 
-	// Enrich subscriptions with user and plan data
 	response := make([]*SubscriptionResponse, 0, len(subscriptions))
 	for _, sub := range subscriptions {
-		subResp := &SubscriptionResponse{
-			Subscription: sub,
-		}
+		subResp := &SubscriptionResponse{Subscription: sub}
 
-		// Load user
 		if user, err := h.userUseCase.GetUserByID(sub.UserID); err == nil {
 			subResp.User = user
 		}
-
-		// Load plan
 		if plan, err := h.planUseCase.GetPlanByID(sub.PlanID); err == nil {
 			subResp.Plan = plan
+		}
+
+		// Load group members if any
+		if members, err := h.subscriptionUseCase.GetSubscriptionMembers(sub.ID); err == nil && len(members) > 0 {
+			for _, m := range members {
+				info := MemberInfo{UserID: m.UserID, IsPrimary: m.IsPrimary}
+				if u, err := h.userUseCase.GetUserByID(m.UserID); err == nil {
+					info.User = u
+				}
+				subResp.Members = append(subResp.Members, info)
+			}
 		}
 
 		response = append(response, subResp)
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *SubscriptionHandler) Cancel(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	_ = c.ShouldBindJSON(&req)
+	userIDStr := c.GetString("user_id")
+	cancelledBy, _ := uuid.Parse(userIDStr)
+	if err := h.subscriptionUseCase.CancelSubscription(id, req.Reason, cancelledBy); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel subscription"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Subscription cancelled"})
+}
+
+func (h *SubscriptionHandler) Renew(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+	var req struct {
+		PlanID        string  `json:"plan_id" binding:"required"`
+		Discount      float64 `json:"discount"`
+		PaymentMethod string  `json:"payment_method"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	planID, err := uuid.Parse(req.PlanID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid plan ID"})
+		return
+	}
+	gymIDStr := c.GetString("gym_id")
+	gymID, _ := uuid.Parse(gymIDStr)
+	newSub, err := h.subscriptionUseCase.RenewSubscription(id, planID, gymID, req.Discount, req.PaymentMethod)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to renew subscription"})
+		return
+	}
+	c.JSON(http.StatusCreated, newSub)
+}
+
+func (h *SubscriptionHandler) UpdateDates(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+	var req struct {
+		StartDate string `json:"start_date" binding:"required"`
+		EndDate   string `json:"end_date" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	startParsed, err := time.Parse("2006-01-02", req.StartDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de fecha inválido, use YYYY-MM-DD"})
+		return
+	}
+	endParsed, err := time.Parse("2006-01-02", req.EndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de fecha inválido, use YYYY-MM-DD"})
+		return
+	}
+	// Set noon UTC to avoid off-by-one when client is UTC-5 (Colombia)
+	start := time.Date(startParsed.Year(), startParsed.Month(), startParsed.Day(), 12, 0, 0, 0, time.UTC)
+	end := time.Date(endParsed.Year(), endParsed.Month(), endParsed.Day(), 12, 0, 0, 0, time.UTC)
+	changedByIDStr := c.GetString("user_id")
+	changedByID, _ := uuid.Parse(changedByIDStr)
+	changedByName := c.GetString("user_name")
+	if err := h.subscriptionUseCase.UpdateDates(id, start, end, changedByID, changedByName); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Fechas actualizadas"})
+}
+
+func (h *SubscriptionHandler) GetAuditLog(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+	logs, err := h.subscriptionUseCase.GetAuditLog(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, logs)
+}
+
+func (h *SubscriptionHandler) Freeze(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+	var req struct {
+		Days   int    `json:"days" binding:"required,min=1"`
+		Reason string `json:"reason"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.subscriptionUseCase.FreezeSubscription(id, req.Days, req.Reason); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to freeze subscription"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Subscription frozen"})
+}
+
+func (h *SubscriptionHandler) Unfreeze(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+	if err := h.subscriptionUseCase.UnfreezeSubscription(id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to unfreeze subscription"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Subscription unfrozen"})
 }
 
 func (h *SubscriptionHandler) GetStats(c *gin.Context) {

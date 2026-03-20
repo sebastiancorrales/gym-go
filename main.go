@@ -12,9 +12,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/config"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/handlers"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/email"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/persistence"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/persistence/migrations"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
@@ -30,14 +32,14 @@ func adjustDatabasePath(cfg *config.Config) {
 	exePath, err := os.Executable()
 	if err == nil {
 		// Check if running from Program Files
-		if len(exePath) > 15 && (exePath[:15] == "C:\\Program Files" || exePath[:19] == "C:\\Program Files (x") {
+		if len(exePath) > 16 && (exePath[:16] == "C:\\Program Files" || exePath[:19] == "C:\\Program Files (x") {
 			// Use ProgramData for database storage
 			dataDir := os.Getenv("PROGRAMDATA")
 			if dataDir == "" {
 				dataDir = "C:\\ProgramData"
 			}
 			dbDir := dataDir + "\\Gym-Go"
-			
+
 			// Create directory if it doesn't exist
 			if err := os.MkdirAll(dbDir, 0755); err != nil {
 				log.Printf("⚠️ Warning: Could not create data directory: %v", err)
@@ -94,6 +96,8 @@ func main() {
 	// Initialize repositories
 	userRepo := persistence.NewSQLiteUserRepository(database.DB)
 	subscriptionRepo := persistence.NewSQLiteSubscriptionRepository(database.DB)
+	subscriptionMemberRepo := persistence.NewSQLiteSubscriptionMemberRepository(database.DB)
+	subscriptionAuditRepo := persistence.NewSQLiteSubscriptionAuditLogRepository(database.DB)
 	accessLogRepo := persistence.NewSQLiteAccessLogRepository(database.DB)
 	planRepo := persistence.NewSQLitePlanRepository(database.DB)
 	gymRepo := persistence.NewSQLiteGymRepository(database.DB)
@@ -102,29 +106,46 @@ func main() {
 	paymentMethodRepo := persistence.NewSQLitePaymentMethodRepository(database.DB)
 	saleRepo := persistence.NewSQLiteSaleRepository(database.DB)
 	saleDetailRepo := persistence.NewSQLiteSaleDetailRepository(database.DB)
+	classRepo := persistence.NewSQLiteClassRepository(database.DB)
+	attendanceRepo := persistence.NewSQLiteAttendanceRepository(database.DB)
+	memberRepo := persistence.NewInMemoryMemberRepository()
+	instructorRepo := persistence.NewInMemoryInstructorRepository()
 
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(userRepo)
 	planUseCase := usecases.NewPlanUseCase(planRepo)
-	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, planRepo, userRepo)
-	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo)
+	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, subscriptionMemberRepo, planRepo, userRepo, subscriptionAuditRepo)
+	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
 	biometricService := usecases.NewBiometricService(fingerprintRepo, userRepo)
 	productUseCase := usecases.NewProductUseCase(productRepo)
 	paymentMethodUseCase := usecases.NewPaymentMethodUseCase(paymentMethodRepo)
 	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo)
+	classUseCase := usecases.NewClassUseCase(classRepo, instructorRepo)
+	attendanceUseCase := usecases.NewAttendanceUseCase(attendanceRepo, memberRepo, classRepo)
 
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(userRepo, jwtManager)
+	authHandler := handlers.NewAuthHandler(userRepo, gymRepo, jwtManager)
 	registerHandler := handlers.NewRegisterHandler(gymRepo, userRepo, jwtManager)
-	userHandler := handlers.NewUserHandler(userUseCase)
+	userHandler := handlers.NewUserHandler(userUseCase, subscriptionUseCase, planUseCase)
 	planHandler := handlers.NewPlanHandler(planUseCase)
 	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionUseCase, userUseCase, planUseCase)
 	productHandler := handlers.NewProductHandler(productUseCase)
 	paymentMethodHandler := handlers.NewPaymentMethodHandler(paymentMethodUseCase)
 	saleHandler := handlers.NewSaleHandler(saleUseCase)
+	gymHandler := handlers.NewGymHandler(gymRepo)
+	classHandler := handlers.NewClassHandler(classUseCase)
+	attendanceHandler := handlers.NewAttendanceHandler(attendanceUseCase)
 	accessHandler := handlers.NewAccessHandler(accessUseCase)
 	uploadHandler := handlers.NewUploadHandler("./uploads")
 	biometricHandler := handlers.NewBiometricHandler(biometricService)
+	emailSender := email.NewSender(email.Config{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		Username: cfg.SMTP.Username,
+		Password: cfg.SMTP.Password,
+		From:     cfg.SMTP.From,
+	})
+	notificationHandler := handlers.NewNotificationHandler(subscriptionUseCase, userUseCase, planUseCase, gymRepo, emailSender)
 
 	// Setup Gin router
 	if cfg.Server.Environment == "production" {
@@ -192,6 +213,57 @@ func main() {
 			upload.DELETE("/image/:filename", uploadHandler.DeleteImage)
 		}
 
+		// Gym settings routes - Only ADMIN_GYM and SUPER_ADMIN
+		gym := protected.Group("/gym")
+		gym.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		{
+			gym.GET("", gymHandler.Get)
+			gym.PUT("", gymHandler.Update)
+		}
+
+		// Profile route - any authenticated user can change their own password
+		protected.PUT("/auth/password", func(c *gin.Context) {
+			userIDStr := c.GetString("user_id")
+			userID, err := uuid.Parse(userIDStr)
+			if err != nil {
+				c.JSON(400, gin.H{"error": "Invalid user ID"})
+				return
+			}
+
+			var req struct {
+				CurrentPassword string `json:"current_password" binding:"required"`
+				NewPassword     string `json:"new_password" binding:"required,min=6"`
+			}
+			if err := c.ShouldBindJSON(&req); err != nil {
+				c.JSON(400, gin.H{"error": err.Error()})
+				return
+			}
+
+			user, err := userRepo.FindByID(userID)
+			if err != nil {
+				c.JSON(404, gin.H{"error": "User not found"})
+				return
+			}
+
+			if !security.CheckPassword(req.CurrentPassword, user.PasswordHash) {
+				c.JSON(401, gin.H{"error": "La contraseña actual es incorrecta"})
+				return
+			}
+
+			hashed, err := security.HashPassword(req.NewPassword)
+			if err != nil {
+				c.JSON(500, gin.H{"error": "Failed to hash password"})
+				return
+			}
+			user.PasswordHash = hashed
+			if err := userRepo.Update(user); err != nil {
+				c.JSON(500, gin.H{"error": "Failed to update password"})
+				return
+			}
+
+			c.JSON(200, gin.H{"message": "Contraseña actualizada exitosamente"})
+		})
+
 		// User routes - Only SUPER_ADMIN and ADMIN_GYM can manage users
 		users := protected.Group("/users")
 		users.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
@@ -200,6 +272,8 @@ func main() {
 			users.POST("", userHandler.Create)
 			users.GET("/:id", userHandler.GetByID)
 			users.PUT("/:id", userHandler.Update)
+			users.DELETE("/:id", userHandler.Delete)
+			users.GET("/:id/profile", userHandler.GetProfile)
 		}
 
 		// Plan routes - Only SUPER_ADMIN and ADMIN_GYM can manage plans
@@ -209,6 +283,8 @@ func main() {
 			plans.GET("", planHandler.List)
 			plans.POST("", planHandler.Create)
 			plans.GET("/:id", planHandler.GetByID)
+			plans.PUT("/:id", planHandler.Update)
+			plans.DELETE("/:id", planHandler.Deactivate)
 		}
 
 		// Subscription routes - Multiple roles can access
@@ -218,6 +294,12 @@ func main() {
 			subscriptions.GET("", subscriptionHandler.List)
 			subscriptions.POST("", subscriptionHandler.Create)
 			subscriptions.GET("/stats", subscriptionHandler.GetStats)
+			subscriptions.POST("/:id/cancel", subscriptionHandler.Cancel)
+			subscriptions.POST("/:id/renew", subscriptionHandler.Renew)
+			subscriptions.POST("/:id/freeze", subscriptionHandler.Freeze)
+			subscriptions.POST("/:id/unfreeze", subscriptionHandler.Unfreeze)
+			subscriptions.PATCH("/:id/dates", subscriptionHandler.UpdateDates)
+			subscriptions.GET("/:id/audit", subscriptionHandler.GetAuditLog)
 		}
 
 		// Access routes - Multiple roles can access
@@ -228,6 +310,7 @@ func main() {
 			access.POST("/checkout", accessHandler.CheckOut)
 			access.GET("/today", accessHandler.ListToday)
 			access.GET("/history", accessHandler.ListHistory)
+			access.GET("/user/:user_id", accessHandler.ListByUser)
 			access.GET("/stats", accessHandler.GetStats)
 
 			// Biometric routes - Access to fingerprint functionality
@@ -237,10 +320,40 @@ func main() {
 				biometric.GET("/status", biometricHandler.GetStatus)
 				biometric.POST("/capture", biometricHandler.CaptureFingerprint)
 				biometric.POST("/enroll", biometricHandler.EnrollFingerprint)
+				biometric.POST("/enroll-device", biometricHandler.EnrollFingerprintViaDevice)
 				biometric.POST("/verify", biometricHandler.VerifyFingerprint)
 				biometric.GET("/user/:user_id", biometricHandler.GetUserFingerprints)
 				biometric.DELETE("/:fingerprint_id", biometricHandler.DeleteFingerprint)
 			}
+		}
+
+		// Notification routes
+		notifications := protected.Group("/notifications")
+		notifications.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		{
+			notifications.POST("/send-expiring", notificationHandler.SendExpiringReminders)
+			notifications.POST("/test-email", notificationHandler.TestEmail)
+		}
+
+		// Class routes
+		classes := protected.Group("/classes")
+		classes.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		{
+			classes.GET("", classHandler.ListClasses)
+			classes.POST("", classHandler.CreateClass)
+			classes.GET("/:id", classHandler.GetClass)
+			classes.PUT("/:id/cancel", classHandler.CancelClass)
+			classes.PUT("/:id/start", classHandler.StartClass)
+			classes.PUT("/:id/complete", classHandler.CompleteClass)
+		}
+
+		// Attendance routes
+		attendance := protected.Group("/attendance")
+		attendance.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		{
+			attendance.GET("", attendanceHandler.ListAttendance)
+			attendance.POST("", attendanceHandler.CheckIn)
+			attendance.PUT("/:member_id/checkout", attendanceHandler.CheckOut)
 		}
 
 		// Product routes (inventory) - Multiple roles
@@ -317,6 +430,19 @@ func main() {
 			fileServer.ServeHTTP(c.Writer, c.Request)
 		})
 	}
+
+	// Auto-expire subscriptions every hour
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if n, err := subscriptionUseCase.AutoExpireSubscriptions(); err != nil {
+				log.Printf("⚠️ Auto-expire error: %v", err)
+			} else if n > 0 {
+				log.Printf("⏰ Auto-expired %d subscriptions", n)
+			}
+		}
+	}()
 
 	// Start server
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)

@@ -34,13 +34,13 @@ func (r *SQLiteFingerprintRepository) GetByID(ctx context.Context, id int) (*ent
 	return &fingerprint, nil
 }
 
-func (r *SQLiteFingerprintRepository) GetByUserID(ctx context.Context, userID int) ([]*entities.Fingerprint, error) {
+func (r *SQLiteFingerprintRepository) GetByUserID(ctx context.Context, userID string) ([]*entities.Fingerprint, error) {
 	var fingerprints []*entities.Fingerprint
 	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("created_at DESC").Find(&fingerprints).Error
 	return fingerprints, err
 }
 
-func (r *SQLiteFingerprintRepository) GetActiveByUserID(ctx context.Context, userID int) ([]*entities.Fingerprint, error) {
+func (r *SQLiteFingerprintRepository) GetActiveByUserID(ctx context.Context, userID string) ([]*entities.Fingerprint, error) {
 	var fingerprints []*entities.Fingerprint
 	err := r.db.WithContext(ctx).Where("user_id = ? AND is_active = ?", userID, true).Order("created_at DESC").Find(&fingerprints).Error
 	return fingerprints, err
