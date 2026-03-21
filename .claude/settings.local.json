@@ -5,7 +5,8 @@
       "Bash(where sqlite3:*)",
       "Read(//c/Users/sebas/AppData/Local/Programs/**)",
       "Read(//c/Program Files/**)",
-      "Read(//c//**)"
+      "Read(//c//**)",
+      "Bash(grep -rl \"nuevo.*client\\\\|new.*member\\\\|registerUser\\\\|createUser\\\\|CreateMember\\\\|AddMember\\\\|newMember\" c:/Users/sebas/OneDrive/Desktop/gym-go/frontend/src --include=*.jsx --include=*.tsx --include=*.js -l)"
     ]
   }
 }
