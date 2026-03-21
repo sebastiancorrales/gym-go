@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import api from '../../utils/api';
 import { fmt } from '../../utils/currency';
-import { exportPDF, exportExcel } from '../../utils/exportReport';
+import { exportPDF, exportExcel, exportConsolidadoPDF } from '../../utils/exportReport';
 
 const fmtDate = (str) => {
   const [y, m, d] = str.split('-');
@@ -588,6 +588,265 @@ function TabAccesos({ dateRange, genKey }) {
   );
 }
 
+// ── CONSOLIDADO tab ───────────────────────────────────────────────────────────
+const PM_LABEL = { EFECTIVO: '💵 Efectivo', TRANSFERENCIA: '📲 Transferencia', OTRO: '💳 Otro' };
+const pmLabel  = m => PM_LABEL[m?.toUpperCase?.()] ?? `💳 ${m || 'Otro'}`;
+
+function TabConsolidado({ dateRange, genKey }) {
+  const [data,    setData]    = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { if (genKey > 0) load(); }, [genKey]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [subsRes, salesRes, salesByDateRes] = await Promise.all([
+        api.get('/subscriptions'),
+        api.get(`/sales/report?start_date=${dateRange.s}&end_date=${dateRange.e}`),
+        api.get(`/sales/by-date?start_date=${dateRange.s}&end_date=${dateRange.e}`),
+      ]);
+
+      // ── Suscripciones ────────────────────────────────────────────────────
+      let subs = [];
+      if (subsRes.ok) {
+        const all  = await subsRes.json();
+        const from = new Date(dateRange.s + 'T00:00:00');
+        const to   = new Date(dateRange.e + 'T23:59:59');
+        subs = (all || []).filter(s => {
+          if (s.status === 'CANCELLED') return false;
+          const d = new Date(s.created_at);
+          return d >= from && d <= to;
+        });
+      }
+
+      const subsRevenue = subs.reduce((sum, s) => sum + (s.total_paid || 0), 0);
+
+      // Payment method breakdown for subs
+      const subsByMethod = {};
+      subs.forEach(s => {
+        const m = s.payment_method || 'OTRO';
+        if (!subsByMethod[m]) subsByMethod[m] = { count: 0, total: 0 };
+        subsByMethod[m].count++;
+        subsByMethod[m].total += s.total_paid || 0;
+      });
+
+      // ── Ventas inventario ─────────────────────────────────────────────────
+      let salesReport = null;
+      if (salesRes.ok) salesReport = await salesRes.json();
+
+      let salesList = [];
+      if (salesByDateRes.ok) salesList = await salesByDateRes.json() || [];
+      const salesRevenue = salesReport?.net_sales ?? salesList.reduce((sum, s) => sum + (s.net_total ?? s.total ?? 0), 0);
+
+      // Payment method breakdown for sales
+      const salesByMethod = {};
+      salesList.forEach(s => {
+        const m = s.payment_method || 'OTRO';
+        if (!salesByMethod[m]) salesByMethod[m] = { count: 0, total: 0 };
+        salesByMethod[m].count++;
+        salesByMethod[m].total += s.net_total ?? s.total ?? 0;
+      });
+
+      // ── Grand total por método de pago ────────────────────────────────────
+      const allMethods = new Set([...Object.keys(subsByMethod), ...Object.keys(salesByMethod)]);
+      const grandByMethod = {};
+      allMethods.forEach(m => {
+        grandByMethod[m] = {
+          subsCount:  subsByMethod[m]?.count  ?? 0,
+          subsTotal:  subsByMethod[m]?.total  ?? 0,
+          salesCount: salesByMethod[m]?.count ?? 0,
+          salesTotal: salesByMethod[m]?.total ?? 0,
+          total:      (subsByMethod[m]?.total ?? 0) + (salesByMethod[m]?.total ?? 0),
+        };
+      });
+
+      setData({
+        subs, subsRevenue,
+        salesReport, salesList, salesRevenue,
+        grandByMethod,
+        grandTotal: subsRevenue + salesRevenue,
+      });
+    } finally { setLoading(false); }
+  }, [dateRange]);
+
+  const handleExcelConsolidado = () => {
+    if (!data) return;
+    const rows = [
+      ['REPORTE CONSOLIDADO'],
+      [`Período: ${dateRange.s} al ${dateRange.e}`],
+      [],
+      ['=== SUSCRIPCIONES ==='],
+      ['Usuario', 'Plan', 'Tipo', 'Método de pago', 'Fecha registro', 'Inicio', 'Fin', 'Total'],
+      ...data.subs.map(s => [
+        `${s.user?.first_name || ''} ${s.user?.last_name || ''}`.trim(),
+        s.plan?.name || '',
+        s.members?.length > 0 ? (s.members.find(m => m.is_primary) ? 'Titular' : 'Grupo') : 'Individual',
+        pmLabel(s.payment_method),
+        s.created_at?.split('T')[0] || '',
+        s.start_date?.split('T')[0] || '',
+        s.end_date?.split('T')[0] || '',
+        s.total_paid?.toFixed(0) || '0',
+      ]),
+      ['', '', '', '', '', '', 'SUBTOTAL SUSCRIPCIONES', data.subsRevenue.toFixed(0)],
+      [],
+      ['=== VENTAS DE INVENTARIO ==='],
+      data.salesReport ? ['Total ventas', data.salesReport.total_sales, 'Ingresos brutos', data.salesReport.gross_sales, 'Neto', data.salesReport.net_sales] : ['Sin ventas'],
+      [],
+      ['=== RESUMEN FINAL ==='],
+      ['Método de pago', 'Suscripciones', 'Ventas', 'Total'],
+      ...Object.entries(data.grandByMethod).map(([m, v]) => [pmLabel(m), v.subsTotal.toFixed(0), v.salesTotal.toFixed(0), v.total.toFixed(0)]),
+      ['TOTAL GENERAL', data.subsRevenue.toFixed(0), data.salesRevenue.toFixed(0), data.grandTotal.toFixed(0)],
+    ];
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href: url, download: `consolidado_${dateRange.s}_${dateRange.e}.csv` });
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="space-y-5">
+      {loading && <div className="text-center text-sm text-gray-400 py-2">Generando reporte consolidado...</div>}
+
+      {data && (
+        <>
+          {/* KPIs */}
+          {/* Botones de exportación */}
+          <div className="flex items-center justify-between">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
+              <KpiCard title="Ingresos Suscripciones" value={fmt(data.subsRevenue)}   icon="🪪" accent="text-emerald-600" sub={`${data.subs.length} suscripciones`} />
+              <KpiCard title="Ingresos Ventas"         value={fmt(data.salesRevenue)} icon="🛍️" accent="text-blue-600"    sub={`${data.salesReport?.total_sales ?? data.salesList.length} ventas`} />
+              <KpiCard title="Total General"            value={fmt(data.grandTotal)}   icon="💰" accent="text-purple-600"  sub="Suscripciones + Ventas" />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <button onClick={handleExcelConsolidado}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              CSV
+            </button>
+            <button onClick={() => exportConsolidadoPDF(data, dateRange)}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-gray-900 rounded-xl hover:bg-gray-800 transition shadow-sm">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+              Exportar Cuadre de Caja (PDF)
+            </button>
+          </div>
+
+          {/* Suscripciones del periodo */}
+          <Card title={`Suscripciones del periodo (${data.subs.length})`}>
+            {data.subs.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">Sin suscripciones en este periodo</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-gray-50">
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Usuario</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Plan</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Periodo</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Método</th>
+                    <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {data.subs.map(s => (
+                      <tr key={s.id} className="hover:bg-gray-50/50">
+                        <td className="px-5 py-3">
+                          <p className="font-medium text-gray-900">{s.user?.first_name} {s.user?.last_name}</p>
+                          {s.members?.length > 0 && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              Grupo: {s.members.map(m => `${m.user?.first_name || ''} ${m.user?.last_name || ''}`.trim()).join(', ')}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-gray-600">{s.plan?.name || '—'}</td>
+                        <td className="px-5 py-3 text-gray-500 text-xs">
+                          {s.start_date?.split('T')[0]} → {s.end_date?.split('T')[0]}
+                        </td>
+                        <td className="px-5 py-3 text-gray-500 text-xs">{pmLabel(s.payment_method)}</td>
+                        <td className="px-5 py-3 text-right font-semibold text-gray-900">{fmt(s.total_paid || 0)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot><tr className="border-t-2 border-gray-200 bg-gray-50">
+                    <td colSpan={4} className="px-5 py-3 text-sm font-bold text-gray-700">Subtotal suscripciones</td>
+                    <td className="px-5 py-3 text-right text-sm font-bold text-emerald-700">{fmt(data.subsRevenue)}</td>
+                  </tr></tfoot>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          {/* Ventas inventario */}
+          <Card title="Ventas de inventario">
+            {!data.salesReport && data.salesList.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">Sin ventas en este periodo</p>
+            ) : (
+              <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-600">{data.salesReport?.total_sales ?? data.salesList.length}</p>
+                  <p className="text-xs text-gray-500 mt-1">Transacciones</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-gray-700">{fmt(data.salesReport?.gross_sales ?? 0)}</p>
+                  <p className="text-xs text-gray-500 mt-1">Ingresos brutos</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-orange-500">{fmt(data.salesReport?.total_discounts ?? 0)}</p>
+                  <p className="text-xs text-gray-500 mt-1">Descuentos</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-700">{fmt(data.salesRevenue)}</p>
+                  <p className="text-xs text-gray-500 mt-1">Ingresos netos</p>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Resumen final por método de pago */}
+          <Card title="Resumen consolidado por método de pago">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b border-gray-50">
+                  <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Método</th>
+                  <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Suscripciones</th>
+                  <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Ventas</th>
+                  <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
+                </tr></thead>
+                <tbody className="divide-y divide-gray-50">
+                  {Object.entries(data.grandByMethod).sort((a, b) => b[1].total - a[1].total).map(([m, v]) => (
+                    <tr key={m} className="hover:bg-gray-50/50">
+                      <td className="px-5 py-3 font-medium text-gray-800">{pmLabel(m)}</td>
+                      <td className="px-5 py-3 text-right text-gray-600">
+                        {v.subsCount > 0 ? `${fmt(v.subsTotal)} (${v.subsCount})` : '—'}
+                      </td>
+                      <td className="px-5 py-3 text-right text-gray-600">
+                        {v.salesCount > 0 ? `${fmt(v.salesTotal)} (${v.salesCount})` : '—'}
+                      </td>
+                      <td className="px-5 py-3 text-right font-bold text-gray-900">{fmt(v.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot><tr className="border-t-2 border-gray-900 bg-gray-900">
+                  <td className="px-5 py-4 text-sm font-bold text-white">TOTAL GENERAL</td>
+                  <td className="px-5 py-4 text-right text-sm font-bold text-emerald-300">{fmt(data.subsRevenue)}</td>
+                  <td className="px-5 py-4 text-right text-sm font-bold text-blue-300">{fmt(data.salesRevenue)}</td>
+                  <td className="px-5 py-4 text-right text-lg font-extrabold text-white">{fmt(data.grandTotal)}</td>
+                </tr></tfoot>
+              </table>
+            </div>
+          </Card>
+        </>
+      )}
+
+      {!data && !loading && (
+        <EmptyState text="Haz clic en «Generar Reporte» para ver el resumen consolidado del periodo" />
+      )}
+    </div>
+  );
+}
+
 // ── Empty state ───────────────────────────────────────────────────────────────
 const EmptyState = ({ text }) => (
   <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-14 text-center">
@@ -602,10 +861,11 @@ const EmptyState = ({ text }) => (
 
 // ── ROOT ──────────────────────────────────────────────────────────────────────
 const TABS = [
-  { id: 'ventas',     label: 'Ventas',      icon: '💵' },
-  { id: 'productos',  label: 'Productos',   icon: '📦' },
-  { id: 'membresias', label: 'Membresías',  icon: '🪪' },
-  { id: 'accesos',    label: 'Accesos',     icon: '🚪' },
+  { id: 'ventas',        label: 'Ventas',       icon: '💵' },
+  { id: 'productos',     label: 'Productos',    icon: '📦' },
+  { id: 'membresias',    label: 'Membresías',   icon: '🪪' },
+  { id: 'accesos',       label: 'Accesos',      icon: '🚪' },
+  { id: 'consolidado',   label: 'Consolidado',  icon: '📊' },
 ];
 
 export default function ReportsTab() {
@@ -705,10 +965,11 @@ export default function ReportsTab() {
       </div>
 
       {/* Tab content */}
-      {tab === 'ventas'     && <TabVentas     dateRange={dateRange} prevDate={prev} genKey={genKey} />}
-      {tab === 'productos'  && <TabProductos  dateRange={dateRange} genKey={genKey} />}
-      {tab === 'membresias' && <TabMembresías dateRange={dateRange} genKey={genKey} />}
-      {tab === 'accesos'    && <TabAccesos    dateRange={dateRange} genKey={genKey} />}
+      {tab === 'ventas'      && <TabVentas      dateRange={dateRange} prevDate={prev} genKey={genKey} />}
+      {tab === 'productos'   && <TabProductos   dateRange={dateRange} genKey={genKey} />}
+      {tab === 'membresias'  && <TabMembresías  dateRange={dateRange} genKey={genKey} />}
+      {tab === 'accesos'     && <TabAccesos     dateRange={dateRange} genKey={genKey} />}
+      {tab === 'consolidado' && <TabConsolidado dateRange={dateRange} genKey={genKey} />}
     </div>
   );
 }
