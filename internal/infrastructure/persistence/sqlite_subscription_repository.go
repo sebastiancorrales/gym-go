@@ -73,6 +73,14 @@ func (r *SQLiteSubscriptionRepository) MarkExpiredSubscriptions() (int64, error)
 	return result.RowsAffected, result.Error
 }
 
+func (r *SQLiteSubscriptionRepository) FindByGymIDAndDateRange(gymID uuid.UUID, from, to time.Time) ([]*entities.Subscription, error) {
+	var subscriptions []*entities.Subscription
+	err := r.db.Where("gym_id = ? AND created_at >= ? AND created_at <= ?", gymID, from, to).
+		Order("created_at DESC").
+		Find(&subscriptions).Error
+	return subscriptions, err
+}
+
 func (r *SQLiteSubscriptionRepository) CountActiveByGymID(gymID uuid.UUID) (int64, error) {
 	var count int64
 	err := r.db.Model(&entities.Subscription{}).

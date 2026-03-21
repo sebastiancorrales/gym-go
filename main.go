@@ -294,6 +294,7 @@ func main() {
 			subscriptions.GET("", subscriptionHandler.List)
 			subscriptions.POST("", subscriptionHandler.Create)
 			subscriptions.GET("/stats", subscriptionHandler.GetStats)
+			subscriptions.GET("/report", subscriptionHandler.Report)
 			subscriptions.POST("/:id/cancel", subscriptionHandler.Cancel)
 			subscriptions.POST("/:id/renew", subscriptionHandler.Renew)
 			subscriptions.POST("/:id/freeze", subscriptionHandler.Freeze)

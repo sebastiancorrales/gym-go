@@ -275,6 +275,62 @@ func (h *SubscriptionHandler) Unfreeze(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Subscription unfrozen"})
 }
 
+func (h *SubscriptionHandler) Report(c *gin.Context) {
+	gymIDStr := c.GetString("gym_id")
+	gymID, err := uuid.Parse(gymIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid gym ID"})
+		return
+	}
+
+	fromStr := c.Query("from")
+	toStr := c.Query("to")
+	if fromStr == "" || toStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Parámetros 'from' y 'to' requeridos (YYYY-MM-DD)"})
+		return
+	}
+
+	from, err := time.Parse("2006-01-02", fromStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de fecha inválido para 'from'"})
+		return
+	}
+	to, err := time.Parse("2006-01-02", toStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de fecha inválido para 'to'"})
+		return
+	}
+
+	subscriptions, err := h.subscriptionUseCase.GetSubscriptionReport(gymID, from, to)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al generar reporte"})
+		return
+	}
+
+	response := make([]*SubscriptionResponse, 0, len(subscriptions))
+	for _, sub := range subscriptions {
+		subResp := &SubscriptionResponse{Subscription: sub}
+		if user, err := h.userUseCase.GetUserByID(sub.UserID); err == nil {
+			subResp.User = user
+		}
+		if plan, err := h.planUseCase.GetPlanByID(sub.PlanID); err == nil {
+			subResp.Plan = plan
+		}
+		if members, err := h.subscriptionUseCase.GetSubscriptionMembers(sub.ID); err == nil && len(members) > 0 {
+			for _, m := range members {
+				info := MemberInfo{UserID: m.UserID, IsPrimary: m.IsPrimary}
+				if u, err := h.userUseCase.GetUserByID(m.UserID); err == nil {
+					info.User = u
+				}
+				subResp.Members = append(subResp.Members, info)
+			}
+		}
+		response = append(response, subResp)
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 func (h *SubscriptionHandler) GetStats(c *gin.Context) {
 	gymIDStr := c.GetString("gym_id")
 	gymID, err := uuid.Parse(gymIDStr)

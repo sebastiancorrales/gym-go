@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import api from '../utils/api';
 import Modal from './Modal';
 import SkeletonTable from './SkeletonTable';
@@ -80,6 +81,16 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
   const [toast, setToast] = useState(null);
   const [receipt, setReceipt] = useState(null); // { subscription, user, plan }
   const [gymName, setGymName] = useState('');
+  const [filterFrom, setFilterFrom] = useState('');
+  const [filterTo, setFilterTo] = useState('');
+
+  // Report state
+  const [activeTab, setActiveTab] = useState('list');
+  const [reportFrom, setReportFrom] = useState('');
+  const [reportTo, setReportTo] = useState('');
+  const [reportData, setReportData] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportSearch, setReportSearch] = useState('');
 
   // Action modals
   const [actionModal, setActionModal] = useState(null); // { type: 'cancel'|'freeze'|'renew', sub }
@@ -164,6 +175,62 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
       onInitialUserConsumed?.();
     }
   }, [initialUser]);
+
+  // ── Report helpers ──
+  const generateReport = async () => {
+    if (!reportFrom || !reportTo) return;
+    setReportLoading(true);
+    try {
+      const res = await api.get(`/subscriptions/report?from=${reportFrom}&to=${reportTo}`);
+      if (res.ok) {
+        const data = await res.json();
+        setReportData(data || []);
+        setReportSearch('');
+      }
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const filteredReportData = (() => {
+    const q = reportSearch.toLowerCase().trim();
+    if (!q) return reportData;
+    return reportData.filter(sub => {
+      const memberName = sub.members?.length
+        ? sub.members.map(m => `${m.user?.first_name || ''} ${m.user?.last_name || ''}`).join(' ')
+        : `${sub.user?.first_name || ''} ${sub.user?.last_name || ''}`;
+      return memberName.toLowerCase().includes(q) ||
+        (sub.user?.document_number || '').toLowerCase().includes(q) ||
+        (sub.plan?.name || '').toLowerCase().includes(q) ||
+        (sub.payment_method || '').toLowerCase().includes(q);
+    });
+  })();
+
+  const downloadExcel = () => {
+    if (!filteredReportData.length) return;
+    const rows = filteredReportData.map(sub => {
+      const memberName = sub.members?.length
+        ? sub.members.map(m => `${m.user?.first_name || ''} ${m.user?.last_name || ''}`).join(' / ')
+        : `${sub.user?.first_name || ''} ${sub.user?.last_name || ''}`;
+      return {
+        'Miembro': memberName.trim(),
+        'Documento': sub.user?.document_number || '',
+        'Plan': sub.plan?.name || '',
+        'Inicio': sub.start_date ? new Date(sub.start_date).toLocaleDateString('es-CO') : '',
+        'Fin': sub.end_date ? new Date(sub.end_date).toLocaleDateString('es-CO') : '',
+        'Precio Plan': sub.price_paid || 0,
+        'Descuento': sub.discount_applied || 0,
+        'Total Pagado': sub.total_paid || 0,
+        'Método de Pago': sub.payment_method || '',
+        'Estado': sub.status || '',
+        'Fecha Registro': sub.created_at ? new Date(sub.created_at).toLocaleDateString('es-CO') : '',
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Suscripciones');
+    XLSX.writeFile(wb, `reporte-suscripciones-${reportFrom}-${reportTo}.xlsx`);
+  };
 
   // ── Wizard helpers ──
   const openWizard = () => {
@@ -310,7 +377,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
 
   const filteredSubs = (() => {
     const q = searchQuery.toLowerCase();
-    const list = q
+    let list = q
       ? subscriptions.filter(s =>
           `${s.user?.first_name} ${s.user?.last_name}`.toLowerCase().includes(q) ||
           (s.user?.document_number || '').toLowerCase().includes(q) ||
@@ -318,6 +385,15 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
           (s.plan?.name || '').toLowerCase().includes(q)
         )
       : subscriptions;
+    if (filterFrom) {
+      const from = new Date(filterFrom);
+      list = list.filter(s => s.created_at && new Date(s.created_at) >= from);
+    }
+    if (filterTo) {
+      const to = new Date(filterTo);
+      to.setHours(23, 59, 59);
+      list = list.filter(s => s.created_at && new Date(s.created_at) <= to);
+    }
     return [...list].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   })();
   const totalPages = Math.ceil(filteredSubs.length / PAGE_SIZE);
@@ -335,25 +411,51 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
           <h2 className="text-2xl font-extrabold text-gray-900">Suscripciones</h2>
           <p className="text-gray-500 text-sm mt-1">Gestiona las membresias de tus miembros</p>
         </div>
-        <button
-          onClick={openWizard}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-lg shadow-emerald-500/20"
-        >
-          <Svg path="M12 4v16m8-8H4" className="w-4 h-4" />
-          Nueva Suscripcion
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab(activeTab === 'report' ? 'list' : 'report')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 border font-semibold rounded-xl transition ${activeTab === 'report' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+          >
+            <Svg path="M9 17v-2m3 2v-4m3 4v-6M5 20h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z" className="w-4 h-4" />
+            Reporte
+          </button>
+          <button
+            onClick={openWizard}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-lg shadow-emerald-500/20"
+          >
+            <Svg path="M12 4v16m8-8H4" className="w-4 h-4" />
+            Nueva Suscripcion
+          </button>
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Svg path={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Buscar por nombre, documento, email o plan..."
-          value={searchQuery}
-          onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
-          className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-        />
+      {activeTab === 'list' && <>
+      {/* Search + Date filters */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-48">
+          <Svg path={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Buscar por nombre, documento, email o plan..."
+            value={searchQuery}
+            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400 font-medium whitespace-nowrap">Creado:</span>
+          <input type="date" value={filterFrom} onChange={e => { setFilterFrom(e.target.value); setPage(1); }}
+            className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+          <span className="text-gray-300">–</span>
+          <input type="date" value={filterTo} onChange={e => { setFilterTo(e.target.value); setPage(1); }}
+            className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+          {(filterFrom || filterTo) && (
+            <button onClick={() => { setFilterFrom(''); setFilterTo(''); setPage(1); }}
+              className="text-xs text-gray-400 hover:text-red-500 transition px-1" title="Limpiar filtro de fechas">
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -366,16 +468,17 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Periodo</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Precio</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Pago</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Creado</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {loading ? (
-              <tr><td colSpan="7" className="p-0"><SkeletonTable cols={7} rows={5} /></td></tr>
+              <tr><td colSpan="8" className="p-0"><SkeletonTable cols={8} rows={5} /></td></tr>
             ) : filteredSubs.length === 0 ? (
               <tr>
-                <td colSpan="7">
+                <td colSpan="8">
                   <EmptyState
                     icon="list"
                     title={searchQuery ? `Sin resultados para "${searchQuery}"` : 'No hay suscripciones'}
@@ -459,6 +562,13 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                       </span>
                     </td>
                     <td className="px-6 py-4">
+                      <span className="text-sm text-gray-500">
+                        {sub.created_at
+                          ? new Date(sub.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+                          : <span className="text-gray-300">—</span>}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
                       <StatusBadge status={sub.status} />
                     </td>
                     <td className="px-6 py-4">
@@ -520,6 +630,99 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
           </div>
         )}
       </div>
+      </>}
+
+      {/* ── Report View ── */}
+      {activeTab === 'report' && (
+        <div className="space-y-5">
+          {/* Filters bar */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-wrap gap-4 items-end">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Desde</label>
+              <input type="date" value={reportFrom} onChange={e => setReportFrom(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Hasta</label>
+              <input type="date" value={reportTo} onChange={e => setReportTo(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <button onClick={generateReport} disabled={!reportFrom || !reportTo || reportLoading}
+              className="px-5 py-2 bg-emerald-500 text-white font-semibold rounded-xl hover:bg-emerald-600 transition disabled:opacity-50 text-sm">
+              {reportLoading ? 'Buscando...' : 'Buscar'}
+            </button>
+            {reportData.length > 0 && (
+              <button onClick={downloadExcel}
+                className="ml-auto px-5 py-2 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition text-sm flex items-center gap-2">
+                <Svg path="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" className="w-4 h-4" />
+                Descargar Excel
+              </button>
+            )}
+          </div>
+
+          {reportData.length > 0 && (
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Svg path={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input type="text" placeholder="Filtrar por nombre, documento, plan o método de pago..."
+                  value={reportSearch} onChange={e => setReportSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+              </div>
+              <span className="text-sm text-gray-400 whitespace-nowrap">
+                {filteredReportData.length} de {reportData.length} registros
+              </span>
+            </div>
+          )}
+
+          {/* Results table */}
+          {filteredReportData.length > 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead>
+                  <tr className="bg-gray-50/80">
+                    {['Miembro','Documento','Plan','Inicio','Fin','Total Pagado','Método de Pago','Estado','Registrado'].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {filteredReportData.map(sub => {
+                    const memberName = sub.members?.length
+                      ? sub.members.map(m => `${m.user?.first_name || ''} ${m.user?.last_name || ''}`).join(' / ')
+                      : `${sub.user?.first_name || ''} ${sub.user?.last_name || ''}`;
+                    return (
+                      <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-5 py-3.5 font-semibold text-gray-900">{memberName.trim()}</td>
+                        <td className="px-5 py-3.5 text-gray-500 text-sm">{sub.user?.document_number || '—'}</td>
+                        <td className="px-5 py-3.5 text-gray-700 text-sm">{sub.plan?.name || '—'}</td>
+                        <td className="px-5 py-3.5 text-gray-500 text-sm">{sub.start_date ? new Date(sub.start_date).toLocaleDateString('es-CO', {day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
+                        <td className="px-5 py-3.5 text-gray-500 text-sm">{sub.end_date ? new Date(sub.end_date).toLocaleDateString('es-CO', {day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
+                        <td className="px-5 py-3.5 font-bold text-gray-900">{fmt(sub.total_paid)}</td>
+                        <td className="px-5 py-3.5 text-gray-500 text-sm">
+                          {sub.payment_method === 'EFECTIVO' ? '💵 Efectivo'
+                            : sub.payment_method === 'TRANSFERENCIA' ? '📲 Transferencia'
+                            : sub.payment_method ? `💳 ${sub.payment_method}` : '—'}
+                        </td>
+                        <td className="px-5 py-3.5"><StatusBadge status={sub.status} /></td>
+                        <td className="px-5 py-3.5 text-gray-400 text-sm">{sub.created_at ? new Date(sub.created_at).toLocaleDateString('es-CO', {day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : !reportLoading && reportFrom && reportTo ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+              <EmptyState icon="list" title="Sin resultados" description={`No hay suscripciones registradas entre ${reportFrom} y ${reportTo}`} />
+            </div>
+          ) : !reportFrom || !reportTo ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 flex flex-col items-center gap-2 text-gray-400">
+              <Svg path="M9 17v-2m3 2v-4m3 4v-6M5 20h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z" className="w-10 h-10 text-gray-200" />
+              <p className="text-sm">Selecciona un rango de fechas y presiona <strong>Buscar</strong></p>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {/* ── Wizard Modal ── */}
       <Modal isOpen={showWizard} onClose={closeWizard} title="Nueva Suscripcion" maxWidth="2xl">

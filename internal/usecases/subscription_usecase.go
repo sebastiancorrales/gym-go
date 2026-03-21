@@ -52,7 +52,7 @@ func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUI
 
 	subscription := entities.NewSubscription(
 		userID, planID, gymID,
-		time.Now(), plan.DurationDays,
+		time.Now(), plan.DurationDays, string(plan.BillingMode),
 		plan.Price, enrollmentFee, discount,
 	)
 	subscription.PaymentMethod = paymentMethod
@@ -138,7 +138,7 @@ func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID 
 	}
 	newSub := entities.NewSubscription(
 		current.UserID, planID, gymID,
-		startDate, plan.DurationDays,
+		startDate, plan.DurationDays, string(plan.BillingMode),
 		plan.Price, plan.EnrollmentFee, discount,
 	)
 	newSub.PaymentMethod = paymentMethod
@@ -191,6 +191,12 @@ func (uc *SubscriptionUseCase) AutoExpireSubscriptions() (int64, error) {
 
 func (uc *SubscriptionUseCase) GetActiveCount(gymID uuid.UUID) (int64, error) {
 	return uc.subscriptionRepo.CountActiveByGymID(gymID)
+}
+
+func (uc *SubscriptionUseCase) GetSubscriptionReport(gymID uuid.UUID, from, to time.Time) ([]*entities.Subscription, error) {
+	// Include the full to-day (end of day)
+	toEndOfDay := time.Date(to.Year(), to.Month(), to.Day(), 23, 59, 59, 0, to.Location())
+	return uc.subscriptionRepo.FindByGymIDAndDateRange(gymID, from, toEndOfDay)
 }
 
 func (uc *SubscriptionUseCase) GetSubscriptionsByUser(userID uuid.UUID) ([]*entities.Subscription, error) {

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlite3 gym-go.db \":*)",
+      "Bash(where sqlite3:*)",
+      "Read(//c/Users/sebas/AppData/Local/Programs/**)",
+      "Read(//c/Program Files/**)",
+      "Read(//c//**)"
+    ]
+  }
+}

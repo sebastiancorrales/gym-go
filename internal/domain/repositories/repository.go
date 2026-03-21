@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 )
@@ -46,6 +48,7 @@ type SubscriptionRepository interface {
 	FindByUserID(userID uuid.UUID) ([]*entities.Subscription, error)
 	FindActiveByUserID(userID uuid.UUID) (*entities.Subscription, error)
 	FindByGymID(gymID uuid.UUID, limit, offset int) ([]*entities.Subscription, error)
+	FindByGymIDAndDateRange(gymID uuid.UUID, from, to time.Time) ([]*entities.Subscription, error)
 	Update(subscription *entities.Subscription) error
 	Delete(id uuid.UUID) error
 	CountActiveByGymID(gymID uuid.UUID) (int64, error)
