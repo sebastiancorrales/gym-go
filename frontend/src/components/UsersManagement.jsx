@@ -31,6 +31,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
   const [showPlanStep, setShowPlanStep] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [assigningPlan, setAssigningPlan] = useState(false);
+  const [planPaymentMethod, setPlanPaymentMethod] = useState('EFECTIVO');
 
   // Fingerprint state
   const [enrollingUser, setEnrollingUser] = useState(null);
@@ -271,7 +272,8 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
       const res = await api.post('/subscriptions', {
         user_id: createdUser.id,
         plan_id: selectedPlanId,
-        discount: 0
+        discount: 0,
+        payment_method: planPaymentMethod
       });
       if (!res.ok) {
         const err = await res.json();
@@ -560,6 +562,21 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                     </label>
                   ))}
                 </div>
+                {/* Payment method */}
+                {selectedPlanId && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Método de pago</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[['EFECTIVO','💵','Efectivo'],['TRANSFERENCIA','📲','Transferencia'],['OTRO','💳','Otro']].map(([val, icon, label]) => (
+                        <button key={val} type="button" onClick={() => setPlanPaymentMethod(val)}
+                          className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all text-xs font-medium ${planPaymentMethod === val ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-gray-100 text-gray-500 hover:border-gray-200'}`}>
+                          <span className="text-base">{icon}</span>{label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-2 pt-2">
                   <button onClick={() => { setShowPlanStep(false); setCreatedUser(null); }}
                     className="flex-1 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
