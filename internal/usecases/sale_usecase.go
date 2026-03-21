@@ -108,10 +108,10 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 		sale.Status = entities.SaleStatusCompleted
 	}
 	if sale.SaleDate.IsZero() {
-		sale.SaleDate = time.Now()
+		sale.SaleDate = time.Now().UTC().Round(0)
 	}
-	sale.CreatedAt = time.Now()
-	sale.UpdatedAt = time.Now()
+	sale.CreatedAt = time.Now().UTC().Round(0)
+	sale.UpdatedAt = time.Now().UTC().Round(0)
 
 	// Calculate totals
 	sale.CalculateTotal()
@@ -175,7 +175,7 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 
 	// Update original sale status
 	originalSale.Status = entities.SaleStatusVoided
-	originalSale.UpdatedAt = time.Now()
+	originalSale.UpdatedAt = time.Now().UTC().Round(0)
 	if err := uc.saleRepo.Update(ctx, originalSale); err != nil {
 		return nil, err
 	}

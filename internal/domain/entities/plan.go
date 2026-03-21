@@ -38,7 +38,7 @@ type Plan struct {
 
 // NewPlan creates a new plan
 func NewPlan(gymID uuid.UUID, name string, durationDays int, price float64) *Plan {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	return &Plan{
 		ID:            uuid.New(),
 		GymID:         gymID,

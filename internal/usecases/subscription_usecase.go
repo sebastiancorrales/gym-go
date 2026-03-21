@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,6 +45,12 @@ func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUI
 		return nil, err
 	}
 
+	// Validate member count matches plan requirement
+	required := plan.MaxMembers - 1
+	if plan.MaxMembers > 1 && len(additionalMemberIDs) != required {
+		return nil, fmt.Errorf("el plan '%s' requiere %d persona(s) adicional(es) y se recibieron %d", plan.Name, required, len(additionalMemberIDs))
+	}
+
 	// Enrollment fee only applies on first subscription
 	enrollmentFee := plan.EnrollmentFee
 	if existing, err := uc.subscriptionRepo.FindByUserID(userID); err == nil && len(existing) > 0 {
@@ -70,7 +77,7 @@ func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUI
 			SubscriptionID: subscription.ID,
 			UserID:         userID,
 			IsPrimary:      true,
-			CreatedAt:      time.Now(),
+			CreatedAt:      time.Now().UTC().Round(0),
 		}
 		uc.memberRepo.Create(primary)
 
@@ -80,7 +87,7 @@ func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUI
 				SubscriptionID: subscription.ID,
 				UserID:         memberID,
 				IsPrimary:      false,
-				CreatedAt:      time.Now(),
+				CreatedAt:      time.Now().UTC().Round(0),
 			}
 			uc.memberRepo.Create(m)
 		}
@@ -111,7 +118,7 @@ func (uc *SubscriptionUseCase) UpdateSubscription(sub *entities.Subscription) er
 	return uc.subscriptionRepo.Update(sub)
 }
 
-func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID uuid.UUID, gymID uuid.UUID, discount float64, paymentMethod string) (*entities.Subscription, error) {
+func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID uuid.UUID, gymID uuid.UUID, discount float64, paymentMethod string, additionalMemberIDs []uuid.UUID) (*entities.Subscription, error) {
 	current, err := uc.subscriptionRepo.FindByID(currentSubID)
 	if err != nil {
 		return nil, err
@@ -119,6 +126,12 @@ func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID 
 	plan, err := uc.planRepo.FindByID(planID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Validate member count matches plan requirement
+	required := plan.MaxMembers - 1
+	if plan.MaxMembers > 1 && len(additionalMemberIDs) != required {
+		return nil, fmt.Errorf("el plan '%s' requiere %d persona(s) adicional(es) y se recibieron %d", plan.Name, required, len(additionalMemberIDs))
 	}
 
 	// Find the latest end date across all user subscriptions (chain from the furthest)
@@ -147,17 +160,25 @@ func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID 
 		return nil, err
 	}
 
-	// Re-register group members from the previous subscription
-	if members, err := uc.memberRepo.FindBySubscriptionID(currentSubID); err == nil && len(members) > 0 {
-		for _, m := range members {
-			newMember := &entities.SubscriptionMember{
+	// Register group members if plan requires them
+	if len(additionalMemberIDs) > 0 {
+		primary := &entities.SubscriptionMember{
+			ID:             uuid.New(),
+			SubscriptionID: newSub.ID,
+			UserID:         current.UserID,
+			IsPrimary:      true,
+			CreatedAt:      time.Now().UTC().Round(0),
+		}
+		uc.memberRepo.Create(primary)
+		for _, memberID := range additionalMemberIDs {
+			m := &entities.SubscriptionMember{
 				ID:             uuid.New(),
 				SubscriptionID: newSub.ID,
-				UserID:         m.UserID,
-				IsPrimary:      m.IsPrimary,
-				CreatedAt:      time.Now(),
+				UserID:         memberID,
+				IsPrimary:      false,
+				CreatedAt:      time.Now().UTC().Round(0),
 			}
-			uc.memberRepo.Create(newMember)
+			uc.memberRepo.Create(m)
 		}
 	}
 
@@ -229,12 +250,12 @@ func (uc *SubscriptionUseCase) UpdateDates(subID uuid.UUID, newStart, newEnd tim
 		NewStartDate:   newStart,
 		OldEndDate:     sub.EndDate,
 		NewEndDate:     newEnd,
-		CreatedAt:      time.Now(),
+		CreatedAt:      time.Now().UTC().Round(0),
 	}
 
 	sub.StartDate = newStart
 	sub.EndDate = newEnd
-	sub.UpdatedAt = time.Now()
+	sub.UpdatedAt = time.Now().UTC().Round(0)
 	// Reactivate if it was expired and new end is in the future
 	if sub.Status == entities.SubscriptionStatusExpired && newEnd.After(time.Now()) {
 		sub.Status = entities.SubscriptionStatusActive

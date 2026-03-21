@@ -115,6 +115,8 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
   const [addMemberSearch, setAddMemberSearch] = useState('');
   // Renew payment method
   const [renewPaymentMethod, setRenewPaymentMethod] = useState('EFECTIVO');
+  const [renewAdditionalMembers, setRenewAdditionalMembers] = useState([]);
+  const [renewMemberSearch, setRenewMemberSearch] = useState('');
   // Edit dates
   const [editStartDate, setEditStartDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
@@ -269,6 +271,21 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
         (u.document_number || '').toLowerCase().includes(q);
     }).slice(0, 6);
 
+  // Renew modal computed values
+  const renewSelectedPlan = plans.find(p => p.id === renewPlanId);
+  const renewMaxAdditional = renewSelectedPlan ? (renewSelectedPlan.max_members || 1) - 1 : 0;
+  const renewAllSelectedIds = new Set([
+    actionModal?.sub?.user_id,
+    ...renewAdditionalMembers.map(m => m.id),
+  ]);
+  const filteredRenewMembers = renewMemberSearch.trim().length < 2 ? [] :
+    users.filter(u => {
+      if (renewAllSelectedIds.has(u.id)) return false;
+      const q = renewMemberSearch.toLowerCase();
+      return `${u.first_name} ${u.last_name}`.toLowerCase().includes(q) ||
+        (u.document_number || '').toLowerCase().includes(q);
+    }).slice(0, 6);
+
   const getMemberActiveSub = (userId) => {
     return subscriptions.find(s => s.user_id === userId && s.status === 'ACTIVE');
   };
@@ -323,6 +340,12 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     setRenewPlanId(sub.plan_id || '');
     setRenewDiscount(0);
     setRenewPaymentMethod('EFECTIVO');
+    setRenewMemberSearch('');
+    // Pre-populate additional members from current subscription (non-primary)
+    const existing = (sub.members || [])
+      .filter(m => !m.is_primary)
+      .map(m => ({ id: m.user_id, first_name: m.user?.first_name, last_name: m.user?.last_name, document_number: m.user?.document_number }));
+    setRenewAdditionalMembers(existing);
     if (type === 'editDates') {
       setEditStartDate(sub.start_date ? sub.start_date.slice(0, 10) : '');
       setEditEndDate(sub.end_date ? sub.end_date.slice(0, 10) : '');
@@ -346,7 +369,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
       } else if (type === 'unfreeze') {
         res = await api.post(`/subscriptions/${sub.id}/unfreeze`, {});
       } else if (type === 'renew') {
-        res = await api.post(`/subscriptions/${sub.id}/renew`, { plan_id: renewPlanId, discount: parseFloat(renewDiscount) || 0, payment_method: renewPaymentMethod });
+        res = await api.post(`/subscriptions/${sub.id}/renew`, { plan_id: renewPlanId, discount: parseFloat(renewDiscount) || 0, payment_method: renewPaymentMethod, additional_members: renewAdditionalMembers.map(m => m.id) });
       } else if (type === 'editDates') {
         res = await api.patch(`/subscriptions/${sub.id}/dates`, { start_date: editStartDate, end_date: editEndDate });
       }
@@ -725,7 +748,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
       )}
 
       {/* ── Wizard Modal ── */}
-      <Modal isOpen={showWizard} onClose={closeWizard} title="Nueva Suscripcion" maxWidth="2xl">
+      <Modal isOpen={showWizard} onClose={closeWizard} title="Nueva Suscripcion" maxWidth="lg">
         <StepIndicator current={wizardStep} isGroup={maxAdditional > 0} />
 
         {/* ── Step 1: Select Member ── */}
@@ -993,8 +1016,11 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
             <div className="flex justify-between pt-2">
               <button onClick={() => setWizardStep(2)} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">Atrás</button>
               <button onClick={() => setWizardStep(4)}
-                className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-md">
-                Continuar
+                disabled={additionalMembers.length < maxAdditional}
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-md disabled:opacity-40 disabled:cursor-not-allowed">
+                {additionalMembers.length < maxAdditional
+                  ? `Faltan ${maxAdditional - additionalMembers.length} persona${maxAdditional - additionalMembers.length > 1 ? 's' : ''}`
+                  : 'Continuar'}
               </button>
             </div>
           </div>
@@ -1191,7 +1217,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
             </p>
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Plan</label>
-              <select value={renewPlanId} onChange={e => setRenewPlanId(e.target.value)}
+              <select value={renewPlanId} onChange={e => { setRenewPlanId(e.target.value); setRenewAdditionalMembers([]); setRenewMemberSearch(''); }}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
                 <option value="">Selecciona un plan...</option>
                 {plans.map(p => (
@@ -1199,6 +1225,66 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                 ))}
               </select>
             </div>
+
+            {renewMaxAdditional > 0 && (
+              <div className="space-y-3">
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
+                  <p className="text-sm font-semibold text-emerald-800">
+                    {renewSelectedPlan.name} — hasta {renewSelectedPlan.max_members} personas
+                  </p>
+                  <p className="text-xs text-emerald-600 mt-0.5">
+                    Titular: <strong>{actionModal.sub.user?.first_name} {actionModal.sub.user?.last_name}</strong>
+                    &nbsp;·&nbsp; Adicionales: {renewAdditionalMembers.length} / {renewMaxAdditional}
+                  </p>
+                </div>
+
+                {renewAdditionalMembers.length < renewMaxAdditional && (
+                  <div className="relative">
+                    <Svg path={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input type="text" value={renewMemberSearch} onChange={e => setRenewMemberSearch(e.target.value)}
+                      placeholder="Buscar miembro adicional..."
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  </div>
+                )}
+
+                {filteredRenewMembers.length > 0 && (
+                  <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-100 rounded-xl p-1">
+                    {filteredRenewMembers.map(u => (
+                      <button key={u.id} onClick={() => { setRenewAdditionalMembers(prev => [...prev, u]); setRenewMemberSearch(''); }}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-emerald-50 transition text-left">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-bold text-emerald-700">{u.first_name?.[0]}{u.last_name?.[0]}</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{u.first_name} {u.last_name}</p>
+                          <p className="text-xs text-gray-400">{u.document_number}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {renewAdditionalMembers.length > 0 && (
+                  <div className="space-y-1.5">
+                    {renewAdditionalMembers.map((m, idx) => (
+                      <div key={m.id} className="flex items-center gap-3 p-2.5 bg-gray-50 rounded-xl">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-400 to-emerald-400 flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-bold text-white">{m.first_name?.[0]}{m.last_name?.[0]}</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-800 flex-1">{m.first_name} {m.last_name}</p>
+                        <button onClick={() => setRenewAdditionalMembers(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-gray-400 hover:text-red-500 transition">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Descuento</label>
               <input type="number" min="0" step="100" value={renewDiscount} onChange={e => setRenewDiscount(e.target.value)}
@@ -1218,9 +1304,12 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={closeAction} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">Volver</button>
-              <button onClick={handleAction} disabled={actionLoading || !renewPlanId}
+              <button onClick={handleAction}
+                disabled={actionLoading || !renewPlanId || (renewMaxAdditional > 0 && renewAdditionalMembers.length < renewMaxAdditional)}
                 className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-                {actionLoading ? 'Procesando...' : 'Renovar'}
+                {actionLoading ? 'Procesando...' : renewMaxAdditional > 0 && renewAdditionalMembers.length < renewMaxAdditional
+                  ? `Faltan ${renewMaxAdditional - renewAdditionalMembers.length} persona${renewMaxAdditional - renewAdditionalMembers.length > 1 ? 's' : ''}`
+                  : 'Renovar'}
               </button>
             </div>
           </div>

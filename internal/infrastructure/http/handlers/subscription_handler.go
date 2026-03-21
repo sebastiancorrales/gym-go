@@ -163,9 +163,10 @@ func (h *SubscriptionHandler) Renew(c *gin.Context) {
 		return
 	}
 	var req struct {
-		PlanID        string  `json:"plan_id" binding:"required"`
-		Discount      float64 `json:"discount"`
-		PaymentMethod string  `json:"payment_method"`
+		PlanID            string   `json:"plan_id" binding:"required"`
+		Discount          float64  `json:"discount"`
+		PaymentMethod     string   `json:"payment_method"`
+		AdditionalMembers []string `json:"additional_members"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -176,11 +177,17 @@ func (h *SubscriptionHandler) Renew(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid plan ID"})
 		return
 	}
+	additionalIDs := make([]uuid.UUID, 0, len(req.AdditionalMembers))
+	for _, idStr := range req.AdditionalMembers {
+		if uid, err := uuid.Parse(idStr); err == nil {
+			additionalIDs = append(additionalIDs, uid)
+		}
+	}
 	gymIDStr := c.GetString("gym_id")
 	gymID, _ := uuid.Parse(gymIDStr)
-	newSub, err := h.subscriptionUseCase.RenewSubscription(id, planID, gymID, req.Discount, req.PaymentMethod)
+	newSub, err := h.subscriptionUseCase.RenewSubscription(id, planID, gymID, req.Discount, req.PaymentMethod, additionalIDs)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to renew subscription"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, newSub)

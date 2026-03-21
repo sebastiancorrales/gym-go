@@ -50,7 +50,7 @@ type Device struct {
 
 // NewDevice creates a new device
 func NewDevice(gymID uuid.UUID, name string, deviceType DeviceType, serialNumber, location string) *Device {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	return &Device{
 		ID:           uuid.New(),
 		GymID:        gymID,
@@ -67,7 +67,7 @@ func NewDevice(gymID uuid.UUID, name string, deviceType DeviceType, serialNumber
 
 // SetOnline marks device as online
 func (d *Device) SetOnline() {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	d.Status = DeviceStatusOnline
 	d.LastHeartbeat = &now
 	d.UpdatedAt = now
@@ -76,24 +76,24 @@ func (d *Device) SetOnline() {
 // SetOffline marks device as offline
 func (d *Device) SetOffline() {
 	d.Status = DeviceStatusOffline
-	d.UpdatedAt = time.Now()
+	d.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // SetMaintenance sets device to maintenance mode
 func (d *Device) SetMaintenance() {
 	d.Status = DeviceStatusMaintenance
-	d.UpdatedAt = time.Now()
+	d.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // SetError marks device with error
 func (d *Device) SetError() {
 	d.Status = DeviceStatusError
-	d.UpdatedAt = time.Now()
+	d.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Heartbeat updates last heartbeat
 func (d *Device) Heartbeat() {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	d.LastHeartbeat = &now
 	if d.Status == DeviceStatusOffline {
 		d.Status = DeviceStatusOnline

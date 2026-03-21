@@ -49,7 +49,7 @@ func NewDatabase(config *DatabaseConfig) (*Database, error) {
 	}, &gorm.Config{
 		Logger: logger.Default.LogMode(config.LogLevel),
 		NowFunc: func() time.Time {
-			return time.Now().UTC()
+			return time.Now().UTC().Round(0)
 		},
 		PrepareStmt: true,
 	})

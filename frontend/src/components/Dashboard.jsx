@@ -125,8 +125,7 @@ export default function Dashboard({ user, onLogout }) {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const [subsRes, allSubsRes, accessRes, usersRes] = await Promise.all([
-        api.get('/subscriptions/stats'),
+      const [allSubsRes, accessRes, usersRes] = await Promise.all([
         api.get('/subscriptions'),
         api.get('/access/stats'),
         api.get('/users'),
@@ -134,17 +133,23 @@ export default function Dashboard({ user, onLogout }) {
 
       const newStats = { activeSubscriptions: 0, todayRevenue: 0, todayAccess: 0, totalMembers: 0 };
 
-      if (subsRes.ok) {
-        const d = await subsRes.json();
-        newStats.activeSubscriptions = d?.data?.active_count || 0;
-      }
       if (allSubsRes.ok) {
         const all = await allSubsRes.json();
+
+        // Suscripciones activas: excluir CANCELLED y EXPIRED, contar una por suscripcion (no por miembro)
+        newStats.activeSubscriptions = (all || []).filter(s =>
+          s.status === 'ACTIVE' || s.status === 'FROZEN'
+        ).length;
+
+        // Ingresos de hoy: solo suscripciones NO canceladas creadas hoy
         const today = new Date().toDateString();
-        const todayList = (all || []).filter(s => new Date(s.created_at).toDateString() === today);
+        const todayList = (all || []).filter(s =>
+          s.status !== 'CANCELLED' &&
+          new Date(s.created_at).toDateString() === today
+        );
         newStats.todayRevenue = todayList.reduce((sum, s) => sum + (s.total_paid || 0), 0);
 
-        // Daily summary by payment method
+        // Resumen diario por metodo de pago (solo no canceladas)
         const byMethod = {};
         for (const s of todayList) {
           const m = s.payment_method || 'SIN ESPECIFICAR';
@@ -154,7 +159,7 @@ export default function Dashboard({ user, onLogout }) {
         }
         setTodaySubs({ list: todayList, byMethod });
 
-        // Build last-7-days revenue chart
+        // Grafica ultimos 7 dias: solo suscripciones NO canceladas
         const days = Array.from({ length: 7 }, (_, i) => {
           const d = new Date();
           d.setDate(d.getDate() - (6 - i));
@@ -164,7 +169,7 @@ export default function Dashboard({ user, onLogout }) {
         const chartData = days.map(d => ({
           dia: dayNames[d.getDay()],
           ingresos: (all || [])
-            .filter(s => new Date(s.created_at).toDateString() === d.toDateString())
+            .filter(s => s.status !== 'CANCELLED' && new Date(s.created_at).toDateString() === d.toDateString())
             .reduce((sum, s) => sum + (s.total_paid || 0), 0),
         }));
         setRevenueChart(chartData);

@@ -58,7 +58,7 @@ func (r *SQLiteSubscriptionRepository) FindByGymID(gymID uuid.UUID, limit, offse
 }
 
 func (r *SQLiteSubscriptionRepository) Update(subscription *entities.Subscription) error {
-	subscription.UpdatedAt = time.Now()
+	subscription.UpdatedAt = time.Now().UTC().Round(0)
 	return r.db.Save(subscription).Error
 }
 

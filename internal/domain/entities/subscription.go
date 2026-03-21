@@ -64,7 +64,7 @@ func addPlanDuration(start time.Time, durationDays int, billingMode string) time
 
 // NewSubscription creates a new subscription
 func NewSubscription(userID, planID, gymID uuid.UUID, startDate time.Time, durationDays int, billingMode string, price, enrollmentFee, discount float64) *Subscription {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	endDate := addPlanDuration(startDate, durationDays, billingMode)
 	total := price + enrollmentFee - discount
 
@@ -107,7 +107,7 @@ func (s *Subscription) DaysRemaining() int {
 
 // Activate activates the subscription
 func (s *Subscription) Activate() {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	s.Status = SubscriptionStatusActive
 	s.ActivatedAt = &now
 	s.UpdatedAt = now
@@ -115,7 +115,7 @@ func (s *Subscription) Activate() {
 
 // Cancel cancels the subscription
 func (s *Subscription) Cancel(reason string, cancelledBy uuid.UUID) {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	s.Status = SubscriptionStatusCancelled
 	s.CancellationReason = reason
 	s.CancelledBy = &cancelledBy
@@ -128,7 +128,7 @@ func (s *Subscription) Freeze(until time.Time, reason string) {
 	s.Status = SubscriptionStatusFrozen
 	s.FrozenUntil = &until
 	s.FreezeReason = reason
-	s.UpdatedAt = time.Now()
+	s.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Unfreeze unfreezes the subscription
@@ -140,13 +140,13 @@ func (s *Subscription) Unfreeze() {
 	}
 	s.Status = SubscriptionStatusActive
 	s.FrozenUntil = nil
-	s.UpdatedAt = time.Now()
+	s.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Expire marks the subscription as expired
 func (s *Subscription) Expire() {
 	s.Status = SubscriptionStatusExpired
-	s.UpdatedAt = time.Now()
+	s.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Renew renews the subscription
@@ -154,7 +154,7 @@ func (s *Subscription) Renew(durationDays int, billingMode string) {
 	s.StartDate = s.EndDate
 	s.EndDate = addPlanDuration(s.EndDate, durationDays, billingMode)
 	s.Status = SubscriptionStatusActive
-	s.UpdatedAt = time.Now()
+	s.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 

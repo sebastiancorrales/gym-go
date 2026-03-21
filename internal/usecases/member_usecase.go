@@ -43,10 +43,10 @@ func (uc *MemberUseCase) CreateMember(ctx context.Context, member *entities.Memb
 
 	// Generar ID y establecer valores por defecto
 	member.ID = uuid.New().String()
-	member.JoinDate = time.Now()
+	member.JoinDate = time.Now().UTC().Round(0)
 	member.Status = entities.MemberStatusActive
-	member.CreatedAt = time.Now()
-	member.UpdatedAt = time.Now()
+	member.CreatedAt = time.Now().UTC().Round(0)
+	member.UpdatedAt = time.Now().UTC().Round(0)
 
 	return uc.memberRepo.Create(ctx, member)
 }
@@ -75,7 +75,7 @@ func (uc *MemberUseCase) UpdateMember(ctx context.Context, member *entities.Memb
 		return errors.New("miembro no encontrado")
 	}
 
-	member.UpdatedAt = time.Now()
+	member.UpdatedAt = time.Now().UTC().Round(0)
 	return uc.memberRepo.Update(ctx, member)
 }
 
@@ -103,7 +103,7 @@ func (uc *MemberUseCase) AssignMembership(ctx context.Context, memberID, members
 	}
 
 	member.MembershipID = &membershipID
-	member.UpdatedAt = time.Now()
+	member.UpdatedAt = time.Now().UTC().Round(0)
 
 	return uc.memberRepo.Update(ctx, member)
 }

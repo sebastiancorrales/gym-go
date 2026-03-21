@@ -36,19 +36,19 @@ func (m *Member) IsActive() bool {
 // Activate activa la membresía del miembro
 func (m *Member) Activate() {
 	m.Status = MemberStatusActive
-	m.UpdatedAt = time.Now()
+	m.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Suspend suspende la membresía del miembro
 func (m *Member) Suspend() {
 	m.Status = MemberStatusSuspended
-	m.UpdatedAt = time.Now()
+	m.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Deactivate desactiva la membresía del miembro
 func (m *Member) Deactivate() {
 	m.Status = MemberStatusInactive
-	m.UpdatedAt = time.Now()
+	m.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // FullName retorna el nombre completo del miembro

@@ -33,8 +33,8 @@ func (uc *PaymentMethodUseCase) CreatePaymentMethod(ctx context.Context, method 
 	if method.Status == "" {
 		method.Status = entities.PaymentMethodStatusActive
 	}
-	method.CreatedAt = time.Now()
-	method.UpdatedAt = time.Now()
+	method.CreatedAt = time.Now().UTC().Round(0)
+	method.UpdatedAt = time.Now().UTC().Round(0)
 
 	return uc.paymentMethodRepo.Create(ctx, method)
 }
@@ -67,7 +67,7 @@ func (uc *PaymentMethodUseCase) UpdatePaymentMethod(ctx context.Context, method 
 		return errors.ErrNotFound
 	}
 
-	method.UpdatedAt = time.Now()
+	method.UpdatedAt = time.Now().UTC().Round(0)
 	method.CreatedAt = existing.CreatedAt // Preserve creation date
 
 	return uc.paymentMethodRepo.Update(ctx, method)

@@ -36,7 +36,7 @@ type Gym struct {
 
 // NewGym creates a new gym
 func NewGym(name, email, phone string) *Gym {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	return &Gym{
 		ID:        uuid.New(),
 		Name:      name,

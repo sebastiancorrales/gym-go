@@ -56,7 +56,7 @@ func (r *SQLiteUserRepository) FindByGymID(gymID uuid.UUID) ([]*entities.User, e
 }
 
 func (r *SQLiteUserRepository) Update(user *entities.User) error {
-	user.UpdatedAt = time.Now()
+	user.UpdatedAt = time.Now().UTC().Round(0)
 	return r.db.Save(user).Error
 }
 

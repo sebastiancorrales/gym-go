@@ -39,8 +39,8 @@ func (uc *ProductUseCase) CreateProduct(ctx context.Context, product *entities.P
 	if product.Status == "" {
 		product.Status = entities.ProductStatusActive
 	}
-	product.CreatedAt = time.Now()
-	product.UpdatedAt = time.Now()
+	product.CreatedAt = time.Now().UTC().Round(0)
+	product.UpdatedAt = time.Now().UTC().Round(0)
 
 	return uc.productRepo.Create(ctx, product)
 }
@@ -79,7 +79,7 @@ func (uc *ProductUseCase) UpdateProduct(ctx context.Context, product *entities.P
 		return errors.ErrNotFound
 	}
 
-	product.UpdatedAt = time.Now()
+	product.UpdatedAt = time.Now().UTC().Round(0)
 	product.CreatedAt = existing.CreatedAt // Preserve creation date
 
 	return uc.productRepo.Update(ctx, product)

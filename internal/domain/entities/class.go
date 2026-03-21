@@ -41,19 +41,19 @@ func (c *Class) CanEnroll(currentEnrollments int) bool {
 // Cancel cancela la clase
 func (c *Class) Cancel() {
 	c.Status = ClassStatusCancelled
-	c.UpdatedAt = time.Now()
+	c.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Start inicia la clase
 func (c *Class) Start() {
 	c.Status = ClassStatusOngoing
-	c.UpdatedAt = time.Now()
+	c.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Complete completa la clase
 func (c *Class) Complete() {
 	c.Status = ClassStatusCompleted
-	c.UpdatedAt = time.Now()
+	c.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 

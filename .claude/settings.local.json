@@ -6,7 +6,15 @@
       "Read(//c/Users/sebas/AppData/Local/Programs/**)",
       "Read(//c/Program Files/**)",
       "Read(//c//**)",
-      "Bash(grep -rl \"nuevo.*client\\\\|new.*member\\\\|registerUser\\\\|createUser\\\\|CreateMember\\\\|AddMember\\\\|newMember\" c:/Users/sebas/OneDrive/Desktop/gym-go/frontend/src --include=*.jsx --include=*.tsx --include=*.js -l)"
+      "Bash(grep -rl \"nuevo.*client\\\\|new.*member\\\\|registerUser\\\\|createUser\\\\|CreateMember\\\\|AddMember\\\\|newMember\" c:/Users/sebas/OneDrive/Desktop/gym-go/frontend/src --include=*.jsx --include=*.tsx --include=*.js -l)",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Bash(sed -i 's/now := time\\\\.Now\\(\\)/now := time.Now\\(\\).UTC\\(\\).Round\\(0\\)/g' \"$f\")",
+      "Bash(sed -i 's/\\\\.UpdatedAt = time\\\\.Now\\(\\)/.UpdatedAt = time.Now\\(\\).UTC\\(\\).Round\\(0\\)/g' \"$f\")",
+      "Bash(sed -i 's/\\\\.CreatedAt = time\\\\.Now\\(\\)/.CreatedAt = time.Now\\(\\).UTC\\(\\).Round\\(0\\)/g' \"$f\")",
+      "Bash(sed -i 's/: time\\\\.Now\\(\\),/: time.Now\\(\\).UTC\\(\\).Round\\(0\\),/g; s/= time\\\\.Now\\(\\)$/= time.Now\\(\\).UTC\\(\\).Round\\(0\\)/g; s/= time\\\\.Now\\(\\)$/= time.Now\\(\\).UTC\\(\\).Round\\(0\\)/g' \"$f\")",
+      "Bash(echo \"Fixed: $f\")",
+      "Bash(done)"
     ]
   }
 }

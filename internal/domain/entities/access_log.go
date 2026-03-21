@@ -54,7 +54,7 @@ type AccessLog struct {
 
 // NewAccessLog creates a new access log
 func NewAccessLog(gymID, userID uuid.UUID, accessType AccessLogType, accessMethod AccessLogMethod) *AccessLog {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	return &AccessLog{
 		ID:           uuid.New(),
 		GymID:        gymID,
