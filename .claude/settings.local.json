@@ -15,7 +15,12 @@
       "Bash(sed -i 's/: time\\\\.Now\\(\\),/: time.Now\\(\\).UTC\\(\\).Round\\(0\\),/g; s/= time\\\\.Now\\(\\)$/= time.Now\\(\\).UTC\\(\\).Round\\(0\\)/g; s/= time\\\\.Now\\(\\)$/= time.Now\\(\\).UTC\\(\\).Round\\(0\\)/g' \"$f\")",
       "Bash(echo \"Fixed: $f\")",
       "Bash(done)",
-      "Bash(sqlite3 gym-go.db \"SELECT COUNT\\(*\\) as total FROM users WHERE deleted_at IS NULL;\")"
+      "Bash(sqlite3 gym-go.db \"SELECT COUNT\\(*\\) as total FROM users WHERE deleted_at IS NULL;\")",
+      "Bash(find /c/Users/sebas/OneDrive/Desktop/gym-go -type f -name *.ps1)",
+      "Bash(find /c/Users/sebas/OneDrive/Desktop/gym-go -type f -name *.sql)",
+      "Bash(cmd.exe /c \"rmdir /s /q \"\"C:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\biometric-service\"\" & rmdir /s /q \"\"C:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\biometric-test\"\" & rmdir /s /q \"\"C:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\build\\\\biometric\"\" & del /q \"\"C:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\BIOMETRIC_README.md\"\" & del /q \"\"C:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\biometric-service.ps1\"\" & del /q \"\"C:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\setup-biometric.ps1\"\"\")",
+      "Bash(cmd.exe /c \"rmdir /s /q \"\"C:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\biometric-service\"\"\")",
+      "Bash(powershell -Command \"Remove-Item -Path ''C:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\biometric-service'' -Recurse -Force -ErrorAction SilentlyContinue; Test-Path ''C:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\biometric-service''\")"
     ]
   }
 }
