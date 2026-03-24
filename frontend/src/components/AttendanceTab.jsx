@@ -8,8 +8,6 @@ const Svg = ({ path, className = 'w-4 h-4' }) => (
   </svg>
 );
 
-const PAGE_SIZE = 15;
-
 export default function AttendanceTab() {
   const [attendances, setAttendances] = useState([]);
   const [users, setUsers]             = useState([]);
@@ -22,7 +20,6 @@ export default function AttendanceTab() {
   const [search, setSearch]       = useState('');
   const [dateFrom, setDateFrom]   = useState('');
   const [dateTo, setDateTo]       = useState('');
-  const [page, setPage]           = useState(1);
 
   useEffect(() => {
     loadAll();
@@ -95,10 +92,7 @@ export default function AttendanceTab() {
     return true;
   });
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  const resetFilters = () => { setSearch(''); setDateFrom(''); setDateTo(''); setPage(1); };
+  const resetFilters = () => { setSearch(''); setDateFrom(''); setDateTo(''); };
 
   return (
     <div className="space-y-6">
@@ -148,19 +142,19 @@ export default function AttendanceTab() {
             <div className="relative flex-1 min-w-[200px]">
               <Svg path="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input type="text" placeholder="Buscar miembro o clase..."
-                value={search} onChange={e => { setSearch(e.target.value); setPage(1); }}
+                value={search} onChange={e => setSearch(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs text-gray-500 whitespace-nowrap">Desde</label>
               <input type="date" value={dateFrom}
-                onChange={e => { setDateFrom(e.target.value); setPage(1); }}
+                onChange={e => setDateFrom(e.target.value)}
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs text-gray-500 whitespace-nowrap">Hasta</label>
               <input type="date" value={dateTo}
-                onChange={e => { setDateTo(e.target.value); setPage(1); }}
+                onChange={e => setDateTo(e.target.value)}
                 className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
             </div>
             {(search || dateFrom || dateTo) && (
@@ -183,13 +177,13 @@ export default function AttendanceTab() {
           <tbody className="divide-y divide-gray-50">
             {loading ? (
               <tr><td colSpan={4} className="px-5 py-12 text-center text-sm text-gray-400">Cargando...</td></tr>
-            ) : paginated.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <tr><td colSpan={4} className="px-5 py-12 text-center text-sm text-gray-400">
                 {filtered.length === 0 && (search || dateFrom || dateTo)
                   ? 'Sin resultados para los filtros aplicados'
                   : 'No hay registros de asistencia'}
               </td></tr>
-            ) : paginated.map(a => (
+            ) : filtered.map(a => (
               <tr key={a.id} className="hover:bg-gray-50/50 transition-colors">
                 <td className="px-5 py-3 text-sm font-medium text-gray-900">{userName(a.member_id)}</td>
                 <td className="px-5 py-3 text-sm text-gray-500">{className(a.class_id)}</td>
@@ -212,24 +206,6 @@ export default function AttendanceTab() {
           </tbody>
         </table>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100">
-            <p className="text-xs text-gray-500">
-              {filtered.length} registros — Página {page} de {totalPages}
-            </p>
-            <div className="flex gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                Anterior
-              </button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

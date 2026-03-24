@@ -73,8 +73,6 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
   const [profileUserId, setProfileUserId] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 15;
   const [users, setUsers] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -401,12 +399,18 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
   const filteredSubs = (() => {
     const q = searchQuery.toLowerCase();
     let list = q
-      ? subscriptions.filter(s =>
-          `${s.user?.first_name} ${s.user?.last_name}`.toLowerCase().includes(q) ||
-          (s.user?.document_number || '').toLowerCase().includes(q) ||
-          (s.user?.email || '').toLowerCase().includes(q) ||
-          (s.plan?.name || '').toLowerCase().includes(q)
-        )
+      ? subscriptions.filter(s => {
+          const primaryMatch =
+            `${s.user?.first_name} ${s.user?.last_name}`.toLowerCase().includes(q) ||
+            (s.user?.document_number || '').toLowerCase().includes(q) ||
+            (s.user?.email || '').toLowerCase().includes(q) ||
+            (s.plan?.name || '').toLowerCase().includes(q);
+          const memberMatch = (s.members || []).some(m =>
+            `${m.user?.first_name || ''} ${m.user?.last_name || ''}`.toLowerCase().includes(q) ||
+            (m.user?.document_number || '').toLowerCase().includes(q)
+          );
+          return primaryMatch || memberMatch;
+        })
       : subscriptions;
     if (filterFrom) {
       const from = new Date(filterFrom);
@@ -419,8 +423,6 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     }
     return [...list].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   })();
-  const totalPages = Math.ceil(filteredSubs.length / PAGE_SIZE);
-  const paginatedSubs = filteredSubs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   if (profileUserId) {
     return <MemberProfile userId={profileUserId} onBack={() => setProfileUserId(null)} />;
@@ -461,19 +463,19 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
             type="text"
             placeholder="Buscar por nombre, documento, email o plan..."
             value={searchQuery}
-            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+            onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           />
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400 font-medium whitespace-nowrap">Creado:</span>
-          <input type="date" value={filterFrom} onChange={e => { setFilterFrom(e.target.value); setPage(1); }}
+          <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
             className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
           <span className="text-gray-300">–</span>
-          <input type="date" value={filterTo} onChange={e => { setFilterTo(e.target.value); setPage(1); }}
+          <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
             className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
           {(filterFrom || filterTo) && (
-            <button onClick={() => { setFilterFrom(''); setFilterTo(''); setPage(1); }}
+            <button onClick={() => { setFilterFrom(''); setFilterTo(''); }}
               className="text-xs text-gray-400 hover:text-red-500 transition px-1" title="Limpiar filtro de fechas">
               ✕
             </button>
@@ -509,7 +511,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                   />
                 </td>
               </tr>
-            ) : paginatedSubs.map((sub) => {
+            ) : filteredSubs.map((sub) => {
                 const daysLeft = sub.end_date
                   ? Math.max(0, Math.ceil((new Date(sub.end_date) - new Date()) / (1000 * 60 * 60 * 24)))
                   : null;
@@ -635,23 +637,6 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
             })}
           </tbody>
         </table>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100">
-            <p className="text-xs text-gray-500">
-              {filteredSubs.length} resultados — Página {page} de {totalPages}
-            </p>
-            <div className="flex gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                Anterior
-              </button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
       </div>
       </>}
 
