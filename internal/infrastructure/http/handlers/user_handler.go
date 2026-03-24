@@ -158,7 +158,7 @@ func (h *UserHandler) List(c *gin.Context) {
 		return
 	}
 
-	users, err := h.userUseCase.ListUsers(100, 0)
+	users, err := h.userUseCase.ListUsers(0, 0)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list users"})
 		return

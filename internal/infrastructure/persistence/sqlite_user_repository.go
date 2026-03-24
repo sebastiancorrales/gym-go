@@ -66,7 +66,11 @@ func (r *SQLiteUserRepository) Delete(id uuid.UUID) error {
 
 func (r *SQLiteUserRepository) List(limit, offset int) ([]*entities.User, error) {
 	var users []*entities.User
-	err := r.db.Order("created_at DESC").Limit(limit).Offset(offset).Find(&users).Error
+	q := r.db.Order("created_at DESC").Offset(offset)
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	err := q.Find(&users).Error
 	return users, err
 }
 
