@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import PlanSelectorGrid from './PlanSelectorGrid';
 import * as XLSX from 'xlsx';
 import api from '../utils/api';
 import Modal from './Modal';
@@ -79,6 +80,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
   const [toast, setToast] = useState(null);
   const [receipt, setReceipt] = useState(null); // { subscription, user, plan }
   const [gymName, setGymName] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
 
@@ -120,17 +122,15 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
   const [editEndDate, setEditEndDate] = useState('');
   const [editAuditLog, setEditAuditLog] = useState([]);
 
-  useEffect(() => {
-    fetchSubscriptions();
-    fetchUsers();
-    fetchPlans();
-    api.get('/gym').then(r => r.ok ? r.json() : null).then(d => { if (d?.name) setGymName(d.name); });
-  }, []);
-
-  const fetchSubscriptions = async () => {
+  const fetchSubscriptions = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get('/subscriptions');
+      const params = new URLSearchParams();
+      if (filterStatus) params.set('status', filterStatus);
+      if (filterFrom) params.set('created_from', filterFrom);
+      if (filterTo) params.set('created_to', filterTo);
+      const qs = params.toString();
+      const response = await api.get(`/subscriptions${qs ? '?' + qs : ''}`);
       if (response.ok) {
         const result = await response.json();
         setSubscriptions(result.data || result || []);
@@ -140,7 +140,17 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStatus, filterFrom, filterTo]);
+
+  useEffect(() => {
+    fetchSubscriptions();
+  }, [fetchSubscriptions]);
+
+  useEffect(() => {
+    fetchUsers();
+    fetchPlans();
+    api.get('/gym').then(r => r.ok ? r.json() : null).then(d => { if (d?.name) setGymName(d.name); });
+  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -412,15 +422,6 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
           return primaryMatch || memberMatch;
         })
       : subscriptions;
-    if (filterFrom) {
-      const from = new Date(filterFrom);
-      list = list.filter(s => s.created_at && new Date(s.created_at) >= from);
-    }
-    if (filterTo) {
-      const to = new Date(filterTo);
-      to.setHours(23, 59, 59);
-      list = list.filter(s => s.created_at && new Date(s.created_at) <= to);
-    }
     return [...list].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   })();
 
@@ -455,7 +456,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
       </div>
 
       {activeTab === 'list' && <>
-      {/* Search + Date filters */}
+      {/* Search + Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <div className="relative flex-1 min-w-48">
           <Svg path={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -467,6 +468,18 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
             className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           />
         </div>
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-700"
+        >
+          <option value="">Todos los estados</option>
+          <option value="ACTIVE">Activas</option>
+          <option value="INACTIVE">Inactivas</option>
+          <option value="FROZEN">Congeladas</option>
+          <option value="EXPIRED">Expiradas</option>
+          <option value="CANCELLED">Canceladas</option>
+        </select>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400 font-medium whitespace-nowrap">Creado:</span>
           <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
@@ -733,7 +746,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
       )}
 
       {/* ── Wizard Modal ── */}
-      <Modal isOpen={showWizard} onClose={closeWizard} title="Nueva Suscripcion" maxWidth="lg">
+      <Modal isOpen={showWizard} onClose={closeWizard} title="Nueva Suscripcion" maxWidth="2xl">
         <StepIndicator current={wizardStep} isGroup={maxAdditional > 0} />
 
         {/* ── Step 1: Select Member ── */}
@@ -867,54 +880,11 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
               <Svg path={ICONS.back} className="w-4 h-4" /> Cambiar miembro
             </button>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {plans.map(plan => {
-                const isSelected = selectedPlan?.id === plan.id;
-                return (
-                  <button
-                    key={plan.id}
-                    onClick={() => setSelectedPlan(plan)}
-                    className={`relative text-left p-5 rounded-2xl border-2 transition-all duration-200
-                      ${isSelected
-                        ? 'border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-500/10'
-                        : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm'
-                      }`}
-                  >
-                    {isSelected && (
-                      <div className="absolute top-3 right-3 w-6 h-6 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center">
-                        <Svg path={ICONS.check} className="w-3.5 h-3.5 text-white" />
-                      </div>
-                    )}
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${
-                      isSelected ? 'bg-emerald-100' : 'bg-gray-100'
-                    }`}>
-                      <Svg path={ICONS.plan} className={`w-5 h-5 ${isSelected ? 'text-emerald-600' : 'text-gray-400'}`} />
-                    </div>
-                    <h4 className="font-bold text-gray-900 mb-1">{plan.name}</h4>
-                    {plan.description && <p className="text-xs text-gray-400 mb-3 line-clamp-2">{plan.description}</p>}
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-extrabold text-gray-900">{fmt(plan.price)}</span>
-                    </div>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Svg path={ICONS.clock} className="w-3.5 h-3.5" /> {plan.duration_days} dias
-                      </span>
-                      {plan.enrollment_fee > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Svg path={ICONS.tag} className="w-3.5 h-3.5" /> Inscripcion: {fmt(plan.enrollment_fee)}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {plans.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-sm text-gray-400">No hay planes disponibles. Crea uno primero.</p>
-              </div>
-            )}
+            <PlanSelectorGrid
+              plans={plans}
+              selectedPlan={selectedPlan}
+              onSelect={setSelectedPlan}
+            />
 
             <div className="flex justify-between pt-2">
               <button onClick={() => setWizardStep(1)} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">

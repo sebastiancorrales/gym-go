@@ -12,12 +12,15 @@ const fmtDate = (str) => {
   return new Date(+y, +m - 1, +d).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
 };
 
-const today = () => new Date().toISOString().split('T')[0];
+const localDateStr = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const today = () => localDateStr(new Date());
 
 const addDays = (dateStr, n) => {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + n);
-  return d.toISOString().split('T')[0];
+  return localDateStr(d);
 };
 
 const diffDays = (start, end) => {
@@ -63,7 +66,7 @@ const exportCSV = (rows, filename) => {
 // ── Date Presets ──────────────────────────────────────────────────────────────
 const PRESETS = [
   { label: 'Hoy',          get: () => { const t = today(); return { s: t, e: t }; } },
-  { label: 'Esta semana',  get: () => { const t = new Date(); const mon = new Date(t); mon.setDate(t.getDate() - t.getDay() + 1); return { s: mon.toISOString().split('T')[0], e: today() }; } },
+  { label: 'Esta semana',  get: () => { const t = new Date(); const mon = new Date(t); mon.setDate(t.getDate() - t.getDay() + 1); return { s: localDateStr(mon), e: today() }; } },
   { label: 'Este mes',     get: () => { const t = new Date(); return { s: `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-01`, e: today() }; } },
   { label: 'Este año',     get: () => ({ s: `${new Date().getFullYear()}-01-01`, e: today() }) },
 ];
@@ -947,7 +950,7 @@ export default function ReportsTab() {
         </div>
 
         <p className="text-xs text-gray-400 mt-2">
-          Comparando vs {fmtDate(prev.start)} – {fmtDate(prev.end)}
+          Comparando vs {prev.start === prev.end ? fmtDate(prev.start) : `${fmtDate(prev.start)} – ${fmtDate(prev.end)}`}
         </p>
       </div>
 

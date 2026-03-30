@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
+	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
 )
 
@@ -101,7 +102,36 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 		return
 	}
 
-	subscriptions, err := h.subscriptionUseCase.ListSubscriptionsByGym(gymID, 500, 0)
+	parseDate := func(s string) *time.Time {
+		if s == "" {
+			return nil
+		}
+		t, err := time.Parse("2006-01-02", s)
+		if err != nil {
+			return nil
+		}
+		return &t
+	}
+	parseDateEndOfDay := func(s string) *time.Time {
+		t := parseDate(s)
+		if t == nil {
+			return nil
+		}
+		end := time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, t.Location())
+		return &end
+	}
+
+	filter := repositories.SubscriptionFilter{
+		Status:      c.Query("status"),
+		CreatedFrom: parseDate(c.Query("created_from")),
+		CreatedTo:   parseDateEndOfDay(c.Query("created_to")),
+		StartFrom:   parseDate(c.Query("start_from")),
+		StartTo:     parseDateEndOfDay(c.Query("start_to")),
+		EndFrom:     parseDate(c.Query("end_from")),
+		EndTo:       parseDateEndOfDay(c.Query("end_to")),
+	}
+
+	subscriptions, err := h.subscriptionUseCase.ListSubscriptionsWithFilters(gymID, filter, 500, 0)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list subscriptions"})
 		return

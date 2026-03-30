@@ -51,6 +51,13 @@ func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUI
 		return nil, fmt.Errorf("el plan '%s' requiere %d persona(s) adicional(es) y se recibieron %d", plan.Name, required, len(additionalMemberIDs))
 	}
 
+	// Prevent the primary user from appearing in the additional members list
+	for _, mid := range additionalMemberIDs {
+		if mid == userID {
+			return nil, errors.New("el titular no puede ser incluido como miembro adicional")
+		}
+	}
+
 	// Enrollment fee only applies on first subscription
 	enrollmentFee := plan.EnrollmentFee
 	if existing, err := uc.subscriptionRepo.FindByUserID(userID); err == nil && len(existing) > 0 {
@@ -104,6 +111,10 @@ func (uc *SubscriptionUseCase) ListSubscriptionsByGym(gymID uuid.UUID, limit, of
 	return uc.subscriptionRepo.FindByGymID(gymID, limit, offset)
 }
 
+func (uc *SubscriptionUseCase) ListSubscriptionsWithFilters(gymID uuid.UUID, filter repositories.SubscriptionFilter, limit, offset int) ([]*entities.Subscription, error) {
+	return uc.subscriptionRepo.FindByGymIDWithFilters(gymID, filter, limit, offset)
+}
+
 func (uc *SubscriptionUseCase) CancelSubscription(id uuid.UUID, reason string, cancelledBy uuid.UUID) error {
 	subscription, err := uc.subscriptionRepo.FindByID(id)
 	if err != nil {
@@ -132,6 +143,13 @@ func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID 
 	required := plan.MaxMembers - 1
 	if plan.MaxMembers > 1 && len(additionalMemberIDs) != required {
 		return nil, fmt.Errorf("el plan '%s' requiere %d persona(s) adicional(es) y se recibieron %d", plan.Name, required, len(additionalMemberIDs))
+	}
+
+	// Prevent the primary user from appearing in the additional members list
+	for _, mid := range additionalMemberIDs {
+		if mid == current.UserID {
+			return nil, errors.New("el titular no puede ser incluido como miembro adicional")
+		}
 	}
 
 	// Find the latest end date across all user subscriptions (chain from the furthest)
