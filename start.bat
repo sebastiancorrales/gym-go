@@ -26,10 +26,10 @@ echo.
 cd /d "%~dp0"
 
 :: -----------------------------------------------
-:: 2. Servicio biometrico C# (en ventana aparte con logs visibles)
+:: 2. Servicio biometrico C# - HTTP en puerto 5001
 :: -----------------------------------------------
-echo [2/3] Iniciando servicio biometrico C# (puerto 9000)...
-start "Gym-Go Biometric Service" cmd /k "cd /d "%~dp0" && echo === SERVICIO BIOMETRICO === && echo Puerto: 9000 && echo. && dotnet run --project biometric-service"
+echo [2/3] Iniciando servicio biometrico C# (HTTP puerto 5001)...
+start "Gym-Go Biometric Service" cmd /k "cd /d "%~dp0" && echo === SERVICIO BIOMETRICO === && echo API HTTP: http://localhost:5001 && echo. && biometric-service\bin\Debug\net8.0-windows\BiometricPOC.exe"
 timeout /t 3 /nobreak >nul
 echo [OK] Servicio biometrico iniciado (ver ventana aparte)
 echo.
@@ -53,7 +53,7 @@ echo ============================================
 echo.
 echo   Frontend:    http://localhost:8080
 echo   Backend Go:  puerto 8080
-echo   Biometrico:  puerto 9000
+echo   Biometrico:  http://localhost:5001
 echo.
 echo   Cada servicio tiene su propia ventana
 echo   con logs visibles.

@@ -51,25 +51,41 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.4, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.4);
+  } catch {}
+}
+
 export default function CheckIn() {
   const [documentNumber, setDocumentNumber]     = useState('');
   const [loading, setLoading]                   = useState(false);
-  const [result, setResult]                     = useState(null);   // { success, user, subscription?, message, reason? }
-  const [error, setError]                       = useState(null);   // { message, detail }
+  const [result, setResult]                     = useState(null);
+  const [error, setError]                       = useState(null);
   const [countdown, setCountdown]               = useState(5);
-  const [checkInMethod, setCheckInMethod]       = useState('manual');
+  const [checkInMethod, setCheckInMethod]       = useState('fingerprint');
   const [readerStatus, setReaderStatus]         = useState(null);
   const [capturingFingerprint, setCapturingFingerprint] = useState(false);
 
   // Redirect to login if no session
   useEffect(() => {
     const token = localStorage.getItem('access_token');
-    if (!token) {
-      window.location.href = '/';
-    }
+    if (!token) window.location.href = '/';
   }, []);
 
-  // Auto-dismiss countdown
+  // Auto-dismiss countdown (only used for manual mode and brief errors)
   useEffect(() => {
     if (!result && !error) return;
     setCountdown(5);
@@ -83,18 +99,82 @@ export default function CheckIn() {
     return () => clearInterval(timer);
   }, [result, error]);
 
-  // Reader status polling
+  // Reader status polling — switch to fingerprint mode when reader detected
   useEffect(() => {
     const check = async () => {
       try {
         const res = await api.get('/biometric/status');
-        if (res.ok) { const d = await res.json(); setReaderStatus(d.data); }
+        if (res.ok) {
+          const d = await res.json();
+          setReaderStatus(d.data);
+          if (d.data?.reader_connected) setCheckInMethod('fingerprint');
+        }
       } catch {}
     };
     check();
     const id = setInterval(check, 10000);
     return () => clearInterval(id);
   }, []);
+
+  // ── Auto-scan loop ──────────────────────────────────────────────────────────
+  // Keeps /verify running in the background while fingerprint mode is active.
+  // Each call blocks ~30s on the C# side waiting for a finger placement.
+  useEffect(() => {
+    if (checkInMethod !== 'fingerprint') return;
+
+    let alive = true;
+
+    const loop = async () => {
+      while (alive) {
+        setCapturingFingerprint(true);
+
+        try {
+          const verRes = await api.post('/biometric/verify', { device_id: 'web-interface' });
+          if (!alive) break;
+
+          const verData = await verRes.json();
+          setCapturingFingerprint(false);
+
+          if (verRes.ok && verData.success) {
+            const user = verData.data.user;
+            const ciRes = await api.post('/access/checkin', { user_id: user.id, method: 'FINGERPRINT' });
+            if (!alive) break;
+
+            if (ciRes.ok) {
+              const subsRes = await api.get('/subscriptions');
+              const sub = subsRes.ok
+                ? (await subsRes.json() || []).find(s => s.user_id === user.id && s.status === 'ACTIVE')
+                : null;
+              beep();
+              setResult({ success: true, user, subscription: sub, message: '¡Bienvenido!', byFingerprint: true });
+            } else {
+              const d = await ciRes.json();
+              setResult({ success: false, user, message: 'Acceso Denegado', reason: d.reason || 'Sin suscripción activa' });
+            }
+            await sleep(5500); // wait for countdown overlay to finish
+            setResult(null);
+            setError(null);
+
+          } else {
+            const errMsg = (verData.error || '').toLowerCase();
+            const isTimeout = errMsg.includes('timeout') || errMsg.includes('ninguna huella');
+            if (!isTimeout) {
+              setError({ message: 'Huella no reconocida', detail: 'No coincide con ningún usuario registrado' });
+              await sleep(3000);
+              setError(null);
+            }
+            // timeout → just loop again immediately
+          }
+        } catch {
+          setCapturingFingerprint(false);
+          if (alive) await sleep(2000);
+        }
+      }
+    };
+
+    loop();
+    return () => { alive = false; };
+  }, [checkInMethod]);
 
   const handleCheckIn = async e => {
     e.preventDefault();
@@ -121,6 +201,7 @@ export default function CheckIn() {
 
       if (ciRes.ok) {
         const sub = (subsAll || []).find(s => s.user_id === user.id && s.status === 'ACTIVE');
+        beep();
         setResult({ success: true, user, subscription: sub, message: '¡Bienvenido!' });
       } else {
         const userSubs = (subsAll || []).filter(s => s.user_id === user.id);
@@ -131,42 +212,6 @@ export default function CheckIn() {
       setError({ message: 'Error del sistema', detail: 'Por favor contacte al administrador' });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleFingerprintCheckIn = async () => {
-    if (!readerStatus?.reader_connected) {
-      setError({ message: 'Lector no disponible', detail: 'El lector de huellas no está conectado' });
-      return;
-    }
-    setCapturingFingerprint(true); setLoading(true); setResult(null); setError(null);
-
-    try {
-      const capRes = await api.post('/biometric/capture', { timeout: 30 });
-      if (!capRes.ok) throw new Error('Error al capturar huella digital');
-      const capData = await capRes.json();
-
-      const verRes = await api.post('/biometric/verify', { template_data: capData.data.template_data, device_id: 'web-interface' });
-      const verData = await verRes.json();
-
-      if (verRes.ok && verData.success) {
-        const user = verData.data.user;
-        const ciRes = await api.post('/access/checkin', { user_id: user.id, method: 'FINGERPRINT' });
-        if (ciRes.ok) {
-          const subsRes = await api.get('/subscriptions');
-          const sub = subsRes.ok ? (await subsRes.json() || []).find(s => s.user_id === user.id && s.status === 'ACTIVE') : null;
-          setResult({ success: true, user, subscription: sub, message: '¡Bienvenido!', byFingerprint: true });
-        } else {
-          const d = await ciRes.json();
-          setResult({ success: false, user, message: 'Acceso Denegado', reason: d.reason || 'Sin suscripción activa' });
-        }
-      } else {
-        setError({ message: 'Huella no reconocida', detail: 'No coincide con ningún usuario registrado' });
-      }
-    } catch (err) {
-      setError({ message: 'Error al procesar huella', detail: err.message || 'Intente nuevamente' });
-    } finally {
-      setLoading(false); setCapturingFingerprint(false);
     }
   };
 
@@ -259,23 +304,17 @@ export default function CheckIn() {
               </form>
             )}
 
-            {/* Fingerprint */}
+            {/* Fingerprint — always active */}
             {checkInMethod === 'fingerprint' && (
               <div className="space-y-4 text-center">
-                <div className={`mx-auto w-28 h-28 rounded-full flex items-center justify-center
-                  ${capturingFingerprint ? 'bg-emerald-500/20 animate-pulse' : 'bg-white/10'}`}>
-                  <Svg path={FINGERPRINT_PATH} className={`w-14 h-14 ${capturingFingerprint ? 'text-emerald-400' : 'text-white/50'}`} />
+                <div className={`mx-auto w-28 h-28 rounded-full flex items-center justify-center transition-all
+                  ${capturingFingerprint ? 'bg-emerald-500/20 ring-4 ring-emerald-400/30 animate-pulse' : 'bg-white/10'}`}>
+                  <Svg path={FINGERPRINT_PATH} className={`w-14 h-14 transition-colors ${capturingFingerprint ? 'text-emerald-400' : 'text-white/30'}`} />
                 </div>
-                <p className="text-white/70 text-sm">
-                  {capturingFingerprint ? 'Mantén el dedo sobre el lector...' : 'Coloca tu dedo en el lector'}
+                <p className="text-white/60 text-sm">
+                  {capturingFingerprint ? '👆 Coloca tu dedo en el lector...' : 'Esperando lector...'}
                 </p>
-                <button
-                  onClick={handleFingerprintCheckIn}
-                  disabled={loading}
-                  className="w-full py-4 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white text-lg font-bold rounded-2xl transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Procesando...' : 'Iniciar Escaneo'}
-                </button>
+                <p className="text-white/25 text-xs">Escaneo automático activo</p>
               </div>
             )}
           </div>
