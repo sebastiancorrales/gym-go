@@ -43,7 +43,7 @@ echo [3/4] Publicando servicio biometrico (.NET)...
 if exist "build\biometric" rmdir /s /q "build\biometric"
 mkdir "build\biometric" 2>nul
 
-dotnet publish biometric-service/BiometricService.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true -o build/biometric
+dotnet publish biometric-service/BiometricPOC.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true -o build/biometric
 if errorlevel 1 (
     echo ERROR: Fallo la publicacion del servicio biometrico
     pause

@@ -71,10 +71,6 @@ Section "Gym-Go (requerido)" SecCore
   SetOutPath "$INSTDIR\biometric"
   File /r "build\biometric\*.*"
   
-  ; HTA para captura de huella
-  SetOutPath "$INSTDIR\biometric\scripts"
-  File "biometric-service\scripts\biometric.hta"
-  
   ; ================================
   ; Migrations
   ; ================================
