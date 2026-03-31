@@ -388,3 +388,27 @@ func (h *SubscriptionHandler) GetStats(c *gin.Context) {
 		},
 	})
 }
+
+func (h *SubscriptionHandler) UpdatePaymentMethod(c *gin.Context) {
+	subIDStr := c.Param("id")
+	subID, err := uuid.Parse(subIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
+		return
+	}
+
+	var req struct {
+		PaymentMethod string `json:"payment_method" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.subscriptionUseCase.UpdatePaymentMethod(subID, req.PaymentMethod); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Método de pago actualizado"})
+}

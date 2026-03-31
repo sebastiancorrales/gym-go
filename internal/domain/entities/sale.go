@@ -41,6 +41,7 @@ type Sale struct {
 	Details       []SaleDetail       `json:"details,omitempty" gorm:"-" db:"-"`
 	User          *User              `json:"user,omitempty" gorm:"-" db:"-"`
 	PaymentMethod *SalePaymentMethod `json:"payment_method,omitempty" gorm:"-" db:"-"`
+	SplitPayments []SalePayment      `json:"split_payments,omitempty" gorm:"-" db:"-"`
 }
 
 // CalculateTotal calculates the total from details

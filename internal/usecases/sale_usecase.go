@@ -12,10 +12,11 @@ import (
 
 // SaleUseCase handles business logic for sales
 type SaleUseCase struct {
-	saleRepo          repositories.SaleRepository
-	saleDetailRepo    repositories.SaleDetailRepository
-	productRepo       repositories.ProductRepository
-	paymentMethodRepo repositories.PaymentMethodRepository
+	saleRepo            repositories.SaleRepository
+	saleDetailRepo      repositories.SaleDetailRepository
+	productRepo         repositories.ProductRepository
+	paymentMethodRepo   repositories.PaymentMethodRepository
+	salePaymentRepo     repositories.SalePaymentRepository
 }
 
 // NewSaleUseCase creates a new SaleUseCase
@@ -24,12 +25,14 @@ func NewSaleUseCase(
 	saleDetailRepo repositories.SaleDetailRepository,
 	productRepo repositories.ProductRepository,
 	paymentMethodRepo repositories.PaymentMethodRepository,
+	salePaymentRepo repositories.SalePaymentRepository,
 ) *SaleUseCase {
 	return &SaleUseCase{
 		saleRepo:          saleRepo,
 		saleDetailRepo:    saleDetailRepo,
 		productRepo:       productRepo,
 		paymentMethodRepo: paymentMethodRepo,
+		salePaymentRepo:   salePaymentRepo,
 	}
 }
 
@@ -47,19 +50,36 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 		return errors.ErrInvalidInput
 	}
 
-	// Validate payment method
-	paymentMethod, err := uc.paymentMethodRepo.GetByID(ctx, sale.PaymentMethodID)
-	if err != nil {
-		return err
-	}
-	if paymentMethod == nil {
-		return errors.ErrNotFound
-	}
-	if !paymentMethod.IsActive() {
-		return errors.ErrPaymentMethodNotActive
+	// Validate payment method(s)
+	if len(sale.SplitPayments) > 0 {
+		for i := range sale.SplitPayments {
+			pm, err := uc.paymentMethodRepo.GetByID(ctx, sale.SplitPayments[i].PaymentMethodID)
+			if err != nil {
+				return err
+			}
+			if pm == nil {
+				return errors.ErrNotFound
+			}
+			if !pm.IsActive() {
+				return errors.ErrPaymentMethodNotActive
+			}
+			sale.SplitPayments[i].PaymentMethod = pm
+		}
+	} else {
+		paymentMethod, err := uc.paymentMethodRepo.GetByID(ctx, sale.PaymentMethodID)
+		if err != nil {
+			return err
+		}
+		if paymentMethod == nil {
+			return errors.ErrNotFound
+		}
+		if !paymentMethod.IsActive() {
+			return errors.ErrPaymentMethodNotActive
+		}
 	}
 
 	// Validate all details and check stock
+	var err error
 	productMap := make(map[uuid.UUID]*entities.Product)
 	for i := range sale.Details {
 		detail := &sale.Details[i]
@@ -124,6 +144,16 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 	// Create sale details
 	if err := uc.saleDetailRepo.CreateBatch(ctx, sale.ID, sale.Details); err != nil {
 		return err
+	}
+
+	// Persist split payments (if any)
+	if len(sale.SplitPayments) > 0 {
+		for i := range sale.SplitPayments {
+			sale.SplitPayments[i].SaleID = sale.ID
+		}
+		if err := uc.salePaymentRepo.CreateBatch(ctx, sale.SplitPayments); err != nil {
+			return err
+		}
 	}
 
 	// Update inventory for normal sales
@@ -273,6 +303,18 @@ func (uc *SaleUseCase) GetSaleByID(ctx context.Context, id uuid.UUID) (*entities
 	pm, err := uc.paymentMethodRepo.GetByID(ctx, sale.PaymentMethodID)
 	if err == nil && pm != nil {
 		sale.PaymentMethod = pm
+	}
+
+	// Load split payments
+	splitPayments, err := uc.salePaymentRepo.GetBySaleID(ctx, id)
+	if err == nil && len(splitPayments) > 0 {
+		for i := range splitPayments {
+			spm, e := uc.paymentMethodRepo.GetByID(ctx, splitPayments[i].PaymentMethodID)
+			if e == nil && spm != nil {
+				splitPayments[i].PaymentMethod = spm
+			}
+		}
+		sale.SplitPayments = splitPayments
 	}
 
 	return sale, nil

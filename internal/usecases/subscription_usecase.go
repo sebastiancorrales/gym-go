@@ -129,6 +129,15 @@ func (uc *SubscriptionUseCase) UpdateSubscription(sub *entities.Subscription) er
 	return uc.subscriptionRepo.Update(sub)
 }
 
+func (uc *SubscriptionUseCase) UpdatePaymentMethod(subID uuid.UUID, paymentMethod string) error {
+	sub, err := uc.subscriptionRepo.FindByID(subID)
+	if err != nil {
+		return err
+	}
+	sub.PaymentMethod = paymentMethod
+	return uc.subscriptionRepo.Update(sub)
+}
+
 func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID uuid.UUID, gymID uuid.UUID, discount float64, paymentMethod string, additionalMemberIDs []uuid.UUID) (*entities.Subscription, error) {
 	current, err := uc.subscriptionRepo.FindByID(currentSubID)
 	if err != nil {

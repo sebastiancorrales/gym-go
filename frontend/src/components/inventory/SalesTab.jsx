@@ -10,7 +10,8 @@ export default function SalesTab({ user }) {
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [cart, setCart] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  const [splitPayments, setSplitPayments] = useState([{ payment_method_id: '', amount: '' }]);
+  const [receivedCash, setReceivedCash] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
@@ -40,16 +41,12 @@ export default function SalesTab({ user }) {
         setPaymentMethods(data || []);
         
         // Auto-select "Efectivo" if available
-        const efectivo = data.find(method => 
-          method.name.toLowerCase().includes('efectivo') || 
+        const efectivo = data.find(method =>
+          method.name.toLowerCase().includes('efectivo') ||
           method.name.toLowerCase().includes('cash')
         );
-        if (efectivo) {
-          setSelectedPaymentMethod(efectivo.id);
-        } else if (data.length > 0) {
-          // If "Efectivo" not found, select first method
-          setSelectedPaymentMethod(data[0].id);
-        }
+        const defaultId = efectivo ? efectivo.id : (data.length > 0 ? data[0].id : '');
+        setSplitPayments([{ payment_method_id: defaultId, amount: '' }]);
       }
     } catch (error) {
       console.error('Error fetching payment methods:', error);
@@ -137,24 +134,59 @@ export default function SalesTab({ user }) {
     return { subtotal, totalDiscount, total };
   };
 
+  const isCashMethod = (id) => {
+    const m = paymentMethods.find(p => p.id === id);
+    return m && (m.type === 'cash' || m.name.toLowerCase().includes('efectivo'));
+  };
+
+  const splitTotal = splitPayments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+  const splitPending = totals.total - splitTotal;
+  const singleIsCash = splitPayments.length === 1 && isCashMethod(splitPayments[0].payment_method_id);
+  const change = singleIsCash ? (parseFloat(receivedCash) || 0) - totals.total : 0;
+
+  const addSplitRow = () =>
+    setSplitPayments(prev => [...prev, { payment_method_id: paymentMethods[0]?.id || '', amount: '' }]);
+
+  const removeSplitRow = (idx) =>
+    setSplitPayments(prev => prev.filter((_, i) => i !== idx));
+
+  const updateSplitRow = (idx, field, value) =>
+    setSplitPayments(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p));
+
   const handleCheckout = () => {
     if (cart.length === 0) {
       setToast({ message: 'El carrito está vacío', type: 'warning' });
       return;
     }
+    // Pre-fill single payment amount with total
+    setSplitPayments(prev => {
+      if (prev.length === 1 && prev[0].amount === '') {
+        return [{ ...prev[0], amount: String(totals.total) }];
+      }
+      return prev;
+    });
+    setReceivedCash('');
     setShowPaymentModal(true);
   };
 
   const completeSale = async () => {
-    if (!selectedPaymentMethod) {
+    const validPayments = splitPayments.filter(p => p.payment_method_id && parseFloat(p.amount) > 0);
+    if (validPayments.length === 0) {
       setToast({ message: 'Seleccione un método de pago', type: 'warning' });
+      return;
+    }
+    if (Math.abs(splitPending) > 0.01) {
+      setToast({ message: `Falta asignar ${fmt(splitPending)} al método de pago`, type: 'warning' });
       return;
     }
 
     setLoading(true);
     try {
       const saleData = {
-        payment_method_id: selectedPaymentMethod,
+        payments: validPayments.map(p => ({
+          payment_method_id: p.payment_method_id,
+          amount: parseFloat(p.amount)
+        })),
         details: cart.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
@@ -164,29 +196,23 @@ export default function SalesTab({ user }) {
       };
 
       const response = await api.post('/sales', saleData);
-      
+
       if (response.ok) {
         const data = await response.json();
-        setToast({ 
-          message: `✓ Venta completada - Total: ${fmt(data.total)}`,
-          type: 'success' 
+        setToast({
+          message: `Venta completada - Total: ${fmt(data.total)}`,
+          type: 'success'
         });
-        
-        // Reset
+
         setCart([]);
         setShowPaymentModal(false);
-        fetchProducts(); // Refresh to update stock
-        
-        // Re-select default payment method
-        const efectivo = paymentMethods.find(method => 
-          method.name.toLowerCase().includes('efectivo') || 
-          method.name.toLowerCase().includes('cash')
-        );
-        if (efectivo) {
-          setSelectedPaymentMethod(efectivo.id);
-        } else if (paymentMethods.length > 0) {
-          setSelectedPaymentMethod(paymentMethods[0].id);
-        }
+        setReceivedCash('');
+        fetchProducts();
+
+        const defaultId = paymentMethods.find(m =>
+          m.name.toLowerCase().includes('efectivo') || m.name.toLowerCase().includes('cash')
+        )?.id || paymentMethods[0]?.id || '';
+        setSplitPayments([{ payment_method_id: defaultId, amount: '' }]);
       } else {
         const error = await response.json();
         setToast({ message: error.error || 'Error al completar la venta', type: 'error' });
@@ -398,6 +424,7 @@ export default function SalesTab({ user }) {
         maxWidth="md"
       >
         <div className="space-y-4 mb-6">
+          {/* Totals summary */}
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex justify-between text-sm mb-2">
               <span className="text-gray-600">Subtotal:</span>
@@ -415,23 +442,87 @@ export default function SalesTab({ user }) {
             </div>
           </div>
 
+          {/* Split payment rows */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Método de Pago *
-            </label>
-            <select
-              value={selectedPaymentMethod}
-              onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              required
-            >
-              {paymentMethods.map((method) => (
-                <option key={method.id} value={method.id}>
-                  {method.name}
-                </option>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">Forma de pago</label>
+              <button
+                type="button"
+                onClick={addSplitRow}
+                className="text-xs text-emerald-600 hover:text-emerald-800 font-medium"
+              >
+                + Agregar método
+              </button>
+            </div>
+            <div className="space-y-2">
+              {splitPayments.map((row, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <select
+                    value={row.payment_method_id}
+                    onChange={e => updateSplitRow(idx, 'payment_method_id', e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  >
+                    {paymentMethods.map(m => (
+                      <option key={m.id} value={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    placeholder="Monto"
+                    value={row.amount}
+                    onChange={e => updateSplitRow(idx, 'amount', e.target.value)}
+                    className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  />
+                  {splitPayments.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeSplitRow(idx)}
+                      className="text-red-400 hover:text-red-600 px-1"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               ))}
-            </select>
+            </div>
+
+            {/* Pending balance indicator */}
+            {splitPayments.length > 1 && (
+              <div className={`mt-2 text-sm font-medium flex justify-between ${Math.abs(splitPending) < 0.01 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                <span>{Math.abs(splitPending) < 0.01 ? 'Cubierto' : 'Pendiente:'}</span>
+                {Math.abs(splitPending) >= 0.01 && <span>{fmt(splitPending)}</span>}
+              </div>
+            )}
           </div>
+
+          {/* Vuelto calculator (solo si un único método efectivo) */}
+          {singleIsCash && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <label className="block text-sm font-medium text-amber-800 mb-1">
+                Monto recibido
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                value={receivedCash}
+                onChange={e => setReceivedCash(e.target.value)}
+                placeholder={fmt(totals.total)}
+                className="w-full px-3 py-2 border border-amber-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-400 focus:border-transparent bg-white"
+              />
+              {receivedCash && change >= 0 && (
+                <div className="mt-2 flex justify-between text-sm font-bold text-amber-900">
+                  <span>Vuelto:</span>
+                  <span className="text-lg">{fmt(change)}</span>
+                </div>
+              )}
+              {receivedCash && change < 0 && (
+                <p className="mt-1 text-xs text-red-600">El monto recibido es menor al total</p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex space-x-3">
@@ -445,7 +536,7 @@ export default function SalesTab({ user }) {
           </button>
           <button
             onClick={completeSale}
-            disabled={loading}
+            disabled={loading || Math.abs(splitPending) > 0.01}
             className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Procesando...' : 'Confirmar Venta'}

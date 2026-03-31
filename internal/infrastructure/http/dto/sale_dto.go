@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,10 +17,26 @@ type SaleDetailRequest struct {
 	Discount  float64 `json:"discount,omitempty" validate:"min=0"`
 }
 
-// CreateSaleRequest representa la solicitud para crear una venta
+// SalePaymentRequest representa un pago parcial dentro de una venta con pago dividido
+type SalePaymentRequest struct {
+	PaymentMethodID string  `json:"payment_method_id" validate:"required"`
+	Amount          float64 `json:"amount" validate:"required,min=0.01"`
+}
+
+// SalePaymentResponse representa un pago parcial en la respuesta
+type SalePaymentResponse struct {
+	ID                string  `json:"id"`
+	PaymentMethodID   string  `json:"payment_method_id"`
+	PaymentMethodName string  `json:"payment_method_name,omitempty"`
+	Amount            float64 `json:"amount"`
+}
+
+// CreateSaleRequest representa la solicitud para crear una venta.
+// Soporta pago único (payment_method_id) o pago dividido (payments[]).
 type CreateSaleRequest struct {
-	PaymentMethodID string              `json:"payment_method_id" validate:"required"`
-	Details         []SaleDetailRequest `json:"details" validate:"required,min=1"`
+	PaymentMethodID string               `json:"payment_method_id"`
+	Payments        []SalePaymentRequest `json:"payments"`
+	Details         []SaleDetailRequest  `json:"details" validate:"required,min=1"`
 }
 
 // VoidSaleRequest representa la solicitud para anular una venta
@@ -43,19 +60,20 @@ type SaleDetailResponse struct {
 
 // SaleResponse representa la respuesta de una venta
 type SaleResponse struct {
-	ID                string               `json:"id"`
-	SaleDate          time.Time            `json:"sale_date"`
-	Total             float64              `json:"total"`
-	TotalDiscount     float64              `json:"total_discount"`
-	UserID            string               `json:"user_id"`
-	Type              string               `json:"type"`
-	Status            string               `json:"status"`
-	PaymentMethodID   string               `json:"payment_method_id"`
-	PaymentMethodName string               `json:"payment_method_name,omitempty"`
-	VoidedSaleID      *string              `json:"voided_sale_id,omitempty"`
-	CreatedAt         time.Time            `json:"created_at"`
-	UpdatedAt         time.Time            `json:"updated_at"`
-	Details           []SaleDetailResponse `json:"details,omitempty"`
+	ID                string                `json:"id"`
+	SaleDate          time.Time             `json:"sale_date"`
+	Total             float64               `json:"total"`
+	TotalDiscount     float64               `json:"total_discount"`
+	UserID            string                `json:"user_id"`
+	Type              string                `json:"type"`
+	Status            string                `json:"status"`
+	PaymentMethodID   string                `json:"payment_method_id"`
+	PaymentMethodName string                `json:"payment_method_name,omitempty"`
+	SplitPayments     []SalePaymentResponse `json:"split_payments,omitempty"`
+	VoidedSaleID      *string               `json:"voided_sale_id,omitempty"`
+	CreatedAt         time.Time             `json:"created_at"`
+	UpdatedAt         time.Time             `json:"updated_at"`
+	Details           []SaleDetailResponse  `json:"details,omitempty"`
 }
 
 // SaleReportRequest representa la solicitud para un reporte de ventas
@@ -85,11 +103,37 @@ type SaleProductReportResponse struct {
 	NetRevenue    float64 `json:"net_revenue"`
 }
 
-// ToEntity convierte CreateSaleRequest a Sale entity
+// ToEntity convierte CreateSaleRequest a Sale entity.
+// Soporta pago único (PaymentMethodID) o pago dividido (Payments[]).
 func (r *CreateSaleRequest) ToEntity(userID uuid.UUID) (*entities.Sale, error) {
-	paymentMethodID, err := uuid.Parse(r.PaymentMethodID)
-	if err != nil {
-		return nil, err
+	// Resolver método de pago primario
+	var primaryPaymentMethodID uuid.UUID
+	var splitPayments []entities.SalePayment
+
+	if len(r.Payments) > 0 {
+		// Modo split: primer método como primario en Sale
+		for i, p := range r.Payments {
+			pmID, err := uuid.Parse(p.PaymentMethodID)
+			if err != nil {
+				return nil, err
+			}
+			if i == 0 {
+				primaryPaymentMethodID = pmID
+			}
+			splitPayments = append(splitPayments, entities.SalePayment{
+				PaymentMethodID: pmID,
+				Amount:          p.Amount,
+			})
+		}
+	} else if r.PaymentMethodID != "" {
+		// Modo single (backward compat)
+		pmID, err := uuid.Parse(r.PaymentMethodID)
+		if err != nil {
+			return nil, err
+		}
+		primaryPaymentMethodID = pmID
+	} else {
+		return nil, errors.New("se requiere al menos un método de pago")
 	}
 
 	details := make([]entities.SaleDetail, len(r.Details))
@@ -108,7 +152,8 @@ func (r *CreateSaleRequest) ToEntity(userID uuid.UUID) (*entities.Sale, error) {
 
 	return &entities.Sale{
 		UserID:          userID,
-		PaymentMethodID: paymentMethodID,
+		PaymentMethodID: primaryPaymentMethodID,
+		SplitPayments:   splitPayments,
 		Details:         details,
 		Type:            entities.SaleTypeNormal,
 		Status:          entities.SaleStatusCompleted,
@@ -139,6 +184,20 @@ func ToSaleResponse(sale *entities.Sale) *SaleResponse {
 
 	if sale.PaymentMethod != nil {
 		response.PaymentMethodName = sale.PaymentMethod.Name
+	}
+
+	if len(sale.SplitPayments) > 0 {
+		response.SplitPayments = make([]SalePaymentResponse, len(sale.SplitPayments))
+		for i, sp := range sale.SplitPayments {
+			response.SplitPayments[i] = SalePaymentResponse{
+				ID:              sp.ID.String(),
+				PaymentMethodID: sp.PaymentMethodID.String(),
+				Amount:          sp.Amount,
+			}
+			if sp.PaymentMethod != nil {
+				response.SplitPayments[i].PaymentMethodName = sp.PaymentMethod.Name
+			}
+		}
 	}
 
 	if len(sale.Details) > 0 {

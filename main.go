@@ -106,6 +106,7 @@ func main() {
 	paymentMethodRepo := persistence.NewSQLitePaymentMethodRepository(database.DB)
 	saleRepo := persistence.NewSQLiteSaleRepository(database.DB)
 	saleDetailRepo := persistence.NewSQLiteSaleDetailRepository(database.DB)
+	salePaymentRepo := persistence.NewSQLiteSalePaymentRepository(database.DB)
 	classRepo := persistence.NewSQLiteClassRepository(database.DB)
 	attendanceRepo := persistence.NewSQLiteAttendanceRepository(database.DB)
 	memberRepo := persistence.NewInMemoryMemberRepository()
@@ -119,7 +120,7 @@ func main() {
 	biometricService := usecases.NewBiometricService(fingerprintRepo, userRepo)
 	productUseCase := usecases.NewProductUseCase(productRepo)
 	paymentMethodUseCase := usecases.NewPaymentMethodUseCase(paymentMethodRepo)
-	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo)
+	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo, salePaymentRepo)
 	classUseCase := usecases.NewClassUseCase(classRepo, instructorRepo)
 	attendanceUseCase := usecases.NewAttendanceUseCase(attendanceRepo, memberRepo, classRepo)
 
@@ -300,6 +301,7 @@ func main() {
 			subscriptions.POST("/:id/freeze", subscriptionHandler.Freeze)
 			subscriptions.POST("/:id/unfreeze", subscriptionHandler.Unfreeze)
 			subscriptions.PATCH("/:id/dates", subscriptionHandler.UpdateDates)
+			subscriptions.PATCH("/:id/payment-method", subscriptionHandler.UpdatePaymentMethod)
 			subscriptions.GET("/:id/audit", subscriptionHandler.GetAuditLog)
 		}
 

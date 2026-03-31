@@ -47,6 +47,12 @@ type PaymentMethodRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
+// SalePaymentRepository defines the interface for split-payment entries
+type SalePaymentRepository interface {
+	CreateBatch(ctx context.Context, payments []entities.SalePayment) error
+	GetBySaleID(ctx context.Context, saleID uuid.UUID) ([]entities.SalePayment, error)
+}
+
 // SaleReport represents aggregated sale data
 type SaleReport struct {
 	TotalSales    float64 `json:"total_sales"`
