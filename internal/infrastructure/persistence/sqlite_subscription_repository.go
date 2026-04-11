@@ -117,12 +117,13 @@ func (r *SQLiteSubscriptionRepository) FindByGymIDAndDateRange(gymID uuid.UUID, 
 
 func (r *SQLiteSubscriptionRepository) CountActiveByGymID(gymID uuid.UUID) (int64, error) {
 	var count int64
+	activeStatuses := []string{
+		string(entities.SubscriptionStatusActive),
+		string(entities.SubscriptionStatusFrozen),
+	}
 	err := r.db.Model(&entities.Subscription{}).
-		Where("gym_id = ? AND status = ? AND end_date > ?",
-			gymID, entities.SubscriptionStatusActive, time.Now()).
+		Where("gym_id = ? AND status IN ? AND end_date > ?",
+			gymID, activeStatuses, time.Now()).
 		Count(&count).Error
 	return count, err
 }
-
-
-
