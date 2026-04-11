@@ -279,16 +279,55 @@ Seed por defecto:
 #### Cierre diario (`DAILY_CLOSE`)
 
 Fuentes de datos:
-- Ventas: `saleRepo.GetByDateRange` — filtra por `sale_date` entre inicio y fin del día en UTC
-- Suscripciones nuevas: `subscriptionRepo.FindByGymIDAndDateRange` — filtra por `created_at` del día
+- Ventas: `saleRepo.GetByDateRange` — filtra por `sale_date` entre inicio y fin del día/rango en UTC
+- Suscripciones nuevas: `subscriptionRepo.FindByGymIDAndDateRange` — filtra por `created_at` del período
 
-Nota: `Sale` no tiene `gym_id`; el cierre usa todas las ventas del día (correcto para instalaciones de un solo gimnasio).
+Nota: `Sale` no tiene `gym_id`; el cierre usa todas las ventas del período (correcto para instalaciones de un solo gimnasio).
 
 Contenido del email:
-- Cuerpo HTML con tabla de totales (ventas, suscripciones, total del día)
-- Desglose por método de pago
-- Adjunto **Excel** (3 hojas: Resumen, Ventas, Suscripciones) generado con `excelize`
-- Adjunto **PDF** (resumen A4) generado con `go-pdf/fpdf`
+- Cuerpo HTML con tabla de totales (ventas, suscripciones, total del período)
+- Valores monetarios formateados con `FmtAmt` — formato colombiano `$ 1.234.567`
+- Desglose por método de pago (nombre, cantidad de transacciones, total)
+- Adjunto **Excel** (1 hoja "Reporte") generado con `excelize`, secciones:
+  1. Tabla de suscripciones (10 columnas: usuario, plan, método, fechas, precio, matrícula, descuento, total)
+  2. SUBTOTAL SUSCRIPCIONES
+  3. PLANES VENDIDOS (plan, cantidad, total) — ordenados por cantidad desc
+  4. PRODUCTOS VENDIDOS (producto, cantidad, total) — agregado, no línea por línea
+  5. VENTAS INVENTARIO (transacciones, bruto, descuentos, neto)
+  6. METODOS DE PAGO (método, suscripciones, ventas inventario, total)
+  7. TOTAL GENERAL
+- Adjunto **PDF** (A4 vertical) generado con `go-pdf/fpdf`, secciones:
+  1. Header oscuro con nombre del gym y período
+  2. 3 cajas resumen (verde: suscripciones, azul: ventas inventario, oscuro: total general)
+  3. Sección 1: tabla de suscripciones + desglose por plan
+  4. Sección 2: ventas inventario (bruto/descuentos/neto)
+  5. Sección 2b: productos vendidos (si hay)
+  6. Sección 3: desglose por método de pago (suscripciones vs ventas vs total)
+  7. Caja final TOTAL GENERAL
+  8. Paginación automática con `{nb}`
+
+Soporte de rango de fechas:
+- Un solo día: asunto y header dicen "Cierre del dia DD/MM/YYYY"
+- Rango: asunto y header dicen "Cierre del DD/MM al DD/MM/YYYY"
+
+`DailyCloseReport` struct (campos clave):
+- `Date`, `EndDate` — período
+- `TotalSalesAmount`, `TotalSalesCount`, `SalesGross`, `SalesDiscount`
+- `TotalSubsAmount`, `TotalSubsCount`, `TotalRevenue`
+- `PaymentMethods []PaymentMethodSummary` — con SubsTotal/SubsCount/SalesTotal/SalesCount/Total
+- `Plans []PlanSummary` — nombre, cantidad, revenue; ordenados por qty desc
+- `Products []ProductSummary` — nombre, cantidad, revenue; agregado por nombre normalizado (lowercase), ordenados por revenue desc
+- `SaleItems []SaleLineItem`, `SubscriptionItems []SubscriptionLineItem`
+
+Normalización de métodos de pago:
+- Clave interna: `strings.ToLower(strings.TrimSpace(name))` para evitar duplicados "EFECTIVO"/"Efectivo"
+
+`NotificationUseCase` dependencias (10 en total):
+- `recipientRepo`, `saleRepo`, `saleDetailRepo`, `subscriptionRepo`, `planRepo`, `gymRepo`, `userRepo`, `paymentMethodRepo`, `productRepo`, `emailSender`
+
+`FmtAmt` (exportada desde `report_builder.go`):
+- Formato colombiano con puntos como separadores de miles: `$ 1.234.567`
+- Usada tanto en PDF/Excel como en el cuerpo HTML del correo
 
 Scheduler:
 - `scheduleDailyClose(23, 0, fn)` en `main.go`
@@ -297,7 +336,7 @@ Scheduler:
 
 Trigger manual:
 - `POST /api/v1/notifications/send-daily-close`
-- Body opcional: `{"date": "2024-01-15"}`
+- Body opcional: `{"date": "2024-01-15", "date_end": "2024-01-17"}` — si omite `date_end`, es igual a `date`
 
 #### Infraestructura de email
 
@@ -388,6 +427,8 @@ Protegidas:
 
 ### Gym
 - lectura y actualización de configuración del gimnasio
+- incluye campos SMTP propios por gimnasio (`smtp_host`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_from`)
+- el repositorio usa raw SQL `UPDATE ... WHERE id=?` en vez de `gorm.Save()` para evitar el bug de INSERT por UUID nil
 
 ### Planes
 - CRUD de planes
@@ -583,4 +624,4 @@ En la mayoría de tareas eso basta.
 
 ## Resumen de Una Línea
 
-Gym-Go hoy es un backend Go monolítico con Gin, JWT, GORM y SQLite, organizado en `domain/usecases/infrastructure`, con módulos reales para auth, usuarios, suscripciones, acceso, biometría, clases, asistencia, inventario, ventas y un sistema completo de notificaciones por email (cierre diario con PDF+Excel, recordatorios de vencimiento, destinatarios configurables por tipo).
+Gym-Go hoy es un backend Go monolítico con Gin, JWT, GORM y SQLite, organizado en `domain/usecases/infrastructure`, con módulos reales para auth, usuarios, suscripciones, acceso, biometría, clases, asistencia, inventario, ventas y un sistema completo de notificaciones por email (cierre diario con PDF+Excel que incluyen desglose por plan, productos agregados y métodos de pago; soporte de rango de fechas; valores formateados en moneda local; recordatorios de vencimiento; destinatarios configurables por tipo).
