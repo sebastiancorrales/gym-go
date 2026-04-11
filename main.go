@@ -480,7 +480,8 @@ func main() {
 					loc = l
 				}
 			}
-			if err := notifUseCase.SendDailyClose(gym.ID, time.Now().In(loc), loc); err != nil {
+			now := time.Now().In(loc)
+			if err := notifUseCase.SendDailyClose(gym.ID, now, now, loc); err != nil {
 				log.Printf("⚠️ Daily-close gym %q: %v", gym.Name, err)
 			} else {
 				log.Printf("✅ Daily-close sent for gym %q", gym.Name)
