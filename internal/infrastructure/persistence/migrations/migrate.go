@@ -32,6 +32,7 @@ func Migrate(db *gorm.DB) error {
 		&entities.Attendance{},
 		&entities.SubscriptionMember{},
 		&entities.SubscriptionAuditLog{},
+		&entities.NotificationRecipient{},
 	)
 
 	if err != nil {

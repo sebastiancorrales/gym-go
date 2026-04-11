@@ -70,6 +70,7 @@ Lo que sí existe hoy en código:
 - rutas agrupadas por módulo
 - repositorios SQLite
 - expiración automática de suscripciones cada hora
+- cierre diario automático a las 23:00 con envío de correo
 - frontend servido por el backend
 
 Lo que aparece documentado pero se ve más como roadmap o diseño futuro:
@@ -130,6 +131,7 @@ Entidades principales:
 - `SalePaymentMethod`
 - `Class`
 - `Attendance`
+- `NotificationRecipient`  ← destinatarios configurables por gimnasio y tipo
 
 ### 2. Use Cases
 
@@ -150,6 +152,7 @@ Use cases activos:
 - `SaleUseCase`
 - `ClassUseCase`
 - `AttendanceUseCase`
+- `NotificationUseCase`  ← cierre diario, recordatorios y gestión de destinatarios
 
 ### 3. Infrastructure HTTP
 
@@ -175,7 +178,7 @@ Responsabilidad:
 - algunos módulos legacy/demo siguen in-memory
 
 Repos mixtos:
-- SQLite para usuarios, suscripciones, acceso, planes, huellas, inventario, ventas, métodos de pago, gym
+- SQLite para usuarios, suscripciones, acceso, planes, huellas, inventario, ventas, métodos de pago, gym, destinatarios de notificaciones
 - In-memory para `member` e `instructor`
 
 ---
@@ -256,6 +259,75 @@ Seed por defecto:
 - si no hay suscripción válida, registra acceso denegado
 - si hay vigencia válida, registra acceso concedido
 
+### Notificaciones por email
+
+#### Tipos de notificación (`NotificationType`)
+
+| Constante | Descripción |
+|-----------|-------------|
+| `DAILY_CLOSE` | Cierre diario con adjuntos PDF + Excel |
+| `ACCOUNTING_REPORT` | Reporte contable periódico |
+| `SUBSCRIPTION_REMINDER` | Recordatorio de vencimiento al miembro |
+
+#### Destinatarios configurables
+
+- Tabla `notification_recipients` en SQLite
+- Cada fila: `gym_id`, `notification_type`, `name`, `email`, `active`
+- Múltiples destinatarios por tipo (e.g. contador + admin para `DAILY_CLOSE`)
+- Gestionados via endpoints REST (ver rutas)
+
+#### Cierre diario (`DAILY_CLOSE`)
+
+Fuentes de datos:
+- Ventas: `saleRepo.GetByDateRange` — filtra por `sale_date` entre inicio y fin del día en UTC
+- Suscripciones nuevas: `subscriptionRepo.FindByGymIDAndDateRange` — filtra por `created_at` del día
+
+Nota: `Sale` no tiene `gym_id`; el cierre usa todas las ventas del día (correcto para instalaciones de un solo gimnasio).
+
+Contenido del email:
+- Cuerpo HTML con tabla de totales (ventas, suscripciones, total del día)
+- Desglose por método de pago
+- Adjunto **Excel** (3 hojas: Resumen, Ventas, Suscripciones) generado con `excelize`
+- Adjunto **PDF** (resumen A4) generado con `go-pdf/fpdf`
+
+Scheduler:
+- `scheduleDailyClose(23, 0, fn)` en `main.go`
+- Dispara a las 23:00 hora local del servidor
+- Itera todos los gimnasios; usa el campo `Gym.Timezone` para la zona horaria
+
+Trigger manual:
+- `POST /api/v1/notifications/send-daily-close`
+- Body opcional: `{"date": "2024-01-15"}`
+
+#### Infraestructura de email
+
+Paquete: `internal/infrastructure/email`
+
+| Archivo | Responsabilidad |
+|---------|----------------|
+| `sender.go` | SMTP con `Send` (sin adjuntos) y `SendWithAttachments` (MIME multipart) |
+| `templates.go` | Templates HTML: `RenderDailyCloseEmail`, `RenderSubscriptionReminderEmail` |
+| `report_builder.go` | `DailyCloseReport` struct + `BuildExcelReport` + `BuildPDFReport` |
+
+Patrón de fallback SMTP:
+1. Si el gimnasio tiene SMTP propio configurado (`Gym.SMTPHost`), lo usa
+2. Si no, usa el SMTP global de variables de entorno (`SMTP_*`)
+
+#### Archivos clave de notificaciones
+
+```
+internal/domain/entities/notification_recipient.go
+internal/domain/repositories/repository.go            (interface NotificationRecipientRepository)
+internal/infrastructure/email/sender.go
+internal/infrastructure/email/templates.go
+internal/infrastructure/email/report_builder.go
+internal/infrastructure/persistence/sqlite_notification_recipient_repository.go
+internal/usecases/notification_usecase.go
+internal/infrastructure/http/handlers/notification_handler.go
+```
+
+---
+
 ### Ventas e inventario
 
 - una venta exige usuario, método de pago y detalles
@@ -298,7 +370,7 @@ Protegidas:
 - `/subscriptions/*`
 - `/access/*`
 - `/biometric/*`
-- `/notifications/*`
+- `/notifications/*`  (send-expiring, send-daily-close, test-email, recipients CRUD)
 - `/classes/*`
 - `/attendance/*`
 - `/products/*`
@@ -360,8 +432,11 @@ Protegidas:
 - anulación
 
 ### Notificaciones
-- envío de recordatorios de vencimiento
+- envío de recordatorios de vencimiento de suscripción
 - test de email SMTP
+- **cierre diario**: genera reporte con totales de ventas y suscripciones del día, adjunta PDF y Excel, envía a destinatarios configurados
+- gestión de destinatarios por tipo de notificación (CRUD)
+- scheduler automático a las 23:00 hora local por cada gimnasio
 
 ---
 
@@ -394,6 +469,15 @@ Si vas a tocar ventas:
 - `internal/domain/entities/sale.go`
 - `internal/domain/entities/sale_detail.go`
 
+Si vas a tocar notificaciones / cierre diario:
+- `docs/AI_BACKEND_CONTEXT.md`
+- `main.go`
+- `internal/usecases/notification_usecase.go`
+- `internal/infrastructure/http/handlers/notification_handler.go`
+- `internal/infrastructure/email/report_builder.go`
+- `internal/infrastructure/email/templates.go`
+- `internal/domain/entities/notification_recipient.go`
+
 Si vas a tocar acceso:
 - `docs/AI_BACKEND_CONTEXT.md`
 - `main.go`
@@ -413,7 +497,7 @@ Toma como contexto este backend real:
 - Go monolítico con Gin + GORM + SQLite
 - patrón handler -> usecase -> repository
 - auth JWT con roles
-- módulos: usuarios, planes, suscripciones, acceso, biometría, clases, asistencia, inventario, ventas, notificaciones
+- módulos: usuarios, planes, suscripciones, acceso, biometría, clases, asistencia, inventario, ventas, notificaciones (cierre diario PDF+Excel, recordatorios, destinatarios configurables)
 - la documentación grande mezcla roadmap con estado actual; prioriza el código real
 
 Archivos fuente de verdad para esta tarea:
@@ -499,4 +583,4 @@ En la mayoría de tareas eso basta.
 
 ## Resumen de Una Línea
 
-Gym-Go hoy es un backend Go monolítico con Gin, JWT, GORM y SQLite, organizado en `domain/usecases/infrastructure`, con módulos reales para auth, usuarios, suscripciones, acceso, biometría, clases, asistencia, inventario y ventas.
+Gym-Go hoy es un backend Go monolítico con Gin, JWT, GORM y SQLite, organizado en `domain/usecases/infrastructure`, con módulos reales para auth, usuarios, suscripciones, acceso, biometría, clases, asistencia, inventario, ventas y un sistema completo de notificaciones por email (cierre diario con PDF+Excel, recordatorios de vencimiento, destinatarios configurables por tipo).

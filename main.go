@@ -110,6 +110,7 @@ func main() {
 	attendanceRepo := persistence.NewSQLiteAttendanceRepository(database.DB)
 	memberRepo := persistence.NewInMemoryMemberRepository()
 	instructorRepo := persistence.NewInMemoryInstructorRepository()
+	notifRecipientRepo := persistence.NewSQLiteNotificationRecipientRepository(database.DB)
 
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(userRepo)
@@ -122,6 +123,25 @@ func main() {
 	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo)
 	classUseCase := usecases.NewClassUseCase(classRepo, instructorRepo)
 	attendanceUseCase := usecases.NewAttendanceUseCase(attendanceRepo, memberRepo, classRepo)
+
+	emailSender := email.NewSender(email.Config{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		Username: cfg.SMTP.Username,
+		Password: cfg.SMTP.Password,
+		From:     cfg.SMTP.From,
+	})
+	notifUseCase := usecases.NewNotificationUseCase(
+		notifRecipientRepo,
+		saleRepo,
+		saleDetailRepo,
+		subscriptionRepo,
+		planRepo,
+		gymRepo,
+		userRepo,
+		paymentMethodRepo,
+		emailSender,
+	)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, gymRepo, jwtManager)
@@ -138,14 +158,7 @@ func main() {
 	accessHandler := handlers.NewAccessHandler(accessUseCase)
 	uploadHandler := handlers.NewUploadHandler("./uploads")
 	biometricHandler := handlers.NewBiometricHandler(biometricService)
-	emailSender := email.NewSender(email.Config{
-		Host:     cfg.SMTP.Host,
-		Port:     cfg.SMTP.Port,
-		Username: cfg.SMTP.Username,
-		Password: cfg.SMTP.Password,
-		From:     cfg.SMTP.From,
-	})
-	notificationHandler := handlers.NewNotificationHandler(subscriptionUseCase, userUseCase, planUseCase, gymRepo, emailSender)
+	notificationHandler := handlers.NewNotificationHandler(notifUseCase, gymRepo, emailSender)
 
 	// Setup Gin router
 	if cfg.Server.Environment == "production" {
@@ -334,7 +347,13 @@ func main() {
 		notifications.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
 		{
 			notifications.POST("/send-expiring", notificationHandler.SendExpiringReminders)
+			notifications.POST("/send-daily-close", notificationHandler.SendDailyClose)
 			notifications.POST("/test-email", notificationHandler.TestEmail)
+			// Recipient management
+			notifications.GET("/recipients", notificationHandler.ListRecipients)
+			notifications.POST("/recipients", notificationHandler.CreateRecipient)
+			notifications.PUT("/recipients/:id", notificationHandler.UpdateRecipient)
+			notifications.DELETE("/recipients/:id", notificationHandler.DeleteRecipient)
 		}
 
 		// Class routes
@@ -446,6 +465,29 @@ func main() {
 		}
 	}()
 
+	// Daily-close scheduler: sends the end-of-day report at 23:00 local time.
+	// Iterates over every registered gym and sends to each gym's DAILY_CLOSE recipients.
+	go scheduleDailyClose(23, 0, func() {
+		gyms, err := gymRepo.List(100, 0)
+		if err != nil {
+			log.Printf("⚠️ Daily-close: failed to list gyms: %v", err)
+			return
+		}
+		for _, gym := range gyms {
+			loc := time.Local
+			if gym.Timezone != "" {
+				if l, err := time.LoadLocation(gym.Timezone); err == nil {
+					loc = l
+				}
+			}
+			if err := notifUseCase.SendDailyClose(gym.ID, time.Now().In(loc), loc); err != nil {
+				log.Printf("⚠️ Daily-close gym %q: %v", gym.Name, err)
+			} else {
+				log.Printf("✅ Daily-close sent for gym %q", gym.Name)
+			}
+		}
+	})
+
 	// Start server
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	go func() {
@@ -467,6 +509,22 @@ func main() {
 
 	log.Println("🛑 Shutting down server...")
 	log.Println("✅ Server stopped gracefully")
+}
+
+// scheduleDailyClose fires task once per day at hour:minute (local time).
+func scheduleDailyClose(hour, minute int, task func()) {
+	go func() {
+		for {
+			now := time.Now()
+			next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.Local)
+			if !now.Before(next) {
+				next = next.Add(24 * time.Hour)
+			}
+			timer := time.NewTimer(next.Sub(now))
+			<-timer.C
+			task()
+		}
+	}()
 }
 
 // corsMiddleware provides basic CORS support

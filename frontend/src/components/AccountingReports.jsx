@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import Toast from './Toast';
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -130,6 +131,8 @@ export default function AccountingReports() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [prevData, setPrevData] = useState(null);
+  const [sendingClose, setSendingClose] = useState(false);
+  const [closeToast, setCloseToast] = useState(null);
 
   const applyPreset = (i) => {
     const { s, e } = PRESETS[i].get();
@@ -355,15 +358,52 @@ export default function AccountingReports() {
     URL.revokeObjectURL(url);
   };
 
+  const handleSendDailyClose = async () => {
+    setSendingClose(true);
+    try {
+      const res = await api.post('/notifications/send-daily-close', { date: dateRange.s });
+      const json = await res.json();
+      if (res.ok) setCloseToast({ message: json.message || 'Cierre del dia enviado exitosamente', type: 'success' });
+      else setCloseToast({ message: json.error || 'Error al enviar cierre', type: 'error' });
+    } catch {
+      setCloseToast({ message: 'Error de conexion', type: 'error' });
+    } finally {
+      setSendingClose(false);
+    }
+  };
+
   const prev = prevPeriod(dateRange.s, dateRange.e);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800">Reportes Contables</h2>
-        <p className="text-gray-500 text-sm mt-1">Ingresos consolidados: suscripciones + ventas de inventario</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">Reportes Contables</h2>
+          <p className="text-gray-500 text-sm mt-1">Ingresos consolidados: suscripciones + ventas de inventario</p>
+        </div>
+        <button
+          onClick={handleSendDailyClose}
+          disabled={sendingClose}
+          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0">
+          {sendingClose ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Enviando...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Enviar cierre del dia
+            </>
+          )}
+        </button>
       </div>
 
       {/* Filters */}
@@ -681,6 +721,9 @@ export default function AccountingReports() {
             </Card>
           )}
         </>
+      )}
+      {closeToast && (
+        <Toast message={closeToast.message} type={closeToast.type} onClose={() => setCloseToast(null)} />
       )}
     </div>
   );

@@ -118,5 +118,18 @@ type DeviceRepository interface {
 	Delete(id uuid.UUID) error
 }
 
+// NotificationRecipientRepository manages configurable email recipients per gym and
+// notification type. Multiple recipients can be active for the same (gym, type) pair.
+type NotificationRecipientRepository interface {
+	Create(recipient *entities.NotificationRecipient) error
+	FindByID(id uuid.UUID) (*entities.NotificationRecipient, error)
+	// FindByGymID returns all recipients for a gym regardless of type or status.
+	FindByGymID(gymID uuid.UUID) ([]*entities.NotificationRecipient, error)
+	// FindActiveByGymIDAndType returns only active recipients for a given type.
+	FindActiveByGymIDAndType(gymID uuid.UUID, notifType entities.NotificationType) ([]*entities.NotificationRecipient, error)
+	Update(recipient *entities.NotificationRecipient) error
+	Delete(id uuid.UUID) error
+}
+
 
 
