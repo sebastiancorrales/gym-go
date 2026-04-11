@@ -28,7 +28,18 @@ func (r *SQLiteGymRepository) FindByID(id uuid.UUID) (*entities.Gym, error) {
 }
 
 func (r *SQLiteGymRepository) Update(gym *entities.Gym) error {
-	return r.db.Save(gym).Error
+	return r.db.Exec(`
+		UPDATE gyms SET
+			name=?, legal_name=?, tax_id=?, address=?, city=?, state=?, country=?,
+			postal_code=?, phone=?, email=?, logo_url=?, timezone=?, locale=?, currency=?,
+			status=?, smtp_host=?, smtp_port=?, smtp_username=?, smtp_password=?, smtp_from=?,
+			updated_at=?
+		WHERE id=?`,
+		gym.Name, gym.LegalName, gym.TaxID, gym.Address, gym.City, gym.State, gym.Country,
+		gym.PostalCode, gym.Phone, gym.Email, gym.LogoURL, gym.Timezone, gym.Locale, gym.Currency,
+		gym.Status, gym.SMTPHost, gym.SMTPPort, gym.SMTPUsername, gym.SMTPPassword, gym.SMTPFrom,
+		gym.UpdatedAt, gym.ID.String(),
+	).Error
 }
 
 func (r *SQLiteGymRepository) Delete(id uuid.UUID) error {

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -32,6 +33,12 @@ type UpdateGymRequest struct {
 	Timezone   string `json:"timezone"`
 	Locale     string `json:"locale"`
 	Currency   string `json:"currency"`
+	// SMTP configuration
+	SMTPHost     *string `json:"smtp_host"`
+	SMTPPort     *int    `json:"smtp_port"`
+	SMTPUsername *string `json:"smtp_username"`
+	SMTPPassword *string `json:"smtp_password"`
+	SMTPFrom     *string `json:"smtp_from"`
 }
 
 func (h *GymHandler) Get(c *gin.Context) {
@@ -113,11 +120,27 @@ func (h *GymHandler) Update(c *gin.Context) {
 	if req.Currency != "" {
 		gym.Currency = req.Currency
 	}
+	if req.SMTPHost != nil {
+		gym.SMTPHost = *req.SMTPHost
+	}
+	if req.SMTPPort != nil {
+		gym.SMTPPort = *req.SMTPPort
+	}
+	if req.SMTPUsername != nil {
+		gym.SMTPUsername = *req.SMTPUsername
+	}
+	if req.SMTPPassword != nil {
+		gym.SMTPPassword = *req.SMTPPassword
+	}
+	if req.SMTPFrom != nil {
+		gym.SMTPFrom = *req.SMTPFrom
+	}
 
 	gym.UpdatedAt = time.Now()
 
 	if err := h.gymRepo.Update(gym); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update gym"})
+		log.Printf("❌ GymHandler.Update error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 

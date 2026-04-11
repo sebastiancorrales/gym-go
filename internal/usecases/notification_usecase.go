@@ -55,10 +55,12 @@ func NewNotificationUseCase(
 // Daily Close
 // ──────────────────────────────────────────────────────────────────────────────
 
-// SendDailyClose builds the daily-close report for `date` (in `loc` timezone),
-// generates PDF + Excel attachments, and sends the email to all active
+// SendDailyClose builds the daily-close report for the given date range (in `loc`
+// timezone), generates PDF + Excel attachments, and sends the email to all active
 // DAILY_CLOSE recipients configured for the gym.
-func (uc *NotificationUseCase) SendDailyClose(gymID uuid.UUID, date time.Time, loc *time.Location) error {
+// If startDate == endDate (same day) the email says "Cierre del dia DD/MM/YYYY";
+// otherwise it says "Cierre del DD/MM/YYYY al DD/MM/YYYY".
+func (uc *NotificationUseCase) SendDailyClose(gymID uuid.UUID, startDate, endDate time.Time, loc *time.Location) error {
 	gym, err := uc.gymRepo.FindByID(gymID)
 	if err != nil {
 		return fmt.Errorf("loading gym: %w", err)
@@ -77,17 +79,25 @@ func (uc *NotificationUseCase) SendDailyClose(gymID uuid.UUID, date time.Time, l
 		return fmt.Errorf("no active DAILY_CLOSE recipients configured for gym %q", gym.Name)
 	}
 
-	report, err := uc.buildDailyCloseReport(gymID, gym, date, loc)
+	report, err := uc.buildDailyCloseReport(gymID, gym, startDate, endDate, loc)
 	if err != nil {
 		return fmt.Errorf("building report data: %w", err)
 	}
 
+	startStr := startDate.In(loc).Format("2006-01-02")
+	endStr := endDate.In(loc).Format("2006-01-02")
+	isRange := startStr != endStr
+
 	// Generate attachments (failures are non-fatal — log and continue without them)
 	var attachments []email.Attachment
+	attachmentName := startStr
+	if isRange {
+		attachmentName = startStr + "_" + endStr
+	}
 
 	if excelBytes, exErr := email.BuildExcelReport(report); exErr == nil {
 		attachments = append(attachments, email.Attachment{
-			Filename:    fmt.Sprintf("cierre_%s.xlsx", date.In(loc).Format("2006-01-02")),
+			Filename:    fmt.Sprintf("cierre_%s.xlsx", attachmentName),
 			ContentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 			Data:        excelBytes,
 		})
@@ -95,7 +105,7 @@ func (uc *NotificationUseCase) SendDailyClose(gymID uuid.UUID, date time.Time, l
 
 	if pdfBytes, pErr := email.BuildPDFReport(report); pErr == nil {
 		attachments = append(attachments, email.Attachment{
-			Filename:    fmt.Sprintf("cierre_%s.pdf", date.In(loc).Format("2006-01-02")),
+			Filename:    fmt.Sprintf("cierre_%s.pdf", attachmentName),
 			ContentType: "application/pdf",
 			Data:        pdfBytes,
 		})
@@ -106,9 +116,13 @@ func (uc *NotificationUseCase) SendDailyClose(gymID uuid.UUID, date time.Time, l
 	if currency == "" {
 		currency = "COP"
 	}
+	startFmt := startDate.In(loc).Format("02/01/2006")
+	endFmt := endDate.In(loc).Format("02/01/2006")
 	emailData := email.DailyCloseEmailData{
 		GymName:          gym.Name,
-		Date:             date.In(loc).Format("02/01/2006"),
+		Date:             startFmt,
+		DateEnd:          endFmt,
+		IsRange:          isRange,
 		TotalSalesAmount: fmtMoney(report.TotalSalesAmount),
 		TotalSalesCount:  report.TotalSalesCount,
 		TotalSubsAmount:  fmtMoney(report.TotalSubsAmount),
@@ -134,11 +148,16 @@ func (uc *NotificationUseCase) SendDailyClose(gymID uuid.UUID, date time.Time, l
 		toEmails = append(toEmails, r.Email)
 	}
 
-	subject := fmt.Sprintf("%s - Cierre del dia %s", gym.Name, date.In(loc).Format("02/01/2006"))
+	var subject string
+	if isRange {
+		subject = fmt.Sprintf("%s - Cierre del %s al %s", gym.Name, startFmt, endFmt)
+	} else {
+		subject = fmt.Sprintf("%s - Cierre del dia %s", gym.Name, startFmt)
+	}
 	return sender.SendWithAttachments(toEmails, subject, htmlBody, attachments)
 }
 
-// buildDailyCloseReport aggregates sales and subscription data for the given day.
+// buildDailyCloseReport aggregates sales and subscription data for the given date range.
 //
 // NOTE: Sales are fetched by date range only (no gym filter) because the Sale
 // entity does not carry a gym_id. For single-gym installations this is correct.
@@ -146,15 +165,16 @@ func (uc *NotificationUseCase) SendDailyClose(gymID uuid.UUID, date time.Time, l
 func (uc *NotificationUseCase) buildDailyCloseReport(
 	gymID uuid.UUID,
 	gym *entities.Gym,
-	date time.Time,
+	startDate, endDate time.Time,
 	loc *time.Location,
 ) (*email.DailyCloseReport, error) {
 	ctx := context.Background()
 
-	// Day boundaries in UTC
-	localDate := date.In(loc)
-	dayStart := time.Date(localDate.Year(), localDate.Month(), localDate.Day(), 0, 0, 0, 0, loc).UTC()
-	dayEnd := dayStart.Add(24 * time.Hour)
+	// Range boundaries in UTC (start of startDate → end of endDate)
+	localStart := startDate.In(loc)
+	localEnd := endDate.In(loc)
+	dayStart := time.Date(localStart.Year(), localStart.Month(), localStart.Day(), 0, 0, 0, 0, loc).UTC()
+	dayEnd := time.Date(localEnd.Year(), localEnd.Month(), localEnd.Day(), 0, 0, 0, 0, loc).Add(24 * time.Hour).UTC()
 
 	sales, err := uc.saleRepo.GetByDateRange(ctx, dayStart, dayEnd, nil)
 	if err != nil {
@@ -172,7 +192,7 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 	}
 
 	report := &email.DailyCloseReport{
-		Date:     date,
+		Date:     startDate,
 		GymName:  gym.Name,
 		Currency: currency,
 	}

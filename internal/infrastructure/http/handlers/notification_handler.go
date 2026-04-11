@@ -53,25 +53,36 @@ func (h *NotificationHandler) SendDailyClose(c *gin.Context) {
 
 	// Optional date override
 	var req struct {
-		Date string `json:"date"` // "2006-01-02"
+		Date    string `json:"date"`     // "2006-01-02"
+		DateEnd string `json:"date_end"` // "2006-01-02" — if omitted, same as date
 	}
 	_ = c.ShouldBindJSON(&req)
 
-	target := time.Now().In(loc)
+	startDate := time.Now().In(loc)
 	if req.Date != "" {
 		if parsed, err := time.ParseInLocation("2006-01-02", req.Date, loc); err == nil {
-			target = parsed
+			startDate = parsed
+		}
+	}
+	endDate := startDate
+	if req.DateEnd != "" {
+		if parsed, err := time.ParseInLocation("2006-01-02", req.DateEnd, loc); err == nil {
+			endDate = parsed
 		}
 	}
 
-	if err := h.notifUC.SendDailyClose(gymID, target, loc); err != nil {
+	if err := h.notifUC.SendDailyClose(gymID, startDate, endDate, loc); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": fmt.Sprintf("Cierre del dia %s enviado exitosamente", target.Format("02/01/2006")),
-	})
+	var message string
+	if startDate.Format("2006-01-02") == endDate.Format("2006-01-02") {
+		message = fmt.Sprintf("Cierre del dia %s enviado exitosamente", startDate.Format("02/01/2006"))
+	} else {
+		message = fmt.Sprintf("Cierre del %s al %s enviado exitosamente", startDate.Format("02/01/2006"), endDate.Format("02/01/2006"))
+	}
+	c.JSON(http.StatusOK, gin.H{"message": message})
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

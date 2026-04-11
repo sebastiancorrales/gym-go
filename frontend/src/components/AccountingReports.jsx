@@ -361,7 +361,7 @@ export default function AccountingReports() {
   const handleSendDailyClose = async () => {
     setSendingClose(true);
     try {
-      const res = await api.post('/notifications/send-daily-close', { date: dateRange.s });
+      const res = await api.post('/notifications/send-daily-close', { date: dateRange.s, date_end: dateRange.e });
       const json = await res.json();
       if (res.ok) setCloseToast({ message: json.message || 'Cierre del dia enviado exitosamente', type: 'success' });
       else setCloseToast({ message: json.error || 'Error al enviar cierre', type: 'error' });

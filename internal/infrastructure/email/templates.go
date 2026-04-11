@@ -13,7 +13,9 @@ import (
 // DailyCloseEmailData is the data contract for the daily-close HTML template.
 type DailyCloseEmailData struct {
 	GymName          string
-	Date             string // formatted, e.g. "15/01/2024"
+	Date             string // formatted start date, e.g. "15/01/2024"
+	DateEnd          string // formatted end date (same as Date for single-day)
+	IsRange          bool   // true when start != end
 	TotalSalesAmount string
 	TotalSalesCount  int
 	TotalSubsAmount  string
@@ -41,7 +43,11 @@ const dailyCloseTpl = `<!DOCTYPE html>
     <!-- Header -->
     <div style="border-left:4px solid #10b981;padding-left:16px;margin-bottom:24px">
       <h1 style="margin:0 0 4px;font-size:22px;color:#111827">{{.GymName}}</h1>
+      {{if .IsRange}}
+      <p style="margin:0;font-size:14px;color:#6b7280">Cierre del {{.Date}} al {{.DateEnd}}</p>
+      {{else}}
       <p style="margin:0;font-size:14px;color:#6b7280">Cierre del dia &mdash; {{.Date}}</p>
+      {{end}}
     </div>
 
     <!-- Main summary table -->
@@ -65,7 +71,7 @@ const dailyCloseTpl = `<!DOCTYPE html>
           <td style="padding:10px 14px;text-align:right">{{.TotalSubsAmount}}</td>
         </tr>
         <tr style="background:#ecfdf5;font-weight:700">
-          <td style="padding:12px 14px;border-radius:0 0 0 6px;color:#065f46">TOTAL DEL DIA</td>
+          <td style="padding:12px 14px;border-radius:0 0 0 6px;color:#065f46">{{if .IsRange}}TOTAL DEL PERIODO{{else}}TOTAL DEL DIA{{end}}</td>
           <td style="padding:12px 14px;text-align:center;color:#065f46">{{totalCount .TotalSalesCount .TotalSubsCount}}</td>
           <td style="padding:12px 14px;text-align:right;color:#10b981;font-size:16px;border-radius:0 0 6px 0">{{.TotalRevenue}}</td>
         </tr>
