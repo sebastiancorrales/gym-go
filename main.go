@@ -201,6 +201,7 @@ func main() {
 	// Protected routes
 	protected := router.Group("/api/v1")
 	protected.Use(middleware.AuthMiddleware(jwtManager))
+	protected.Use(middleware.GymTimezoneMiddleware(gymRepo))
 	{
 		// Auth routes
 		protected.POST("/auth/logout", authHandler.Logout)

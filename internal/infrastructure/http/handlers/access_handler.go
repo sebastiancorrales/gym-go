@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
 )
 
@@ -110,7 +111,8 @@ func (h *AccessHandler) ListToday(c *gin.Context) {
 		return
 	}
 
-	logs, err := h.accessUseCase.GetTodayAccessByGym(gymID)
+	loc := middleware.GetGymLocation(c)
+	logs, err := h.accessUseCase.GetTodayAccessByGym(gymID, loc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get today's access"})
 		return
@@ -158,7 +160,8 @@ func (h *AccessHandler) GetStats(c *gin.Context) {
 		return
 	}
 
-	logs, err := h.accessUseCase.GetTodayAccessByGym(gymID)
+	loc := middleware.GetGymLocation(c)
+	logs, err := h.accessUseCase.GetTodayAccessByGym(gymID, loc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get access stats"})
 		return

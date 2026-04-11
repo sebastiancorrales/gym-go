@@ -101,8 +101,11 @@ type AccessLogRepository interface {
 	FindByID(id uuid.UUID) (*entities.AccessLog, error)
 	FindByUserID(userID uuid.UUID, limit, offset int) ([]*entities.AccessLog, error)
 	FindByGymID(gymID uuid.UUID, limit, offset int) ([]*entities.AccessLog, error)
-	FindByDateRange(gymID uuid.UUID, from, to string) ([]*entities.AccessLog, error)
-	CountTodayByGymID(gymID uuid.UUID) (int64, error)
+	// FindByDateRange devuelve los registros cuyo access_time esté en [from, to] UTC.
+	FindByDateRange(gymID uuid.UUID, from, to time.Time) ([]*entities.AccessLog, error)
+	// CountTodayByGymID cuenta registros de hoy usando la zona horaria loc para
+	// determinar los límites del día.
+	CountTodayByGymID(gymID uuid.UUID, loc *time.Location) (int64, error)
 }
 
 // DeviceRepository defines device repository interface

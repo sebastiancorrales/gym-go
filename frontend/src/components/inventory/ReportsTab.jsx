@@ -6,27 +6,11 @@ import {
 import api from '../../utils/api';
 import { fmt } from '../../utils/currency';
 import { exportPDF, exportExcel, exportConsolidadoPDF } from '../../utils/exportReport';
+import { localDateStr, todayStr as today, addDays, diffDays } from '../../utils/dateUtils';
 
 const fmtDate = (str) => {
   const [y, m, d] = str.split('-');
   return new Date(+y, +m - 1, +d).toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-};
-
-const localDateStr = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-const today = () => localDateStr(new Date());
-
-const addDays = (dateStr, n) => {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + n);
-  return localDateStr(d);
-};
-
-const diffDays = (start, end) => {
-  const s = new Date(start + 'T00:00:00');
-  const e = new Date(end   + 'T00:00:00');
-  return Math.round((e - s) / 86400000) + 1;
 };
 
 const prevPeriod = (start, end) => {

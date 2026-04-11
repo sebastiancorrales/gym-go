@@ -8,7 +8,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
+	"github.com/sebastiancorrales/gym-go/pkg/timeutil"
 )
 
 type SubscriptionHandler struct {
@@ -102,23 +104,26 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 		return
 	}
 
+	loc := middleware.GetGymLocation(c)
 	parseDate := func(s string) *time.Time {
 		if s == "" {
 			return nil
 		}
-		t, err := time.Parse("2006-01-02", s)
+		t, err := timeutil.ParseLocalDate(s, loc)
 		if err != nil {
 			return nil
 		}
 		return &t
 	}
 	parseDateEndOfDay := func(s string) *time.Time {
-		t := parseDate(s)
-		if t == nil {
+		if s == "" {
 			return nil
 		}
-		end := time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, t.Location())
-		return &end
+		t, err := timeutil.ParseLocalDateEndOfDay(s, loc)
+		if err != nil {
+			return nil
+		}
+		return &t
 	}
 
 	filter := repositories.SubscriptionFilter{
@@ -327,12 +332,13 @@ func (h *SubscriptionHandler) Report(c *gin.Context) {
 		return
 	}
 
-	from, err := time.Parse("2006-01-02", fromStr)
+	loc := middleware.GetGymLocation(c)
+	from, err := timeutil.ParseLocalDate(fromStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de fecha inválido para 'from'"})
 		return
 	}
-	to, err := time.Parse("2006-01-02", toStr)
+	to, err := timeutil.ParseLocalDateEndOfDay(toStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de fecha inválido para 'to'"})
 		return

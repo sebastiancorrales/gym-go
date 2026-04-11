@@ -20,6 +20,7 @@ import ProfileSettings from './ProfileSettings';
 import NotificationBell from './NotificationBell';
 import { SkeletonKpi } from './SkeletonTable';
 import { fmt } from '../utils/currency';
+import { todayStr } from '../utils/dateUtils';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 const Icon = ({ path, className = 'w-5 h-5' }) => (
@@ -133,13 +134,13 @@ export default function Dashboard({ user, onLogout }) {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const today = todayStr(); // fecha local Colombia, nunca toISOString() que devuelve UTC
       const [allSubsRes, accessRes, usersRes, subsStatsRes, salesReportRes] = await Promise.all([
         api.get('/subscriptions'),
         api.get('/access/stats'),
         api.get('/users'),
         api.get('/subscriptions/stats'),
-        api.get(`/sales/report?start_date=${todayStr}&end_date=${todayStr}`),
+        api.get(`/sales/report?start_date=${today}&end_date=${today}`),
       ]);
 
       const newStats = { activeSubscriptions: 0, todayRevenue: 0, todayAccess: 0, totalMembers: 0, todaySales: 0 };

@@ -6,24 +6,7 @@ import {
 import api from '../utils/api';
 import { fmt } from '../utils/currency';
 import { exportConsolidadoPDF, exportExcel } from '../utils/exportReport';
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-const localDateStr = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-const today = () => localDateStr(new Date());
-
-const addDays = (dateStr, n) => {
-  const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + n);
-  return localDateStr(d);
-};
-
-const diffDays = (start, end) => {
-  const s = new Date(start + 'T00:00:00');
-  const e = new Date(end + 'T00:00:00');
-  return Math.round((e - s) / 86400000) + 1;
-};
+import { localDateStr, todayStr as today, addDays, diffDays } from '../utils/dateUtils';
 
 const prevPeriod = (start, end) => {
   const days = diffDays(start, end);
@@ -62,7 +45,7 @@ const PRESETS = [
   { label: 'Hoy', get: () => { const t = today(); return { s: t, e: t }; } },
   { label: 'Esta semana', get: () => { const t = new Date(); const mon = new Date(t); mon.setDate(t.getDate() - t.getDay() + 1); return { s: localDateStr(mon), e: today() }; } },
   { label: 'Este mes', get: () => { const t = new Date(); return { s: `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-01`, e: today() }; } },
-  { label: 'Este ano', get: () => ({ s: `${new Date().getFullYear()}-01-01`, e: today() }) },
+  { label: 'Este año', get: () => ({ s: `${new Date().getFullYear()}-01-01`, e: today() }) },
 ];
 
 // ── Reusable Components ──────────────────────────────────────────────────────
