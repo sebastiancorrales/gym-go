@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,15 +16,16 @@ import (
 // NotificationUseCase orchestrates all automated email sending: daily-close
 // reports, subscription renewal reminders, and recipient management.
 type NotificationUseCase struct {
-	recipientRepo    repositories.NotificationRecipientRepository
-	saleRepo         repositories.SaleRepository
-	saleDetailRepo   repositories.SaleDetailRepository
-	subscriptionRepo repositories.SubscriptionRepository
-	planRepo         repositories.PlanRepository
-	gymRepo          repositories.GymRepository
-	userRepo         repositories.UserRepository
+	recipientRepo     repositories.NotificationRecipientRepository
+	saleRepo          repositories.SaleRepository
+	saleDetailRepo    repositories.SaleDetailRepository
+	subscriptionRepo  repositories.SubscriptionRepository
+	planRepo          repositories.PlanRepository
+	gymRepo           repositories.GymRepository
+	userRepo          repositories.UserRepository
 	paymentMethodRepo repositories.PaymentMethodRepository
-	emailSender      *email.Sender
+	productRepo       repositories.ProductRepository
+	emailSender       *email.Sender
 }
 
 // NewNotificationUseCase constructs the use case with all required dependencies.
@@ -36,6 +38,7 @@ func NewNotificationUseCase(
 	gymRepo repositories.GymRepository,
 	userRepo repositories.UserRepository,
 	paymentMethodRepo repositories.PaymentMethodRepository,
+	productRepo repositories.ProductRepository,
 	emailSender *email.Sender,
 ) *NotificationUseCase {
 	return &NotificationUseCase{
@@ -47,6 +50,7 @@ func NewNotificationUseCase(
 		gymRepo:           gymRepo,
 		userRepo:          userRepo,
 		paymentMethodRepo: paymentMethodRepo,
+		productRepo:       productRepo,
 		emailSender:       emailSender,
 	}
 }
@@ -123,17 +127,17 @@ func (uc *NotificationUseCase) SendDailyClose(gymID uuid.UUID, startDate, endDat
 		Date:             startFmt,
 		DateEnd:          endFmt,
 		IsRange:          isRange,
-		TotalSalesAmount: fmtMoney(report.TotalSalesAmount),
+		TotalSalesAmount: email.FmtAmt(report.TotalSalesAmount),
 		TotalSalesCount:  report.TotalSalesCount,
-		TotalSubsAmount:  fmtMoney(report.TotalSubsAmount),
+		TotalSubsAmount:  email.FmtAmt(report.TotalSubsAmount),
 		TotalSubsCount:   report.TotalSubsCount,
-		TotalRevenue:     fmtMoney(report.TotalRevenue),
+		TotalRevenue:     email.FmtAmt(report.TotalRevenue),
 		Currency:         currency,
 	}
 	for _, pm := range report.PaymentMethods {
 		emailData.PaymentMethods = append(emailData.PaymentMethods, email.PaymentMethodRow{
 			Name:  pm.Name,
-			Total: fmtMoney(pm.Total),
+			Total: email.FmtAmt(pm.Total),
 			Count: pm.Count,
 		})
 	}
@@ -193,6 +197,7 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 
 	report := &email.DailyCloseReport{
 		Date:     startDate,
+		EndDate:  endDate,
 		GymName:  gym.Name,
 		Currency: currency,
 	}
@@ -210,14 +215,17 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 		return "Otro"
 	}
 
-	// Aggregation helper
-	pmTotals := make(map[string]*email.PaymentMethodSummary)
-	addToPM := func(name string, amount float64) {
-		if _, ok := pmTotals[name]; !ok {
-			pmTotals[name] = &email.PaymentMethodSummary{Name: name}
+	// Separate aggregation for subs vs sales per payment method
+	pmMap := make(map[string]*email.PaymentMethodSummary)
+	productMap := make(map[string]*email.ProductSummary)
+	planMap := make(map[string]*email.PlanSummary)
+	ensurePM := func(name string) *email.PaymentMethodSummary {
+		// Normalize key to avoid duplicates like "EFECTIVO" vs "Efectivo"
+		key := strings.ToLower(strings.TrimSpace(name))
+		if _, ok := pmMap[key]; !ok {
+			pmMap[key] = &email.PaymentMethodSummary{Name: name}
 		}
-		pmTotals[name].Total += amount
-		pmTotals[name].Count++
+		return pmMap[key]
 	}
 
 	// ── Sales ─────────────────────────────────────────────────────────────────
@@ -227,16 +235,31 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 		}
 
 		report.TotalSalesAmount += s.Total
+		report.SalesGross += s.Total + s.TotalDiscount
+		report.SalesDiscount += s.TotalDiscount
 		report.TotalSalesCount++
 
 		pmName := pmLookup(s.PaymentMethodID)
-		addToPM(pmName, s.Total)
+		pm := ensurePM(pmName)
+		pm.SalesTotal += s.Total
+		pm.SalesCount++
+		pm.Total += s.Total
+		pm.Count++
 
-		// Count items for detail line
 		itemCount := 0
 		if details, err := uc.saleDetailRepo.GetBySaleID(ctx, s.ID); err == nil {
 			for _, d := range details {
 				itemCount += d.Quantity
+				productName := d.ProductID.String()
+				if prod, pErr := uc.productRepo.GetByID(ctx, d.ProductID); pErr == nil && prod != nil {
+					productName = prod.Name
+				}
+				key := strings.ToLower(strings.TrimSpace(productName))
+				if _, ok := productMap[key]; !ok {
+					productMap[key] = &email.ProductSummary{Name: productName}
+				}
+				productMap[key].Qty += d.Quantity
+				productMap[key].Revenue += d.Subtotal
 			}
 		}
 
@@ -253,13 +276,16 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 		report.TotalSubsAmount += sub.TotalPaid
 		report.TotalSubsCount++
 
-		pmName := "Suscripcion"
-		if sub.PaymentMethod != "" {
-			pmName = sub.PaymentMethod
+		pmName := sub.PaymentMethod
+		if pmName == "" {
+			pmName = "Suscripcion"
 		}
-		addToPM(pmName, sub.TotalPaid)
+		pm := ensurePM(pmName)
+		pm.SubsTotal += sub.TotalPaid
+		pm.SubsCount++
+		pm.Total += sub.TotalPaid
+		pm.Count++
 
-		// Resolve names for the detail sheet
 		memberName := sub.UserID.String()
 		if user, err := uc.userRepo.FindByID(sub.UserID); err == nil {
 			memberName = user.FirstName + " " + user.LastName
@@ -269,19 +295,48 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 			planName = plan.Name
 		}
 
+		// Aggregate by plan
+		planKey := strings.ToLower(strings.TrimSpace(planName))
+		if _, ok := planMap[planKey]; !ok {
+			planMap[planKey] = &email.PlanSummary{Name: planName}
+		}
+		planMap[planKey].Qty++
+		planMap[planKey].Revenue += sub.TotalPaid
+
 		report.SubscriptionItems = append(report.SubscriptionItems, email.SubscriptionLineItem{
-			MemberName: memberName,
-			PlanName:   planName,
-			StartDate:  sub.StartDate.In(loc).Format("02/01/2006"),
-			EndDate:    sub.EndDate.In(loc).Format("02/01/2006"),
-			Amount:     sub.TotalPaid,
+			MemberName:    memberName,
+			PlanName:      planName,
+			StartDate:     sub.StartDate.In(loc).Format("02/01/2006"),
+			EndDate:       sub.EndDate.In(loc).Format("02/01/2006"),
+			PaymentMethod: sub.PaymentMethod,
+			Price:         sub.PricePaid,
+			EnrollmentFee: sub.EnrollmentFeePaid,
+			Discount:      sub.DiscountApplied,
+			TotalPaid:     sub.TotalPaid,
+			CreatedAt:     sub.CreatedAt.In(loc).Format("02/01/2006"),
 		})
 	}
 
 	report.TotalRevenue = report.TotalSalesAmount + report.TotalSubsAmount
 
+	// Plans sorted by quantity descending
+	for _, p := range planMap {
+		report.Plans = append(report.Plans, *p)
+	}
+	sort.Slice(report.Plans, func(i, j int) bool {
+		return report.Plans[i].Qty > report.Plans[j].Qty
+	})
+
+	// Products sorted by revenue descending
+	for _, p := range productMap {
+		report.Products = append(report.Products, *p)
+	}
+	sort.Slice(report.Products, func(i, j int) bool {
+		return report.Products[i].Revenue > report.Products[j].Revenue
+	})
+
 	// Sort payment methods alphabetically for consistent output
-	for _, pm := range pmTotals {
+	for _, pm := range pmMap {
 		report.PaymentMethods = append(report.PaymentMethods, *pm)
 	}
 	sort.Slice(report.PaymentMethods, func(i, j int) bool {
@@ -409,6 +464,3 @@ func (uc *NotificationUseCase) resolvedSender(gym *entities.Gym) *email.Sender {
 	return uc.emailSender
 }
 
-func fmtMoney(amount float64) string {
-	return fmt.Sprintf("$ %.2f", amount)
-}

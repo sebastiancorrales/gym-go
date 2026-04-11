@@ -140,6 +140,7 @@ func main() {
 		gymRepo,
 		userRepo,
 		paymentMethodRepo,
+		productRepo,
 		emailSender,
 	)
 
