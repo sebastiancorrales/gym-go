@@ -17,13 +17,19 @@ const GymLocationKey = "gym_location"
 //
 // Debe registrarse DESPUÉS de AuthMiddleware para que "gym_id" esté disponible.
 // Los handlers obtienen la ubicación con: GetGymLocation(c)
-func GymTimezoneMiddleware(gymRepo repositories.GymRepository) gin.HandlerFunc {
+//
+// defaultTimezone se usa cuando el gym no tiene timezone configurado o el gym_id
+// es nulo (SUPER_ADMIN sin gym asignado). Evita que el filtro de fechas caiga en
+// UTC, lo que causaría que suscripciones creadas al final del día (p.ej. 7 PM
+// Colombia = 00:xx UTC día siguiente) aparezcan en el reporte del día equivocado.
+func GymTimezoneMiddleware(gymRepo repositories.GymRepository, defaultTimezone string) gin.HandlerFunc {
 	var cache sync.Map // key: gymID string → value: *time.Location
+	defaultLoc := timeutil.LoadLocationOrUTC(defaultTimezone)
 
 	return func(c *gin.Context) {
 		gymIDStr := c.GetString("gym_id")
 		if gymIDStr == "" {
-			c.Set(GymLocationKey, time.UTC)
+			c.Set(GymLocationKey, defaultLoc)
 			c.Next()
 			return
 		}
@@ -36,7 +42,7 @@ func GymTimezoneMiddleware(gymRepo repositories.GymRepository) gin.HandlerFunc {
 		}
 
 		// Cache miss: consultar DB
-		loc := time.UTC
+		loc := defaultLoc
 		if gymID, err := uuid.Parse(gymIDStr); err == nil {
 			if gym, err := gymRepo.FindByID(gymID); err == nil && gym.Timezone != "" {
 				loc = timeutil.LoadLocationOrUTC(gym.Timezone)

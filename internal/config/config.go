@@ -44,8 +44,9 @@ type JWTConfig struct {
 
 // AppConfig holds application configuration
 type AppConfig struct {
-	Name    string
-	Version string
+	Name            string
+	Version         string
+	DefaultTimezone string // fallback when gym has no timezone configured
 }
 
 // LoadConfig loads configuration from environment variables
@@ -72,8 +73,9 @@ func LoadConfig() *Config {
 			Issuer:            getEnv("JWT_ISSUER", "gym-go"),
 		},
 		App: AppConfig{
-			Name:    getEnv("APP_NAME", "Gym-Go"),
-			Version: getEnv("APP_VERSION", "1.0.0"),
+			Name:            getEnv("APP_NAME", "Gym-Go"),
+			Version:         getEnv("APP_VERSION", "1.0.0"),
+			DefaultTimezone: getEnv("DEFAULT_TIMEZONE", "America/Bogota"),
 		},
 		SMTP: SMTPConfig{
 			Host:     getEnv("SMTP_HOST", ""),
