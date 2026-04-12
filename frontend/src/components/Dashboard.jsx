@@ -266,17 +266,12 @@ export default function Dashboard({ user, onLogout }) {
         <div className={`flex items-center h-16 px-4 border-b border-white/10 flex-shrink-0
           ${collapsed ? 'justify-center' : 'justify-between'}`}>
           {!collapsed && (
-            <div className="flex items-center space-x-2 min-w-0">
-              <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/20">
-                <Icon path={ICONS.bolt} className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-extrabold text-white truncate tracking-tight">Gym-Go</span>
+            <div className="flex items-center min-w-0">
+              <img src="/gymgologo.png" alt="Gymgosoft" className="h-9 w-auto object-contain" />
             </div>
           )}
           {collapsed && (
-            <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Icon path={ICONS.bolt} className="w-4 h-4 text-white" />
-            </div>
+            <img src="/gymgologo.png" alt="Gymgosoft" className="h-8 w-8 object-contain" />
           )}
           <button
             onClick={() => setCollapsed(c => !c)}

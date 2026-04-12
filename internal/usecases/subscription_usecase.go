@@ -233,9 +233,10 @@ func (uc *SubscriptionUseCase) GetActiveCount(gymID uuid.UUID) (int64, error) {
 }
 
 func (uc *SubscriptionUseCase) GetSubscriptionReport(gymID uuid.UUID, from, to time.Time) ([]*entities.Subscription, error) {
-	// Include the full to-day (end of day)
-	toEndOfDay := time.Date(to.Year(), to.Month(), to.Day(), 23, 59, 59, 0, to.Location())
-	return uc.subscriptionRepo.FindByGymIDAndDateRange(gymID, from, toEndOfDay)
+	// `to` already arrives as end-of-day in the gym's timezone (set by the handler
+	// via timeutil.ParseLocalDateEndOfDay). Do NOT recalculate — doing so would take
+	// the UTC day of `to` and extend it to 23:59:59 UTC, adding up to ~19 extra hours.
+	return uc.subscriptionRepo.FindByGymIDAndDateRange(gymID, from, to)
 }
 
 func (uc *SubscriptionUseCase) GetSubscriptionsByUser(userID uuid.UUID) ([]*entities.Subscription, error) {
