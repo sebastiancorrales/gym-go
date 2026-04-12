@@ -2,18 +2,32 @@
  * dateUtils.js — Utilidades centralizadas para manejo de fechas en el frontend.
  *
  * REGLA: Para construir strings de fecha que se envían al API, usar SIEMPRE
- * los métodos locales del objeto Date (getFullYear, getMonth, getDate).
- * NUNCA usar toISOString() para obtener la fecha actual — ese método
- * convierte a UTC antes de formatear, lo que puede devolver el día siguiente
- * cuando son las últimas horas de la tarde en Colombia (UTC-5).
+ * el timezone del gym (guardado en localStorage), NO el timezone del dispositivo.
+ * Esto garantiza que "hoy" es correcto independientemente de la configuración
+ * regional del computador del usuario.
  *
- * ✅ new Date().getDate()       → día local (Colombia)
- * ❌ new Date().toISOString()   → UTC (puede ser el día siguiente)
+ * ✅ todayStr()                  → fecha actual en timezone del gym
+ * ✅ new Date().getDate()        → día local del dispositivo (solo para UI interna)
+ * ❌ new Date().toISOString()    → UTC (puede ser otro día)
  */
 
 /**
+ * Devuelve el timezone del gym guardado en localStorage.
+ * Fallback a 'America/Bogota' si no está configurado.
+ * @returns {string}
+ */
+const gymTimezone = () => {
+  try {
+    return JSON.parse(localStorage.getItem('gym_prefs') || '{}')?.timezone || 'America/Bogota';
+  } catch {
+    return 'America/Bogota';
+  }
+};
+
+/**
  * Convierte un objeto Date a string "YYYY-MM-DD" en la zona horaria local
- * del dispositivo (que debe ser America/Bogota para esta app).
+ * del dispositivo. Usar solo para construir fechas a partir de objetos Date
+ * ya calculados (e.g. inicio de semana).
  *
  * @param {Date} date
  * @returns {string} "YYYY-MM-DD"
@@ -22,12 +36,25 @@ export const localDateStr = (date = new Date()) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 /**
- * Devuelve el string "YYYY-MM-DD" del día de hoy en hora local.
- * Usar para query params start_date / end_date de "hoy".
+ * Devuelve el string "YYYY-MM-DD" del día de hoy en el timezone del gym.
+ * Usa Intl.DateTimeFormat para obtener la fecha correcta independientemente
+ * del timezone configurado en el dispositivo — así funciona igual en cualquier
+ * computador sin importar su configuración regional.
  *
  * @returns {string}
  */
-export const todayStr = () => localDateStr(new Date());
+export const todayStr = () => {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: gymTimezone(),
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  } catch {
+    return localDateStr(new Date());
+  }
+};
 
 /**
  * Añade n días a un string de fecha "YYYY-MM-DD" y devuelve el resultado.
