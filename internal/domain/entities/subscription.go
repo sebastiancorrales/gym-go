@@ -42,6 +42,8 @@ type Subscription struct {
 	Notes               string             `json:"notes,omitempty"`
 	CancellationReason  string             `json:"cancellation_reason,omitempty"`
 	CancelledBy         *uuid.UUID         `json:"cancelled_by,omitempty"`
+	Date                string             `json:"date"`
+	Hour                string             `json:"hour"`
 	CreatedAt           time.Time          `json:"created_at"`
 	UpdatedAt           time.Time          `json:"updated_at"`
 }

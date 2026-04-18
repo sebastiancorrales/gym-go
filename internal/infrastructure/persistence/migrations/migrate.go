@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"github.com/sebastiancorrales/gym-go/pkg/security"
+	"github.com/sebastiancorrales/gym-go/pkg/timeutil"
 	"gorm.io/gorm"
 )
 
@@ -41,6 +42,58 @@ func Migrate(db *gorm.DB) error {
 	}
 
 	log.Println("✅ Database migrations completed successfully")
+
+	if err := backfillDateHour(db); err != nil {
+		log.Printf("⚠️  backfillDateHour: %v", err)
+	}
+
+	return nil
+}
+
+// backfillDateHour populates the new date/hour columns from existing timestamps
+// using each gym's configured timezone.
+func backfillDateHour(db *gorm.DB) error {
+	var gyms []entities.Gym
+	if err := db.Find(&gyms).Error; err != nil {
+		return err
+	}
+
+	for _, gym := range gyms {
+		loc := timeutil.LoadLocationOrUTC(gym.Timezone)
+
+		// ── Subscriptions ──────────────────────────────────────────────────────
+		var subs []entities.Subscription
+		db.Where("gym_id = ? AND (date IS NULL OR date = '')", gym.ID).Find(&subs)
+		for i := range subs {
+			localTime := subs[i].CreatedAt.In(loc)
+			db.Model(&subs[i]).Updates(map[string]interface{}{
+				"date": localTime.Format("2006-01-02"),
+				"hour": localTime.Format("15:04"),
+			})
+		}
+
+		// ── Sales (join through user → gym) ────────────────────────────────────
+		var users []entities.User
+		db.Where("gym_id = ?", gym.ID).Find(&users)
+		userIDs := make([]uuid.UUID, len(users))
+		for i, u := range users {
+			userIDs[i] = u.ID
+		}
+		if len(userIDs) == 0 {
+			continue
+		}
+		var sales []entities.Sale
+		db.Where("user_id IN ? AND (date IS NULL OR date = '')", userIDs).Find(&sales)
+		for i := range sales {
+			localTime := sales[i].SaleDate.In(loc)
+			db.Model(&sales[i]).Updates(map[string]interface{}{
+				"date": localTime.Format("2006-01-02"),
+				"hour": localTime.Format("15:04"),
+			})
+		}
+	}
+
+	log.Println("✅ backfillDateHour completed")
 	return nil
 }
 

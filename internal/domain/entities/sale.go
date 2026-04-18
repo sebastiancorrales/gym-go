@@ -34,6 +34,8 @@ type Sale struct {
 	Status          SaleStatus `json:"status" db:"status"`
 	PaymentMethodID uuid.UUID  `json:"payment_method_id" db:"payment_method_id"`
 	VoidedSaleID    *uuid.UUID `json:"voided_sale_id,omitempty" db:"voided_sale_id"` // If this is a void, references the original sale
+	Date            string     `json:"date" db:"date"`
+	Hour            string     `json:"hour" db:"hour"`
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
 

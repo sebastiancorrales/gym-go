@@ -87,7 +87,8 @@ func (h *SubscriptionHandler) Create(c *gin.Context) {
 		}
 	}
 
-	subscription, err := h.subscriptionUseCase.CreateSubscription(userID, planID, gymID, req.Discount, req.PaymentMethod, additionalIDs)
+	loc := middleware.GetGymLocation(c)
+	subscription, err := h.subscriptionUseCase.CreateSubscription(userID, planID, gymID, req.Discount, req.PaymentMethod, additionalIDs, loc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -128,8 +129,8 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 
 	filter := repositories.SubscriptionFilter{
 		Status:      c.Query("status"),
-		CreatedFrom: parseDate(c.Query("created_from")),
-		CreatedTo:   parseDateEndOfDay(c.Query("created_to")),
+		CreatedFrom: c.Query("created_from"),
+		CreatedTo:   c.Query("created_to"),
 		StartFrom:   parseDate(c.Query("start_from")),
 		StartTo:     parseDateEndOfDay(c.Query("start_to")),
 		EndFrom:     parseDate(c.Query("end_from")),
@@ -220,7 +221,8 @@ func (h *SubscriptionHandler) Renew(c *gin.Context) {
 	}
 	gymIDStr := c.GetString("gym_id")
 	gymID, _ := uuid.Parse(gymIDStr)
-	newSub, err := h.subscriptionUseCase.RenewSubscription(id, planID, gymID, req.Discount, req.PaymentMethod, additionalIDs)
+	renewLoc := middleware.GetGymLocation(c)
+	newSub, err := h.subscriptionUseCase.RenewSubscription(id, planID, gymID, req.Discount, req.PaymentMethod, additionalIDs, renewLoc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -332,19 +334,7 @@ func (h *SubscriptionHandler) Report(c *gin.Context) {
 		return
 	}
 
-	loc := middleware.GetGymLocation(c)
-	from, err := timeutil.ParseLocalDate(fromStr, loc)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de fecha inválido para 'from'"})
-		return
-	}
-	to, err := timeutil.ParseLocalDateEndOfDay(toStr, loc)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de fecha inválido para 'to'"})
-		return
-	}
-
-	subscriptions, err := h.subscriptionUseCase.GetSubscriptionReport(gymID, from, to)
+	subscriptions, err := h.subscriptionUseCase.GetSubscriptionReport(gymID, fromStr, toStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al generar reporte"})
 		return

@@ -174,18 +174,16 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 ) (*email.DailyCloseReport, error) {
 	ctx := context.Background()
 
-	// Range boundaries in UTC (start of startDate → end of endDate)
-	localStart := startDate.In(loc)
-	localEnd := endDate.In(loc)
-	dayStart := time.Date(localStart.Year(), localStart.Month(), localStart.Day(), 0, 0, 0, 0, loc).UTC()
-	dayEnd := time.Date(localEnd.Year(), localEnd.Month(), localEnd.Day(), 0, 0, 0, 0, loc).Add(24 * time.Hour).UTC()
+	// Use local date strings to filter by the "date" column
+	startStr := startDate.In(loc).Format("2006-01-02")
+	endStr := endDate.In(loc).Format("2006-01-02")
 
-	sales, err := uc.saleRepo.GetByDateRange(ctx, dayStart, dayEnd, nil)
+	sales, err := uc.saleRepo.GetByDateRange(ctx, startStr, endStr, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetching sales: %w", err)
 	}
 
-	subs, err := uc.subscriptionRepo.FindByGymIDAndDateRange(gymID, dayStart, dayEnd)
+	subs, err := uc.subscriptionRepo.FindByGymIDAndDateRange(gymID, startStr, endStr)
 	if err != nil {
 		return nil, fmt.Errorf("fetching subscriptions: %w", err)
 	}

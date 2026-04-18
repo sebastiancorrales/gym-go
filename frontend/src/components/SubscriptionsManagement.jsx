@@ -233,7 +233,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
         'Total Pagado': sub.total_paid || 0,
         'Método de Pago': sub.payment_method || '',
         'Estado': sub.status || '',
-        'Fecha Registro': sub.created_at ? new Date(sub.created_at).toLocaleDateString('es-CO') : '',
+        'Fecha Registro': sub.date ? (sub.hour ? `${sub.date} ${sub.hour}` : sub.date) : '',
       };
     });
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -422,7 +422,11 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
           return primaryMatch || memberMatch;
         })
       : subscriptions;
-    return [...list].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return [...list].sort((a, b) => {
+      const da = (b.date || '') + (b.hour || '');
+      const db2 = (a.date || '') + (a.hour || '');
+      return da > db2 ? 1 : da < db2 ? -1 : 0;
+    });
   })();
 
   if (profileUserId) {
@@ -601,8 +605,8 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-gray-500">
-                        {sub.created_at
-                          ? new Date(sub.created_at).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+                        {sub.date
+                          ? <>{sub.date}{sub.hour ? <span className="text-xs text-gray-400 ml-1">{sub.hour}</span> : null}</>
                           : <span className="text-gray-300">—</span>}
                       </span>
                     </td>
@@ -725,7 +729,9 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                             : sub.payment_method ? `💳 ${sub.payment_method}` : '—'}
                         </td>
                         <td className="px-5 py-3.5"><StatusBadge status={sub.status} /></td>
-                        <td className="px-5 py-3.5 text-gray-400 text-sm">{sub.created_at ? new Date(sub.created_at).toLocaleDateString('es-CO', {day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
+                        <td className="px-5 py-3.5 text-gray-400 text-sm">
+                          {sub.date ? <>{sub.date}{sub.hour ? <span className="ml-1 text-xs text-gray-400">{sub.hour}</span> : null}</> : '—'}
+                        </td>
                       </tr>
                     );
                   })}

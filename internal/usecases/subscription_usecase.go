@@ -34,7 +34,7 @@ func NewSubscriptionUseCase(
 	}
 }
 
-func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUID, discount float64, paymentMethod string, additionalMemberIDs []uuid.UUID) (*entities.Subscription, error) {
+func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUID, discount float64, paymentMethod string, additionalMemberIDs []uuid.UUID, loc *time.Location) (*entities.Subscription, error) {
 	// Block if primary user already has an active subscription
 	if active, err := uc.subscriptionRepo.FindActiveByUserID(userID); err == nil && active != nil {
 		return nil, errors.New("el usuario ya tiene una suscripción activa")
@@ -70,6 +70,9 @@ func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUI
 		plan.Price, enrollmentFee, discount,
 	)
 	subscription.PaymentMethod = paymentMethod
+	localNow := time.Now().In(loc)
+	subscription.Date = localNow.Format("2006-01-02")
+	subscription.Hour = localNow.Format("15:04")
 	subscription.Activate()
 
 	if err := uc.subscriptionRepo.Create(subscription); err != nil {
@@ -129,7 +132,7 @@ func (uc *SubscriptionUseCase) UpdateSubscription(sub *entities.Subscription) er
 	return uc.subscriptionRepo.Update(sub)
 }
 
-func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID uuid.UUID, gymID uuid.UUID, discount float64, paymentMethod string, additionalMemberIDs []uuid.UUID) (*entities.Subscription, error) {
+func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID uuid.UUID, gymID uuid.UUID, discount float64, paymentMethod string, additionalMemberIDs []uuid.UUID, loc *time.Location) (*entities.Subscription, error) {
 	current, err := uc.subscriptionRepo.FindByID(currentSubID)
 	if err != nil {
 		return nil, err
@@ -173,6 +176,9 @@ func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID 
 		plan.Price, plan.EnrollmentFee, discount,
 	)
 	newSub.PaymentMethod = paymentMethod
+	localNow := time.Now().In(loc)
+	newSub.Date = localNow.Format("2006-01-02")
+	newSub.Hour = localNow.Format("15:04")
 	newSub.Activate()
 	if err := uc.subscriptionRepo.Create(newSub); err != nil {
 		return nil, err
@@ -232,10 +238,7 @@ func (uc *SubscriptionUseCase) GetActiveCount(gymID uuid.UUID) (int64, error) {
 	return uc.subscriptionRepo.CountActiveByGymID(gymID)
 }
 
-func (uc *SubscriptionUseCase) GetSubscriptionReport(gymID uuid.UUID, from, to time.Time) ([]*entities.Subscription, error) {
-	// `to` already arrives as end-of-day in the gym's timezone (set by the handler
-	// via timeutil.ParseLocalDateEndOfDay). Do NOT recalculate — doing so would take
-	// the UTC day of `to` and extend it to 23:59:59 UTC, adding up to ~19 extra hours.
+func (uc *SubscriptionUseCase) GetSubscriptionReport(gymID uuid.UUID, from, to string) ([]*entities.Subscription, error) {
 	return uc.subscriptionRepo.FindByGymIDAndDateRange(gymID, from, to)
 }
 

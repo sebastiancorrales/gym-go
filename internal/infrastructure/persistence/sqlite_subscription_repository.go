@@ -85,11 +85,11 @@ func (r *SQLiteSubscriptionRepository) FindByGymIDWithFilters(gymID uuid.UUID, f
 	default:
 		q = q.Where("status = ?", filter.Status)
 	}
-	if filter.CreatedFrom != nil {
-		q = q.Where("created_at >= ?", *filter.CreatedFrom)
+	if filter.CreatedFrom != "" {
+		q = q.Where("date >= ?", filter.CreatedFrom)
 	}
-	if filter.CreatedTo != nil {
-		q = q.Where("created_at <= ?", *filter.CreatedTo)
+	if filter.CreatedTo != "" {
+		q = q.Where("date <= ?", filter.CreatedTo)
 	}
 	if filter.StartFrom != nil {
 		q = q.Where("start_date >= ?", *filter.StartFrom)
@@ -107,10 +107,10 @@ func (r *SQLiteSubscriptionRepository) FindByGymIDWithFilters(gymID uuid.UUID, f
 	return subscriptions, err
 }
 
-func (r *SQLiteSubscriptionRepository) FindByGymIDAndDateRange(gymID uuid.UUID, from, to time.Time) ([]*entities.Subscription, error) {
+func (r *SQLiteSubscriptionRepository) FindByGymIDAndDateRange(gymID uuid.UUID, from, to string) ([]*entities.Subscription, error) {
 	var subscriptions []*entities.Subscription
-	err := r.db.Where("gym_id = ? AND created_at >= ? AND created_at <= ?", gymID, from, to).
-		Order("created_at DESC").
+	err := r.db.Where("gym_id = ? AND date >= ? AND date <= ?", gymID, from, to).
+		Order("date DESC, hour DESC").
 		Find(&subscriptions).Error
 	return subscriptions, err
 }

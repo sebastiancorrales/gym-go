@@ -44,10 +44,11 @@ type PlanRepository interface {
 // SubscriptionFilter defines optional server-side filters for listing subscriptions.
 // Status can be a single value (e.g. "ACTIVE") or the meta-value "INACTIVE"
 // which maps to EXPIRED, CANCELLED and SUSPENDED.
+// CreatedFrom/CreatedTo filter by the local-date "date" column (YYYY-MM-DD strings).
 type SubscriptionFilter struct {
 	Status      string
-	CreatedFrom *time.Time
-	CreatedTo   *time.Time
+	CreatedFrom string
+	CreatedTo   string
 	StartFrom   *time.Time
 	StartTo     *time.Time
 	EndFrom     *time.Time
@@ -62,7 +63,7 @@ type SubscriptionRepository interface {
 	FindActiveByUserID(userID uuid.UUID) (*entities.Subscription, error)
 	FindByGymID(gymID uuid.UUID, limit, offset int) ([]*entities.Subscription, error)
 	FindByGymIDWithFilters(gymID uuid.UUID, filter SubscriptionFilter, limit, offset int) ([]*entities.Subscription, error)
-	FindByGymIDAndDateRange(gymID uuid.UUID, from, to time.Time) ([]*entities.Subscription, error)
+	FindByGymIDAndDateRange(gymID uuid.UUID, from, to string) ([]*entities.Subscription, error)
 	Update(subscription *entities.Subscription) error
 	Delete(id uuid.UUID) error
 	CountActiveByGymID(gymID uuid.UUID) (int64, error)
