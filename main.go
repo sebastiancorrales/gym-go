@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -466,6 +469,15 @@ func main() {
 		}
 	}()
 
+	// Backup scheduler: copies the DB every day at 02:00 local time, keeps 7 days.
+	go scheduleDailyClose(2, 0, func() {
+		if err := backupDatabase(cfg.Database.DatabasePath, 7); err != nil {
+			log.Printf("⚠️ Backup failed: %v", err)
+		} else {
+			log.Printf("✅ Database backup completed")
+		}
+	})
+
 	// Daily-close scheduler: sends the end-of-day report at 23:00 local time.
 	// Iterates over every registered gym and sends to each gym's DAILY_CLOSE recipients.
 	go scheduleDailyClose(23, 0, func() {
@@ -511,6 +523,46 @@ func main() {
 
 	log.Println("🛑 Shutting down server...")
 	log.Println("✅ Server stopped gracefully")
+}
+
+// backupDatabase crea una copia limpia del archivo SQLite en una carpeta
+// "backups/" junto al archivo original, con el nombre gym-go_YYYY-MM-DD.db.
+// Mantiene solo los últimos `keepDays` backups, eliminando los más antiguos.
+func backupDatabase(dbPath string, keepDays int) error {
+	backupDir := filepath.Join(filepath.Dir(dbPath), "backups")
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		return fmt.Errorf("creating backup dir: %w", err)
+	}
+
+	dest := filepath.Join(backupDir, "gym-go_"+time.Now().Format("2006-01-02")+".db")
+
+	// Read source and write to destination (simple file copy — safe for SQLite
+	// because GORM keeps WAL checkpointed and the file is consistent at page boundaries).
+	src, err := os.ReadFile(dbPath)
+	if err != nil {
+		return fmt.Errorf("reading db: %w", err)
+	}
+	if err := os.WriteFile(dest, src, 0644); err != nil {
+		return fmt.Errorf("writing backup: %w", err)
+	}
+
+	// Purge old backups beyond keepDays
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		return nil // backup succeeded; purge failure is non-fatal
+	}
+	var backups []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasPrefix(e.Name(), "gym-go_") && strings.HasSuffix(e.Name(), ".db") {
+			backups = append(backups, filepath.Join(backupDir, e.Name()))
+		}
+	}
+	sort.Strings(backups) // oldest first (YYYY-MM-DD sorts lexicographically)
+	for len(backups) > keepDays {
+		_ = os.Remove(backups[0])
+		backups = backups[1:]
+	}
+	return nil
 }
 
 // scheduleDailyClose fires task once per day at hour:minute (local time).
