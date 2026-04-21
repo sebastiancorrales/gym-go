@@ -16,6 +16,7 @@ const (
 	DeviceTypeCamera      DeviceType = "CAMERA"
 	DeviceTypeTablet      DeviceType = "TABLET"
 	DeviceTypeKiosk       DeviceType = "KIOSK"
+	DeviceTypeRelay       DeviceType = "RELAY"
 )
 
 // DeviceStatus represents device status
@@ -44,6 +45,8 @@ type Device struct {
 	Configuration   string       `json:"configuration,omitempty"`
 	IsActive        bool         `json:"is_active"`
 	Notes           string       `json:"notes,omitempty"`
+	COMPort         string       `json:"com_port,omitempty"`
+	BaudRate        int          `json:"baud_rate,omitempty"`
 	CreatedAt       time.Time    `json:"created_at"`
 	UpdatedAt       time.Time    `json:"updated_at"`
 }

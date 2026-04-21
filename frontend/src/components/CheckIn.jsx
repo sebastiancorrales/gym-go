@@ -53,6 +53,12 @@ function formatDate(d) {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+async function triggerRelay() {
+  const deviceId = localStorage.getItem('relay_device_id');
+  if (!deviceId) return;
+  try { await api.post(`/devices/${deviceId}/trigger`, {}); } catch {}
+}
+
 function beep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -78,12 +84,26 @@ export default function CheckIn() {
   const [checkInMethod, setCheckInMethod]       = useState('fingerprint');
   const [readerStatus, setReaderStatus]         = useState(null);
   const [capturingFingerprint, setCapturingFingerprint] = useState(false);
+  const [devices, setDevices]                   = useState([]);
+  const [relayDeviceId, setRelayDeviceId]       = useState(() => localStorage.getItem('relay_device_id') || '');
 
   // Redirect to login if no session
   useEffect(() => {
     const token = localStorage.getItem('access_token');
     if (!token) window.location.href = '/';
   }, []);
+
+  // Load relay devices
+  useEffect(() => {
+    api.get('/devices').then(async res => {
+      if (res.ok) setDevices((await res.json()) || []);
+    }).catch(() => {});
+  }, []);
+
+  const handleRelayChange = (id) => {
+    setRelayDeviceId(id);
+    localStorage.setItem('relay_device_id', id);
+  };
 
   // Auto-dismiss countdown (only used for manual mode and brief errors)
   useEffect(() => {
@@ -146,6 +166,7 @@ export default function CheckIn() {
                 ? (await subsRes.json() || []).find(s => s.user_id === user.id && s.status === 'ACTIVE')
                 : null;
               beep();
+              triggerRelay();
               setResult({ success: true, user, subscription: sub, message: '¡Bienvenido!', byFingerprint: true });
             } else {
               const d = await ciRes.json();
@@ -202,6 +223,7 @@ export default function CheckIn() {
       if (ciRes.ok) {
         const sub = (subsAll || []).find(s => s.user_id === user.id && s.status === 'ACTIVE');
         beep();
+        triggerRelay();
         setResult({ success: true, user, subscription: sub, message: '¡Bienvenido!' });
       } else {
         const userSubs = (subsAll || []).filter(s => s.user_id === user.id);
@@ -235,8 +257,20 @@ export default function CheckIn() {
         Admin
       </a>
 
-      {/* Reader status dot */}
-      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+      {/* Reader status dot + relay selector */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-3">
+        {devices.length > 0 && (
+          <select
+            value={relayDeviceId}
+            onChange={e => handleRelayChange(e.target.value)}
+            className="text-xs bg-white/10 border border-white/20 text-white/60 rounded-lg px-2 py-1 focus:outline-none"
+          >
+            <option value="">Sin relé</option>
+            {devices.filter(d => d.is_active).map(d => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+        )}
         <span className={`w-2 h-2 rounded-full ${readerStatus?.reader_connected ? 'bg-green-400' : 'bg-gray-600'}`} />
         <span className="text-xs text-white/40">
           {readerStatus?.reader_connected ? 'Lector conectado' : 'Sin lector'}

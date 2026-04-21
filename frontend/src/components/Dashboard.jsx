@@ -16,6 +16,7 @@ import ReportsTab from './inventory/ReportsTab';
 import AccountingReports from './AccountingReports';
 import PaymentMethodsManagement from './inventory/PaymentMethodsManagement';
 import GymSettings from './GymSettings';
+import DevicesManagement from './DevicesManagement';
 import ProfileSettings from './ProfileSettings';
 import NotificationBell from './NotificationBell';
 import { SkeletonKpi } from './SkeletonTable';
@@ -42,6 +43,7 @@ const ICONS = {
   reports:    'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
   payment:    'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z',
   accounting: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z',
+  devices:    'M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18',
   logout:     'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1',
   chevronLeft:'M15 19l-7-7 7-7',
   chevronRight:'M9 5l7 7-7 7',
@@ -92,8 +94,9 @@ const NAV_GROUPS = [
   {
     label: 'Configuración',
     items: [
-      { id: 'gym-settings', label: 'Gimnasio',  icon: 'settings' },
-      { id: 'profile',      label: 'Mi Perfil',  icon: 'profile' },
+      { id: 'devices',      label: 'Dispositivos', icon: 'devices' },
+      { id: 'gym-settings', label: 'Gimnasio',      icon: 'settings' },
+      { id: 'profile',      label: 'Mi Perfil',     icon: 'profile' },
     ],
   },
 ];
@@ -609,6 +612,7 @@ export default function Dashboard({ user, onLogout }) {
           {activeTab === 'reports'              && <ReportsTab />}
           {activeTab === 'accounting-reports'  && <AccountingReports />}
           {activeTab === 'payment-methods'     && <PaymentMethodsManagement user={user} />}
+          {activeTab === 'devices'         && <DevicesManagement />}
           {activeTab === 'gym-settings'    && <GymSettings />}
           {activeTab === 'profile'         && <ProfileSettings user={user} />}
         </main>

@@ -114,6 +114,7 @@ func main() {
 	memberRepo := persistence.NewInMemoryMemberRepository()
 	instructorRepo := persistence.NewInMemoryInstructorRepository()
 	notifRecipientRepo := persistence.NewSQLiteNotificationRecipientRepository(database.DB)
+	deviceRepo := persistence.NewSQLiteDeviceRepository(database.DB)
 
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(userRepo)
@@ -163,6 +164,7 @@ func main() {
 	uploadHandler := handlers.NewUploadHandler("./uploads")
 	biometricHandler := handlers.NewBiometricHandler(biometricService)
 	notificationHandler := handlers.NewNotificationHandler(notifUseCase, gymRepo, emailSender)
+	deviceHandler := handlers.NewDeviceHandler(deviceRepo)
 
 	// Setup Gin router
 	if cfg.Server.Environment == "production" {
@@ -403,6 +405,17 @@ func main() {
 			paymentMethods.POST("", paymentMethodHandler.CreatePaymentMethod)
 			paymentMethods.PUT("/:id", paymentMethodHandler.UpdatePaymentMethod)
 			paymentMethods.DELETE("/:id", paymentMethodHandler.DeletePaymentMethod)
+		}
+
+		// Device (relay) routes - Only ADMIN_GYM and SUPER_ADMIN
+		devices := protected.Group("/devices")
+		devices.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		{
+			devices.GET("", deviceHandler.List)
+			devices.POST("", deviceHandler.Create)
+			devices.PUT("/:id", deviceHandler.Update)
+			devices.DELETE("/:id", deviceHandler.Delete)
+			devices.POST("/:id/trigger", deviceHandler.Trigger)
 		}
 
 		// Sales routes - Multiple roles
