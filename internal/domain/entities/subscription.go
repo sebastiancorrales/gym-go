@@ -42,16 +42,21 @@ type Subscription struct {
 	Notes               string             `json:"notes,omitempty"`
 	CancellationReason  string             `json:"cancellation_reason,omitempty"`
 	CancelledBy         *uuid.UUID         `json:"cancelled_by,omitempty"`
+	Date                string             `json:"date"`
+	Hour                string             `json:"hour"`
 	CreatedAt           time.Time          `json:"created_at"`
 	UpdatedAt           time.Time          `json:"updated_at"`
 }
 
-// addPlanDuration calculates end date using calendar months when possible,
-// avoiding the "February problem" with fixed 30-day math.
-func addPlanDuration(start time.Time, durationDays int) time.Time {
+// addPlanDuration calculates end date based on billing mode.
+// "30_DAYS" always adds exactly 30 days (only relevant for monthly plans).
+// "CALENDAR_MONTH" (default) adds calendar months to avoid the February problem.
+func addPlanDuration(start time.Time, durationDays int, billingMode string) time.Time {
 	switch {
 	case durationDays == 365:
 		return start.AddDate(1, 0, 0)
+	case durationDays == 30 && billingMode == "30_DAYS":
+		return start.AddDate(0, 0, 30)
 	case durationDays%30 == 0:
 		return start.AddDate(0, durationDays/30, 0)
 	default:
@@ -60,9 +65,9 @@ func addPlanDuration(start time.Time, durationDays int) time.Time {
 }
 
 // NewSubscription creates a new subscription
-func NewSubscription(userID, planID, gymID uuid.UUID, startDate time.Time, durationDays int, price, enrollmentFee, discount float64) *Subscription {
-	now := time.Now()
-	endDate := addPlanDuration(startDate, durationDays)
+func NewSubscription(userID, planID, gymID uuid.UUID, startDate time.Time, durationDays int, billingMode string, price, enrollmentFee, discount float64) *Subscription {
+	now := time.Now().UTC().Round(0)
+	endDate := addPlanDuration(startDate, durationDays, billingMode)
 	total := price + enrollmentFee - discount
 
 	return &Subscription{
@@ -104,7 +109,7 @@ func (s *Subscription) DaysRemaining() int {
 
 // Activate activates the subscription
 func (s *Subscription) Activate() {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	s.Status = SubscriptionStatusActive
 	s.ActivatedAt = &now
 	s.UpdatedAt = now
@@ -112,7 +117,7 @@ func (s *Subscription) Activate() {
 
 // Cancel cancels the subscription
 func (s *Subscription) Cancel(reason string, cancelledBy uuid.UUID) {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	s.Status = SubscriptionStatusCancelled
 	s.CancellationReason = reason
 	s.CancelledBy = &cancelledBy
@@ -125,7 +130,7 @@ func (s *Subscription) Freeze(until time.Time, reason string) {
 	s.Status = SubscriptionStatusFrozen
 	s.FrozenUntil = &until
 	s.FreezeReason = reason
-	s.UpdatedAt = time.Now()
+	s.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Unfreeze unfreezes the subscription
@@ -137,21 +142,21 @@ func (s *Subscription) Unfreeze() {
 	}
 	s.Status = SubscriptionStatusActive
 	s.FrozenUntil = nil
-	s.UpdatedAt = time.Now()
+	s.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Expire marks the subscription as expired
 func (s *Subscription) Expire() {
 	s.Status = SubscriptionStatusExpired
-	s.UpdatedAt = time.Now()
+	s.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Renew renews the subscription
-func (s *Subscription) Renew(durationDays int) {
+func (s *Subscription) Renew(durationDays int, billingMode string) {
 	s.StartDate = s.EndDate
-	s.EndDate = addPlanDuration(s.EndDate, durationDays)
+	s.EndDate = addPlanDuration(s.EndDate, durationDays, billingMode)
 	s.Status = SubscriptionStatusActive
-	s.UpdatedAt = time.Now()
+	s.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 

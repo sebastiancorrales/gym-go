@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
+	"github.com/sebastiancorrales/gym-go/pkg/timeutil"
 )
 
 type AccessUseCase struct {
@@ -85,11 +86,11 @@ func (uc *AccessUseCase) RecordExit(userID, gymID uuid.UUID) (*entities.AccessLo
 	return accessLog, nil
 }
 
-// GetTodayAccessByGym gets today's access logs for a gym
-func (uc *AccessUseCase) GetTodayAccessByGym(gymID uuid.UUID) ([]*entities.AccessLog, error) {
-	today := time.Now().Format("2006-01-02")
-	tomorrow := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
-	return uc.accessLogRepo.FindByDateRange(gymID, today, tomorrow)
+// GetTodayAccessByGym devuelve los registros de acceso de hoy para el gimnasio.
+// loc define la zona horaria del gimnasio para calcular correctamente los límites del día.
+func (uc *AccessUseCase) GetTodayAccessByGym(gymID uuid.UUID, loc *time.Location) ([]*entities.AccessLog, error) {
+	start, end := timeutil.TodayRange(loc)
+	return uc.accessLogRepo.FindByDateRange(gymID, start, end)
 }
 
 // GetAccessHistory gets access history for a gym with pagination

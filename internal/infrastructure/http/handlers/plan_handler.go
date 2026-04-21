@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
 )
 
@@ -26,6 +27,8 @@ type CreatePlanRequest struct {
 	DurationDays  int     `json:"duration_days" binding:"required,min=1"`
 	Price         float64 `json:"price" binding:"required,min=0"`
 	EnrollmentFee float64 `json:"enrollment_fee"`
+	MaxMembers    int     `json:"max_members"`
+	BillingMode   string  `json:"billing_mode"`
 }
 
 func (h *PlanHandler) Create(c *gin.Context) {
@@ -49,6 +52,8 @@ func (h *PlanHandler) Create(c *gin.Context) {
 		req.DurationDays,
 		req.Price,
 		req.EnrollmentFee,
+		req.MaxMembers,
+		req.BillingMode,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create plan"})
@@ -97,6 +102,8 @@ type UpdatePlanRequest struct {
 	DurationDays  int     `json:"duration_days"`
 	Price         float64 `json:"price"`
 	EnrollmentFee float64 `json:"enrollment_fee"`
+	MaxMembers    int     `json:"max_members"`
+	BillingMode   string  `json:"billing_mode"`
 }
 
 func (h *PlanHandler) Update(c *gin.Context) {
@@ -132,6 +139,12 @@ func (h *PlanHandler) Update(c *gin.Context) {
 	}
 	if req.EnrollmentFee >= 0 {
 		plan.EnrollmentFee = req.EnrollmentFee
+	}
+	if req.MaxMembers > 0 {
+		plan.MaxMembers = req.MaxMembers
+	}
+	if req.BillingMode == "30_DAYS" || req.BillingMode == "CALENDAR_MONTH" {
+		plan.BillingMode = entities.BillingMode(req.BillingMode)
 	}
 	plan.UpdatedAt = time.Now()
 

@@ -1,0 +1,611 @@
+========================================================================
+REPORTE - 2026-03-29 23:09
+========================================================================
+Total bloques con cedulas: 393
+Suscripciones a actualizar: 367
+Cedulas no en BD: 117 bloques
+
+-- ACTUALIZACIONES --
+  Angelo Ospina                    doc=1053758362   plan=Mensual                2025-12-01 10:46:54 -> 2025-12-01T10:46:54
+  Carlos Ospina Restrepo           doc=1054873132   plan=Mensual                2026-02-02 21:28:48 -> 2025-12-01T20:05:33
+  Luz Andrea Marulanda             doc=30236306     plan=Mensual                2026-02-06 09:45:39 -> 2025-12-01T20:58:08
+  Valeria Estrella                 doc=1010020800   plan=Pareja                 2025-12-01 21:10:17 -> 2025-12-01T21:10:17
+  Milena Capera                    doc=1018446580   plan=Pareja                 2026-01-05 17:48:18 -> 2025-12-01T21:11:20
+  Johana Palacio                   doc=1053816127   plan=Panas                  2025-12-01 21:12:55 -> 2025-12-01T21:12:55
+  Yenny Ospina Zuluaga             doc=1053836076   plan=Mensual                2025-12-01 21:12:55 -> 2025-12-01T21:12:55
+  Johan Herrera                    doc=1053842903   plan=Mensual                2025-12-02 05:40:03 -> 2025-12-02T05:40:03
+  Angie Muñoz                      doc=1024516186   plan=Mensual                2025-12-02 17:34:43 -> 2025-12-02T17:34:43
+  Juan Camilo Muñoz                doc=1055755426   plan=Mensual                2026-03-03 18:27:45 -> 2025-12-02T18:43:42
+  Estefania Bedoya                 doc=1055752422   plan=Panas                  2025-12-02 19:53:29 -> 2025-12-02T19:53:29
+  Ana Merchan                      doc=1053819547   plan=Mensual                2025-12-02 19:56:17 -> 2025-12-02T19:56:17
+  Santiago Narvaez                 doc=1053858447   plan=Quincena               2025-12-02 19:57:34 -> 2025-12-02T19:57:34
+  Jerson Osorio                    doc=1053864618   plan=Quincena               2025-12-02 19:58:39 -> 2025-12-02T19:58:39
+  Juan Felipe Jimenez              doc=1002656066   plan=Panas                  2025-12-02 20:54:22 -> 2025-12-02T20:54:22
+  Yilian Gonzalesfranco            doc=1053822156   plan=Mensual                2026-03-05 10:58:17 -> 2025-12-03T05:45:04
+  Jhon Ospina                      doc=1002643417   plan=Mensual                2026-02-03 15:19:52 -> 2025-12-03T19:01:27
+  Maria Jose Botero                doc=1054858117   plan=Mensual                2025-12-03 19:02:54 -> 2025-12-03T19:02:54
+  Natalia Ospina                   doc=1002609464   plan=Panas                  2025-12-03 22:03:38 -> 2025-12-03T22:03:38
+  Lorena Perez Vasquez             doc=1053857092   plan=Mensual                2025-12-04 16:39:06 -> 2025-12-04T16:39:06
+  Miguel Angel Cardenas            doc=1002553865   plan=Panas                  2025-12-04 17:32:34 -> 2025-12-04T17:32:34
+  Ivan Rene Castañeda              doc=1053803310   plan=Mensual                2025-12-04 17:33:55 -> 2025-12-04T17:33:55
+  Daniel Gonzales                  doc=1053858733   plan=Mensual                2026-02-16 18:33:59 -> 2025-12-04T17:56:53
+  Leidy Rojas Gaviria              doc=1149184026   plan=Pareja                 2025-12-04 17:57:46 -> 2025-12-04T17:57:46
+  Ana Maria Quintero               doc=1053833812   plan=Panas                  2025-12-04 22:05:05 -> 2025-12-04T22:05:05
+  Isabela Atencia                  doc=1053830665   plan=Mensual                2025-12-04 22:07:51 -> 2025-12-04T22:07:51
+  Edwar Osorio                     doc=1010120390   plan=Pareja                 2025-12-05 11:06:25 -> 2025-12-05T11:06:25
+  Laura Camila Ocampo              doc=1007232668   plan=Mensual                2025-12-05 16:25:45 -> 2025-12-05T16:25:45
+  Maria Camila Pavon               doc=1002634576   plan=Mensual                2026-03-19 12:00:00 +0000 UTC -> 2025-12-05T19:34:26
+  Zuly Marulanda                   doc=1002609215   plan=Mensual                2025-12-06 09:09:21 -> 2025-12-06T09:09:21
+  Bibiana Perez                    doc=1053783272   plan=Mensual                2025-12-06 10:43:24 -> 2025-12-06T10:43:24
+  Brahian Campiño                  doc=1007231064   plan=Mensual                2025-12-08 09:31:39 -> 2025-12-08T09:31:39
+  Yaneth Grisales                  doc=30336485     plan=Mensual                2026-02-10 16:06:40 -> 2025-12-08T09:36:11
+  Isabela Ocampo Cardona           doc=1007234334   plan=Mensual                2026-02-10 17:56:45 -> 2025-12-09T08:32:07
+  Jennifer Chica                   doc=1053830240   plan=Mensual                2025-12-09 08:35:30 -> 2025-12-09T08:35:30
+  Henry Guetierrez                 doc=1053809802   plan=Mensual                2026-03-10 15:32:36 -> 2025-12-09T09:00:11
+  Johana Londoño                   doc=24373215     plan=Mensual                2025-12-10 05:08:18 -> 2025-12-10T05:08:18
+  Julian Bermudez                  doc=16090342     plan=Mensual                2025-12-10 06:06:18 -> 2025-12-10T06:06:18
+  Yoani Macha                      doc=75087059     plan=Mensual                2025-12-10 09:19:49 -> 2025-12-10T09:19:49
+  Xiomara Franco                   doc=1060646564   plan=Mensual                2025-12-10 17:12:13 -> 2025-12-10T17:12:13
+  Jhoan Arenas                     doc=1002592288   plan=Mensual                2025-12-10 17:17:25 -> 2025-12-10T17:17:25
+  Angie Salome Marin               doc=1054399356   plan=Panas                  2025-12-10 21:04:53 -> 2025-12-10T21:04:53
+  Valeria Perez Maya               doc=1054870207   plan=Mensual                2025-12-10 22:31:17 -> 2025-12-10T22:31:17
+  Laura Ramos                      doc=1054864151   plan=Pareja                 2025-12-11 09:02:24 -> 2025-12-11T09:02:24
+  Manuel Bedoya                    doc=1053790778   plan=Mensual                2025-12-11 09:55:09 -> 2025-12-11T09:55:09
+  Eider Muñoz                      doc=1053790478   plan=Mensual                2025-12-11 11:52:52 -> 2025-12-11T11:52:52
+  Camilo Giraldo                   doc=1054866141   plan=Mensual                2025-12-11 14:12:54 -> 2025-12-11T14:12:54
+  German Castrillon                doc=1058843761   plan=Quincena               2025-12-11 15:28:55 -> 2025-12-11T15:28:55
+  Lizeth Quintero                  doc=1002655343   plan=Mensual                2025-12-11 19:00:20 -> 2025-12-11T19:00:20
+  Stefania Herrera                 doc=1053870873   plan=Panas                  2025-12-11 21:42:17 -> 2025-12-11T21:42:17
+  Andres Messi                     doc=1007233702   plan=Pareja                 2025-12-11 21:43:14 -> 2025-12-11T21:43:14
+  Jhorman G                        doc=1053869983   plan=Mensual                2025-12-13 09:28:12 -> 2025-12-13T09:28:12
+  Jhon Jairo Ramirez               doc=1058821098   plan=Mensual                2025-12-15 06:53:50 -> 2025-12-15T06:53:50
+  Nelson David Agudelo             doc=1053865343   plan=Mensual                2025-12-15 08:45:17 -> 2025-12-15T08:45:17
+  Ferney Giraldo                   doc=1053792583   plan=Mensual                2025-12-15 11:07:54 -> 2025-12-15T11:07:54
+  Patricia Hernadez                doc=30334548     plan=Pareja                 2025-12-15 16:10:43 -> 2025-12-15T16:10:43
+  Edwin Arias                      doc=1007699599   plan=Quincena               2025-12-15 16:51:22 -> 2025-12-15T16:51:22
+  Marcela Hurtado                  doc=30239801     plan=Pareja                 2026-01-14 20:09:28 -> 2025-12-15T18:56:25
+  Juan Diego Gallon                doc=1053869678   plan=Pareja                 2025-12-16 05:38:45 -> 2025-12-16T05:38:45
+  Rodry Giraldo Henao              doc=1052813197   plan=Mensual                2025-12-16 09:11:33 -> 2025-12-16T09:11:33
+  Maria Alejandra Mejia            doc=1053831197   plan=Mensual                2025-12-16 14:43:23 -> 2025-12-16T14:43:23
+  Mayra Osorio                     doc=1002866048   plan=Pareja                 2026-01-17 12:47:09 -> 2025-12-16T18:56:31
+  Alexandra Aguirre                doc=1053773107   plan=Pareja                 2025-12-17 09:59:30 -> 2025-12-17T09:59:30
+  Gemma Ramirez                    doc=1006507704   plan=Quincena               2025-12-17 21:46:08 -> 2025-12-17T21:46:08
+  Lina Ospina                      doc=1088344834   plan=Quincena               2025-12-18 18:37:07 -> 2025-12-18T18:37:07
+  Manuel Trejos                    doc=1053856128   plan=Quincena               2025-12-19 06:10:25 -> 2025-12-19T06:10:25
+  Maicol Montoya                   doc=1002592138   plan=Mensual                2026-02-04 10:37:40 -> 2025-12-19T16:07:51
+  3113130065 Nombre                doc=1053863795   plan=Pareja                 2026-03-23 11:28:41 -> 2025-12-22T10:28:20
+  Leidy Dahiana Giraldo            doc=1010036910   plan=Mensual                2025-12-22 12:06:32 -> 2025-12-22T12:06:32
+  Mario Andres Alzate              doc=1060651200   plan=Mensual                2026-03-19 12:00:00 +0000 UTC -> 2025-12-22T16:23:18
+  Juan Camilo Henao                doc=1053805980   plan=Mensual                2025-12-22 16:24:10 -> 2025-12-22T16:24:10
+  Mariana Moreno                   doc=1002633992   plan=Pareja                 2025-12-23 18:53:18 -> 2025-12-23T18:53:18
+  Jhoan Andres Muñoz Valois        doc=1113671275   plan=Mensual                2026-01-25 15:33:47 -> 2025-12-23T20:38:46
+  Mauricio Salgado                 doc=1053772763   plan=Mensual                2026-03-09 18:24:15 -> 2025-12-23T20:38:46
+  Jhon Fredy Ramirez               doc=18617658     plan=Mensual                2026-03-02 14:35:45 -> 2025-12-26T14:42:41
+  Daniela Aguirre                  doc=1053842861   plan=Mensual                2025-12-26 18:28:28 -> 2025-12-26T18:28:28
+  Jhonatan Mejia                   doc=1002656251   plan=Quincena               2026-03-09 20:10:47 -> 2025-12-26T20:39:44
+  Valeria Maya                     doc=1056122515   plan=Mensual                2025-12-27 10:31:33 -> 2025-12-27T10:31:33
+  Maria Fernanda Osorio            doc=1054860857   plan=Pareja                 2026-01-28 21:41:29 -> 2025-12-29T17:50:11
+  Manolo Pareja Pineda             doc=1007227321   plan=Mensual                2025-12-30 10:03:25 -> 2025-12-30T10:03:25
+  Julian Carvajal Gomez            doc=1002634780   plan=Mensual                2025-12-30 16:08:46 -> 2025-12-30T16:08:46
+  Bayron Valencia                  doc=1053817808   plan=Mensual                2025-12-31 11:01:01 -> 2025-12-31T11:01:01
+  Gustavo Serna                    doc=1094930306   plan=Mensual                2026-03-06 10:22:31 -> 2026-01-02T08:23:14
+  Marlen Vargas                    doc=1053765935   plan=Mensual                2026-01-02 19:37:37 -> 2026-01-02T19:37:37
+  Juan Davidad Quinero             doc=1053813609   plan=Quincena               2026-01-02 21:27:15 -> 2026-01-02T21:27:15
+  Laura Jimena Benavides           doc=1053837478   plan=Quincena               2026-01-02 21:27:15 -> 2026-01-02T21:27:15
+  Lorena Agudelo                   doc=233503771    plan=Mensual                2026-01-04 22:25:01 -> 2026-01-04T22:25:01
+  Cristian David Velasquez         doc=1053859669   plan=Mensual                2026-01-05 06:33:34 -> 2026-01-05T06:33:34
+  Laura Fernanda Carvajal          doc=1053834036   plan=Mensual                2026-01-05 09:14:59 -> 2026-01-05T09:14:59
+  Andres Felipe Atethortua         doc=1054865025   plan=Mensual                2026-01-05 14:09:46 -> 2026-01-05T14:09:46
+  Monica Rojas                     doc=1007233638   plan=Pareja                 2026-01-05 14:52:07 -> 2026-01-05T14:52:07
+  Ana Maria Morales                doc=1192801781   plan=Mensual                2026-01-05 15:00:13 -> 2026-01-05T15:00:13
+  Ximena Cardona                   doc=1007619114   plan=Mensual                2026-02-06 09:04:38 -> 2026-01-05T15:38:57
+  Eider Marin                      doc=1010153285   plan=Pareja                 2026-01-05 16:21:15 -> 2026-01-05T16:21:15
+  Santiago Mejia                   doc=1054858768   plan=Mensual                2026-01-05 16:29:04 -> 2026-01-05T16:29:04
+  Katerine Ramirez                 doc=1053832613   plan=Semana                 2026-01-05 16:29:54 -> 2026-01-05T16:29:54
+  Nicol Uribe Vargas               doc=1055755726   plan=Mensual                2026-01-05 17:16:43 -> 2026-01-05T17:16:43
+  Milena Capera                    doc=1018446580   plan=Pareja                 2026-01-05 17:48:18 -> 2026-01-05T17:48:18
+  Dahiana Vargas                   doc=108292611    plan=Mensual                2026-01-05 19:49:39 -> 2026-01-05T19:49:39
+  Johan Tovar                      doc=1002633306   plan=Panas                  2026-01-05 20:43:11 -> 2026-01-05T20:43:11
+  Maria Fernanda Abadia            doc=1007231892   plan=Pareja                 2026-01-06 05:26:30 -> 2026-01-06T05:26:30
+  Evelyn Angel                     doc=1053816449   plan=Mensual                2026-01-06 06:51:01 -> 2026-01-06T06:51:01
+  Emili Agudelo                    doc=30397044     plan=Pareja                 2026-01-06 06:53:50 -> 2026-01-06T06:53:50
+  Jacobo Ramirez                   doc=1054881276   plan=Mensual                2026-03-05 18:33:58 -> 2026-01-06T09:39:18
+  Yuri Mile Garcia                 doc=1053775551   plan=Mensual                2026-02-26 07:49:15 -> 2026-01-06T14:54:49
+  Gonzalo Vargas Cataño            doc=75105164     plan=Pareja                 2026-01-06 16:39:38 -> 2026-01-06T16:39:38
+  Stiven Jaramillo                 doc=1035879624   plan=Mensual                2026-03-13 06:40:44 -> 2026-01-06T18:10:26
+  Yenifer Salazar                  doc=1053835731   plan=Mensual                2026-01-07 05:33:12 -> 2026-01-07T05:33:12
+  Andres Gonzales                  doc=1053829355   plan=Mensual                2026-01-07 10:50:08 -> 2026-01-07T10:50:08
+  Sofia Ramos                      doc=1054398739   plan=Mensual                2026-01-07 18:09:22 -> 2026-01-07T18:09:22
+  Paola Ospina                     doc=1053856212   plan=Mensual                2026-01-08 11:01:23 -> 2026-01-08T11:01:23
+  Juan Guillermo Carmona           doc=1053786435   plan=Mensual                2026-01-10 09:36:38 -> 2026-01-10T09:36:38
+  Luis Eduardo Hernadez            doc=1192801150   plan=Mensual                2026-01-13 05:10:13 -> 2026-01-13T05:10:13
+  Yissel Guerrero                  doc=1055754177   plan=Mensual                2026-01-13 05:18:38 -> 2026-01-13T05:18:38
+  Marlen Dayana                    doc=1053847885   plan=Pareja                 2026-01-13 05:58:48 -> 2026-01-13T05:58:48
+  Silvana Cuervo Ramirez           doc=24335484     plan=Mensual                2026-01-13 07:49:20 -> 2026-01-13T07:49:20
+  Jenny Hernadez                   doc=1053864764   plan=Mensual                2026-01-13 08:18:30 -> 2026-01-13T08:18:30
+  Magally Agudelo Rios             doc=1053821555   plan=Mensual                2026-01-13 08:49:50 -> 2026-01-13T08:49:50
+  Luz Edith Castaño                doc=34597076     plan=Mensual                2026-01-13 12:01:41 -> 2026-01-13T12:01:41
+  Stefany Galvez                   doc=1002653036   plan=Mensual                2026-03-19 12:00:00 +0000 UTC -> 2026-01-13T14:13:37
+  Mateo Herrera                    doc=1053843361   plan=Mensual                2026-02-17 14:33:02 -> 2026-01-13T14:14:11
+  Claudia Patria Cardona           doc=24780493     plan=Mensual                2026-01-13 17:32:49 -> 2026-01-13T17:32:49
+  Juan Miguel Grisales             doc=1056121415   plan=Pareja                 2026-01-13 18:00:47 -> 2026-01-13T18:00:47
+  Michell Arroyave                 doc=1002544002   plan=Mensual                2026-03-17 21:44:34 -> 2026-01-13T21:51:29
+  Sarita Carmonahenao              doc=1056124467   plan=Pareja                 2026-01-14 08:00:07 -> 2026-01-14T08:00:07
+  Nicol Manuela Zapata             doc=1053820527   plan=Pareja                 2026-01-14 15:16:15 -> 2026-01-14T15:16:15
+  Johana Sepulveda                 doc=1053794385   plan=Mensual                2026-01-14 15:57:17 -> 2026-01-14T15:57:17
+  Marcela Hurtado                  doc=30239801     plan=Pareja                 2026-01-14 20:09:28 -> 2026-01-14T20:09:28
+  Julian Hincapie                  doc=1007232489   plan=Mensual                2026-01-15 14:19:58 -> 2026-01-15T14:19:58
+  Daniel Blandon                   doc=1055361170   plan=Mensual                2026-01-15 15:07:39 -> 2026-01-15T15:07:39
+  Maryeli Totena                   doc=1001203423   plan=Mensual                2026-01-15 18:28:42 -> 2026-01-15T18:28:42
+  Tatiana Acero                    doc=1053807123   plan=Pareja                 2026-02-17 15:13:04 -> 2026-01-15T20:09:17
+  Alejandro Valencia               doc=1053821955   plan=Mensual                2026-02-17 16:03:48 -> 2026-01-16T08:43:47
+  ALEJANDRO  PRIETO                doc=1053855822   plan=Mensual                2026-01-16 10:38:44 -> 2026-01-16T10:38:44
+  Juanita Llano                    doc=1054862354   plan=Mensual                2026-03-02 15:18:35 -> 2026-01-16T15:07:38
+  Mariana Guzman                   doc=1054876505   plan=Mensual                2026-01-16 17:26:39 -> 2026-01-16T17:26:39
+  Yeison Arias                     doc=1053873153   plan=Mensual                2026-02-23 18:13:18 -> 2026-01-16T17:35:59
+  Camila Quintero                  doc=1053867896   plan=Panas                  2026-01-16 21:50:48 -> 2026-01-16T21:50:48
+  Jhoany Andres Franco             doc=1193040002   plan=Mensual                2026-02-17 19:23:09 -> 2026-01-16T21:51:10
+  Mayra Osorio                     doc=1002866048   plan=Pareja                 2026-01-17 12:47:09 -> 2026-01-17T12:47:09
+  Jhon Sanchez                     doc=1053831934   plan=Mensual                2026-01-19 07:48:28 -> 2026-01-19T07:48:28
+  Santiago Martinez                doc=1055754653   plan=Mensual                2026-01-19 09:11:57 -> 2026-01-19T09:11:57
+  Laura Sofia Duran                doc=1054865877   plan=Pareja                 2026-01-19 10:00:38 -> 2026-01-19T10:00:38
+  Angelica Maria Cardona           doc=1193555161   plan=Pareja                 2026-01-19 10:10:40 -> 2026-01-19T10:10:40
+  Britcy Lopez                     doc=1054399046   plan=Mensual                2026-03-03 17:08:34 -> 2026-01-19T11:29:19
+  Pilar Carmona                    doc=109127407    plan=Pareja                 2026-01-19 15:10:12 -> 2026-01-19T15:10:12
+  Nicol Ranirez                    doc=1053796773   plan=Mensual                2026-01-19 16:53:58 -> 2026-01-19T16:53:58
+  Sebastian Corrales               doc=1053872211   plan=Mensual                2026-01-19 17:47:05 -> 2026-01-19T17:47:05
+  Yeni Vargas                      doc=1053814611   plan=Mensual                2026-01-19 18:02:55 -> 2026-01-19T18:02:55
+  Sarita Gallego                   doc=1055755902   plan=Mensual                2026-01-19 21:21:26 -> 2026-01-19T21:21:26
+  Paola Hernandez                  doc=1054830391   plan=Quincena               2026-01-20 14:27:11 -> 2026-01-20T14:27:11
+  Miyerlady Hermandez              doc=1053848823   plan=Pareja                 2026-01-20 15:28:53 -> 2026-01-20T15:28:53
+  Cristian Giraldo                 doc=1054868380   plan=Mensual                2026-02-23 19:09:21 -> 2026-01-20T19:30:58
+  Sergio Lopez Ocampo              doc=1053829966   plan=Mensual                2026-01-20 19:50:48 -> 2026-01-20T19:50:48
+  Maria Izabella Moreno            doc=1055754096   plan=Mensual                2026-01-20 21:17:57 -> 2026-01-20T21:17:57
+  Yakeline Cuervo                  doc=1053846169   plan=Mensual                2026-01-21 07:58:31 -> 2026-01-21T07:58:31
+  Maria Camila Gutierrez           doc=1007231316   plan=Pareja                 2026-01-21 14:46:14 -> 2026-01-21T14:46:14
+  Sergio Acostada                  doc=1054866605   plan=Mensual                2026-01-21 16:55:49 -> 2026-01-21T16:55:49
+  Tatiana Usma                     doc=1053820067   plan=Panas                  2026-01-21 17:37:26 -> 2026-01-21T17:37:26
+  Rigoberto Conde                  doc=1055753549   plan=Panas                  2026-01-23 16:09:47 -> 2026-01-23T16:09:47
+  Fabio Borrego                    doc=75102920     plan=Mensual                2026-01-23 18:08:20 -> 2026-01-23T18:08:20
+  Jhoan Andres Muñoz Valois        doc=1113671275   plan=Mensual                2026-01-25 15:33:47 -> 2026-01-25T15:33:47
+  Daniela Morales                  doc=1053833419   plan=Quincena               2026-01-26 07:28:52 -> 2026-01-26T07:28:52
+  Smith Cano                       doc=1002541820   plan=Mensual                2026-01-26 08:21:19 -> 2026-01-26T08:21:19
+  Gioanny Orozco Dias              doc=1053866184   plan=Pareja                 2026-01-26 10:39:01 -> 2026-01-26T10:39:01
+  Maria Alejandra Ospina           doc=1002543260   plan=Mensual                2026-01-26 14:24:37 -> 2026-01-26T14:24:37
+  Mauricio Salgado                 doc=1053772763   plan=Mensual                2026-03-09 18:24:15 -> 2026-01-26T15:03:40
+  Jhoany Martinez                  doc=1054398526   plan=Mensual                2026-01-26 16:25:10 -> 2026-01-26T16:25:10
+  Sebastian Valencia Martinez      doc=1055750659   plan=Mensual                2026-01-26 18:21:16 -> 2026-01-26T18:21:16
+  Eulogia Usechi                   doc=1018436756   plan=Pareja                 2026-01-26 19:22:58 -> 2026-01-26T19:22:58
+  Dahiana Hernandez                doc=1056300835   plan=Quincena               2026-01-26 21:51:39 -> 2026-01-26T21:51:39
+  Sonia Osorio                     doc=1002800173   plan=Pareja                 2026-01-27 17:10:09 -> 2026-01-27T17:10:09
+  Wilmar Montoya                   doc=16926041     plan=Mensual                2026-01-27 22:06:41 -> 2026-01-27T22:06:41
+  Flix Aristizabal                 doc=1002800735   plan=Mensual                2026-01-28 06:29:08 -> 2026-01-28T06:29:08
+  Jose Osorio Giraldo              doc=1053867481   plan=Mensual                2026-01-28 18:07:51 -> 2026-01-28T18:07:51
+  Daniel Echeverry                 doc=1053843123   plan=Quincena               2026-01-28 21:37:44 -> 2026-01-28T21:37:44
+  Juan Camilo Echeverry            doc=1011322723   plan=Quincena               2026-01-28 21:37:44 -> 2026-01-28T21:37:44
+  Maria Fernanda Osorio            doc=1054860857   plan=Pareja                 2026-01-28 21:41:29 -> 2026-01-28T21:41:29
+  Mariana Gonzales Sanchez         doc=1057756119   plan=Mensual                2026-01-29 10:36:36 -> 2026-01-29T10:36:36
+  Claudia Milena Sanchez           doc=1053770171   plan=Pareja                 2026-01-29 15:14:19 -> 2026-01-29T15:14:19
+  Diana Espita                     doc=1005932851   plan=Mensual                2026-01-30 07:24:10 -> 2026-01-30T07:24:10
+  Dahiana Mancera                  doc=1055756122   plan=Pareja                 2026-01-30 16:05:45 -> 2026-01-30T16:05:45
+  Victor Giraldo                   doc=1053812813   plan=Pareja                 2026-01-30 19:41:51 -> 2026-01-30T19:41:51
+  Vanesa Marin Cuervo              doc=1002653470   plan=Pareja                 2026-03-06 10:55:44 -> 2026-01-31T11:47:49
+  Kevin David Marin                doc=1002655616   plan=Mensual                2026-01-31 11:47:49 -> 2026-01-31T11:47:49
+  Esperanza Duque                  doc=1055358306   plan=Mensual                2026-02-01 23:16:32 -> 2026-02-01T23:16:32
+  Adisabed Arcila Daza             doc=1006024670   plan=Mensual                2026-02-02 07:33:47 -> 2026-02-02T07:33:47
+  Angie Paola Carvajal             doc=1053865822   plan=Mensual                2026-02-02 08:40:23 -> 2026-02-02T08:40:23
+  Heyli Sofia Ochoa                doc=1056124258   plan=Pareja                 2026-02-02 10:16:33 -> 2026-02-02T10:16:33
+  Valentina Velazquez              doc=1060657216   plan=Trio                   2026-02-02 10:51:10 -> 2026-02-02T10:51:10
+  Estefania Cristancho             doc=1053836520   plan=Mensual                2026-03-03 16:56:04 -> 2026-02-02T10:51:10
+  Johnatan Berrio                  doc=1053846654   plan=Mensual                2026-02-02 14:01:19 -> 2026-02-02T14:01:19
+  Liset Lopez                      doc=30399142     plan=Mensual                2026-02-02 14:08:39 -> 2026-02-02T14:08:39
+  Lorena Jaramillo                 doc=1053818942   plan=Mensual                2026-02-02 15:27:25 -> 2026-02-02T15:27:25
+  Sebastian Giraldo                doc=1053870079   plan=Mensual                2026-02-17 15:00:21 -> 2026-02-02T16:30:31
+  Gloria Stella Pineda             doc=30354600     plan=Mensual                2026-02-02 17:06:42 -> 2026-02-02T17:06:42
+  Julian Gonzales                  doc=1002636514   plan=Mensual                2026-02-02 17:29:11 -> 2026-02-02T17:29:11
+  Yeison Carvajal                  doc=1056121024   plan=Mensual                2026-02-02 17:38:57 -> 2026-02-02T17:38:57
+  Leidy Llano                      doc=1053868091   plan=Trio                   2026-02-02 19:11:41 -> 2026-02-02T19:11:41
+  Maria Jose Giraldo               doc=1054398885   plan=Mensual                2026-02-02 19:18:08 -> 2026-02-02T19:18:08
+  Sofia Jimenez                    doc=1054856629   plan=Mensual                2026-02-02 19:34:52 -> 2026-02-02T19:34:52
+  Yenny Paola Ramirez              doc=1053859422   plan=Trio                   2026-02-02 19:44:37 -> 2026-02-02T19:44:37
+  Yeferson Ramirez Orozco          doc=1002620259   plan=Pareja                 2026-02-02 20:05:30 -> 2026-02-02T20:05:30
+  Matias Cardona                   doc=1056125909   plan=Pareja                 2026-02-02 20:15:22 -> 2026-02-02T20:15:22
+  Kevin Lucas                      doc=1055757450   plan=Pareja                 2026-02-02 21:28:48 -> 2026-02-02T21:28:48
+  Carlos Ospina Restrepo           doc=1054873132   plan=Mensual                2026-02-02 21:28:48 -> 2026-02-02T21:28:48
+  Brahian Estrada                  doc=1000227583   plan=Mensual                2026-02-02 21:39:26 -> 2026-02-02T21:39:26
+  Viviana Marcela Araque           doc=1088316061   plan=Pareja                 2026-02-03 06:49:41 -> 2026-02-03T06:49:41
+  Emauel Caire                     doc=1065015042   plan=Pareja                 2026-02-03 08:11:39 -> 2026-02-03T08:11:39
+  Jhon Ospina                      doc=1002643417   plan=Mensual                2026-02-03 15:19:52 -> 2026-02-03T15:19:52
+  Esau Delgado                     doc=1053820271   plan=Mensual                2026-02-03 17:39:43 -> 2026-02-03T17:39:43
+  Lina Maria Betancout             doc=1053775366   plan=Pareja                 2026-02-03 18:44:42 -> 2026-02-03T18:44:42
+  Juan Camilo Castañeda            doc=1010152055   plan=Mensual                2026-02-03 18:56:59 -> 2026-02-03T18:56:59
+  Juan Manuel Cardona              doc=1053862813   plan=Pareja                 2026-02-03 20:24:37 -> 2026-02-03T20:24:37
+  Johana Ciro                      doc=1053858100   plan=Mensual                2026-02-03 21:02:14 -> 2026-02-03T21:02:14
+  Maicol Montoya                   doc=1002592138   plan=Mensual                2026-02-04 10:37:40 -> 2026-02-04T10:37:40
+  Maria Camila Pavon               doc=1002634576   plan=Mensual                2026-03-19 12:00:00 +0000 UTC -> 2026-02-04T11:19:07
+  Diana Carolina Largo Beltran     doc=1053807486   plan=Mensual                2026-02-04 17:31:23 -> 2026-02-04T17:31:23
+  Alejandro Murillo                doc=1088034952   plan=Mensual                2026-02-04 19:53:31 -> 2026-02-04T19:53:31
+  Deisy Lorena Garcia              doc=1010146909   plan=Mensual                2026-02-04 20:20:01 -> 2026-02-04T20:20:01
+  Angel Torres                     doc=30232079     plan=Quincena               2026-03-06 07:56:57 -> 2026-02-05T09:31:39
+  Ricardo Zuluaga                  doc=1053788348   plan=Mensual                2026-02-05 09:53:59 -> 2026-02-05T09:53:59
+  Amparo Soto Londoño              doc=30326200     plan=Pareja                 2026-02-05 18:43:25 -> 2026-02-05T18:43:25
+  Camilo Ocampo                    doc=1002543908   plan=Mensual                2026-02-05 20:08:48 -> 2026-02-05T20:08:48
+  Ximena Cardona                   doc=1007619114   plan=Mensual                2026-02-06 09:04:38 -> 2026-02-06T09:04:38
+  Luz Andrea Marulanda             doc=30236306     plan=Mensual                2026-02-06 09:45:39 -> 2026-02-06T09:45:39
+  Andres Mauricio Calviño          doc=75099657     plan=Mensual                2026-02-06 13:38:18 -> 2026-02-06T13:38:18
+  Johana Arias                     doc=1053773785   plan=Mensual                2026-03-14 12:05:18 -> 2026-02-06T15:07:31
+  Paula Rios                       doc=30234856     plan=Mensual                2026-02-06 17:26:37 -> 2026-02-06T17:26:37
+  Mahia Gabriela                   doc=1054864472   plan=Mensual                2026-02-06 19:07:37 -> 2026-02-06T19:07:37
+  Juan Jose Ramos                  doc=1056124814   plan=Mensual                2026-02-09 15:53:33 -> 2026-02-09T15:53:33
+  Marisol Espinoza                 doc=1053795130   plan=Trio                   2026-02-09 16:39:39 -> 2026-02-09T16:39:39
+  Juan David Henao                 doc=1054399244   plan=Mensual                2026-02-09 16:39:39 -> 2026-02-09T16:39:39
+  Yovanny Andres Aragon            doc=1033684887   plan=Mensual                2026-02-09 17:24:08 -> 2026-02-09T17:24:08
+  Jaslin Galvez                    doc=1088004460   plan=Mensual                2026-02-09 18:00:44 -> 2026-02-09T18:00:44
+  Angie Arias                      doc=1014240668   plan=Mensual                2026-02-09 18:39:08 -> 2026-02-09T18:39:08
+  Jerson Osorio                    doc=1053864608   plan=Mensual                2026-02-09 19:03:03 -> 2026-02-09T19:03:03
+  Johnatan Castrillon              doc=1053864393   plan=Mensual                2026-02-09 19:58:54 -> 2026-02-09T19:58:54
+  Jennifer Carmona                 doc=1053773669   plan=Trio                   2026-02-09 20:11:13 -> 2026-02-09T20:11:13
+  Samanta Veloza                   doc=1030531762   plan=Mensual                2026-03-09 17:08:20 -> 2026-02-09T20:11:13
+  Diana Lorena Agudelo             doc=1053764468   plan=Mensual                2026-02-10 06:15:53 -> 2026-02-10T06:15:53
+  Maria Camila Largo               doc=1007233929   plan=Quincena               2026-02-10 06:50:07 -> 2026-02-10T06:50:07
+  Juan Sebastian Mejia             doc=1002636529   plan=Mensual                2026-02-10 12:20:15 -> 2026-02-10T12:20:15
+  Yaneth Grisales                  doc=30336485     plan=Mensual                2026-02-10 16:06:40 -> 2026-02-10T16:06:40
+  Isabela Ocampo Cardona           doc=1007234334   plan=Mensual                2026-02-10 17:56:45 -> 2026-02-10T17:56:45
+  Nicol Dayana Martinez            doc=1010199081   plan=Mensual                2026-03-10 19:08:31 -> 2026-02-10T18:49:29
+  Miguel Parra                     doc=1055757199   plan=Mensual                2026-02-10 19:20:48 -> 2026-02-10T19:20:48
+  Claudia Aguirre                  doc=1053867882   plan=Mensual                2026-02-10 19:28:41 -> 2026-02-10T19:28:41
+  Maria Jose Toro                  doc=1007233887   plan=Mensual                2026-02-11 06:58:58 -> 2026-02-11T06:58:58
+  Jennifer Andrea Montaño          doc=1114451585   plan=Mensual                2026-02-11 08:42:46 -> 2026-02-11T08:42:46
+  Samuel Renfijo Salazar           doc=1054880816   plan=Mensual                2026-02-11 19:15:40 -> 2026-02-11T19:15:40
+  Leidy Mariana Vasco              doc=1058821780   plan=Mensual                2026-02-11 20:22:12 -> 2026-02-11T20:22:12
+  Felipe Castillo                  doc=1053837426   plan=Mensual                2026-03-16 14:08:48 -> 2026-02-12T14:16:22
+  Erika Ramirez                    doc=1010132641   plan=Mensual                2026-02-13 07:29:01 -> 2026-02-13T07:29:01
+  Nicole Arias                     doc=1016956383   plan=Pareja                 2026-02-14 10:37:44 -> 2026-02-14T10:37:44
+  Leidy Alexandra Londiño          doc=1053808679   plan=Mensual                2026-02-16 11:24:44 -> 2026-02-16T11:24:44
+  Stefany Galvez                   doc=1002653036   plan=Mensual                2026-03-19 12:00:00 +0000 UTC -> 2026-02-16T14:06:22
+  Heider Cogollo                   doc=1064983688   plan=Mensual                2026-02-16 18:09:22 -> 2026-02-16T18:09:22
+  Daniel Gonzales                  doc=1053858733   plan=Mensual                2026-02-16 18:33:59 -> 2026-02-16T18:33:59
+  Brayan Cruz                      doc=1117548273   plan=Pareja                 2026-02-16 19:34:37 -> 2026-02-16T19:34:37
+  Melissa Llanos Pineda            doc=1056121436   plan=Mensual                2026-02-16 19:38:45 -> 2026-02-16T19:38:45
+  Mateo Herrera                    doc=1053843361   plan=Mensual                2026-02-17 14:33:02 -> 2026-02-17T14:33:02
+  Sebastian Giraldo                doc=1053870079   plan=Mensual                2026-02-17 15:00:21 -> 2026-02-17T15:00:21
+  Tatiana Acero                    doc=1053807123   plan=Pareja                 2026-02-17 15:13:04 -> 2026-02-17T15:13:04
+  Alejandro Valencia               doc=1053821955   plan=Mensual                2026-02-17 16:03:48 -> 2026-02-17T16:03:48
+  Luisa Fernand Gomez              doc=1053829978   plan=Cuarteto               2026-02-17 17:48:31 -> 2026-02-17T17:48:31
+  Tatiana Rios Ocampo              doc=1193042344   plan=Quincena               2026-02-17 18:02:33 -> 2026-02-17T18:02:33
+  Jhoany Andres Franco             doc=1193040002   plan=Mensual                2026-02-17 19:23:09 -> 2026-02-17T19:23:09
+  Maria Amila Pulido               doc=1054858381   plan=Mensual                2026-02-17 19:49:44 -> 2026-02-17T19:49:44
+  Gloria Amparo Alvarez            doc=1053791195   plan=Mensual                2026-02-17 21:17:28 -> 2026-02-17T21:17:28
+  Angel Torres                     doc=30232079     plan=Quincena               2026-03-06 07:56:57 -> 2026-02-18T08:14:26
+  Yeison Andres Tamayo             doc=1053873516   plan=Mensual                2026-02-18 18:12:15 -> 2026-02-18T18:12:15
+  Gloria Fanny Agudelo             doc=24827148     plan=Mensual                2026-02-18 18:19:58 -> 2026-02-18T18:19:58
+  Yojhan Stiben Burgos             doc=1002636688   plan=Mensual                2026-02-19 09:34:55 -> 2026-02-19T09:34:55
+  Valentina Arias                  doc=1054842570   plan=Cuarteto               2026-02-20 20:13:55 -> 2026-02-20T20:13:55
+  Jenni Arias                      doc=1053852210   plan=Mensual                2026-02-23 18:02:12 -> 2026-02-23T18:02:12
+  Yeison Arias                     doc=1053873153   plan=Mensual                2026-02-23 18:13:18 -> 2026-02-23T18:13:18
+  Luisa Fernanda Marin Tamayo      doc=1093214010   plan=Pareja                 2026-02-23 18:20:17 -> 2026-02-23T18:20:17
+  Cristian Giraldo                 doc=1054868380   plan=Mensual                2026-02-23 19:09:21 -> 2026-02-23T19:09:21
+  Tatiana Piedrhita                doc=1053837920   plan=Pareja                 2026-02-23 19:56:25 -> 2026-02-23T19:56:25
+  Luz Alejandra Barrientos         doc=1059713513   plan=Pareja                 2026-02-23 20:43:28 -> 2026-02-23T20:43:28
+  Mariana Muñoz                    doc=1053799824   plan=Pareja                 2026-02-24 15:42:28 -> 2026-02-24T15:42:28
+  Julian David Aguirre             doc=1055757294   plan=Quincena               2026-03-16 19:49:49 -> 2026-02-25T18:44:15
+  Alexis Aguirre                   doc=1060649151   plan=Quincena               2026-02-25 18:44:44 -> 2026-02-25T18:44:44
+  Yuri Mile Garcia                 doc=1053775551   plan=Mensual                2026-02-26 07:49:15 -> 2026-02-26T07:49:15
+  Laura Maria Cardona              doc=1002732444   plan=Pareja                 2026-02-26 16:44:41 -> 2026-02-26T16:44:41
+  Santiago Gomez Carvajal          doc=1054859586   plan=Mensual                2026-02-26 20:08:59 -> 2026-02-26T20:08:59
+  Breiner Vargas                   doc=1193103416   plan=Mensual                2026-03-16 12:00:00 +0000 UTC -> 2026-02-26T21:59:08
+  Luciana Aranzazu Agudelo         doc=1053816759   plan=Mensual                2026-02-27 18:44:28 -> 2026-02-27T18:44:28
+  Yuri Marcela Castaño             doc=1053846080   plan=Mensual                2026-03-02 08:21:28 -> 2026-03-02T08:21:28
+  Santiago Ceballos                doc=1088830530   plan=Mensual                2026-03-02 11:23:25 -> 2026-03-02T11:23:25
+  Jhon Fredy Ramirez               doc=18617658     plan=Mensual                2026-03-02 14:35:45 -> 2026-03-02T14:35:45
+  Julian Arias                     doc=75088342     plan=Mensual                2026-03-02 14:45:02 -> 2026-03-02T14:45:02
+  Juanita Llano                    doc=1054862354   plan=Mensual                2026-03-02 15:18:35 -> 2026-03-02T15:18:35
+  Jhoselyn Rave                    doc=1112780718   plan=Mensual                2026-03-02 16:11:32 -> 2026-03-02T16:11:32
+  Katherin Maya                    doc=1002609807   plan=Mensual                2026-03-02 16:28:24 -> 2026-03-02T16:28:24
+  Wilder Villa                     doc=1053803681   plan=Mensual                2026-03-02 17:05:17 -> 2026-03-02T17:05:17
+  Kren Ospina                      doc=1053806649   plan=Pareja                 2026-03-02 17:09:08 -> 2026-03-02T17:09:08
+  Daniela Molina                   doc=1053821069   plan=Mensual                2026-03-02 18:16:16 -> 2026-03-02T18:16:16
+  Viviana Martinez                 doc=1053785196   plan=Mensual                2026-03-03 07:23:56 -> 2026-03-03T07:23:56
+  Cesar Merchan                    doc=10267435     plan=Mensual                2026-03-03 07:48:17 -> 2026-03-03T07:48:17
+  Marisol Murillo                  doc=1055753808   plan=Pareja                 2026-03-03 13:37:04 -> 2026-03-03T13:37:04
+  Samuel Orozco Marin              doc=1054868688   plan=Mensual                2026-03-03 13:54:31 -> 2026-03-03T13:54:31
+  Estefania Cristancho             doc=1053836520   plan=Mensual                2026-03-03 16:56:04 -> 2026-03-03T16:56:04
+  Britcy Lopez                     doc=1054399046   plan=Mensual                2026-03-03 17:08:34 -> 2026-03-03T17:08:34
+  Juan Camilo Muñoz                doc=1055755426   plan=Mensual                2026-03-03 18:27:45 -> 2026-03-03T18:27:45
+  Santiago Castaño Cardona         doc=1054871661   plan=Mensual                2026-03-03 18:56:08 -> 2026-03-03T18:56:08
+  Dahiana Guevara                  doc=1060650709   plan=Quincena               2026-03-03 19:10:37 -> 2026-03-03T19:10:37
+  Veronica Castaño                 doc=1002655911   plan=Quincena               2026-03-03 19:14:40 -> 2026-03-03T19:14:40
+  Harrison Rendon                  doc=1002636380   plan=Quincena               2026-03-03 19:16:04 -> 2026-03-03T19:16:04
+  Sebastian Giraldo                doc=1053866573   plan=Pareja                 2026-03-03 19:19:08 -> 2026-03-03T19:19:08
+  Angelica Maria Herrera           doc=1058843986   plan=Mensual                2026-03-04 08:05:12 -> 2026-03-04T08:05:12
+  Daniel Parra                     doc=1002637228   plan=Mensual                2026-03-04 08:22:52 -> 2026-03-04T08:22:52
+  Lorena Rodriguez                 doc=30230728     plan=Pareja                 2026-03-04 11:36:21 -> 2026-03-04T11:36:21
+  Diana Paola Franco               doc=1053853463   plan=Mensual                2026-03-04 14:51:21 -> 2026-03-04T14:51:21
+  Brayan Alzate                    doc=1053824082   plan=Mensual                2026-03-04 15:39:48 -> 2026-03-04T15:39:48
+  Juliana Garzon                   doc=1007233776   plan=Mensual                2026-03-04 17:25:50 -> 2026-03-04T17:25:50
+  Geronimo Henao                   doc=1054869311   plan=Mensual                2026-03-04 18:01:08 -> 2026-03-04T18:01:08
+  Yilian Gonzalesfranco            doc=1053822156   plan=Mensual                2026-03-05 10:58:17 -> 2026-03-05T10:58:17
+  Jacobo Ramirez                   doc=1054881276   plan=Mensual                2026-03-05 18:33:58 -> 2026-03-05T18:33:58
+  Jazdy Paola Ocampo               doc=1002633850   plan=Mensual                2026-03-05 19:12:33 -> 2026-03-05T19:12:33
+  Angel Torres                     doc=30232079     plan=Quincena               2026-03-06 07:56:57 -> 2026-03-06T07:56:57
+  Sofia Gallego                    doc=1054862852   plan=Mensual                2026-03-06 10:18:30 -> 2026-03-06T10:18:30
+  Gustavo Serna                    doc=1094930306   plan=Mensual                2026-03-06 10:22:31 -> 2026-03-06T10:22:31
+  Vanesa Marin Cuervo              doc=1002653470   plan=Pareja                 2026-03-06 10:55:44 -> 2026-03-06T10:55:44
+  Carlos Velasco                   doc=1053815462   plan=Mensual                2026-03-06 12:19:44 -> 2026-03-06T12:19:44
+  Maria Eugenia Correa             doc=30234838     plan=Pareja                 2026-03-06 15:52:50 -> 2026-03-06T15:52:50
+  Emmanuel Castañeda               doc=1020442646   plan=Mensual                2026-03-06 18:05:30 -> 2026-03-06T18:05:30
+  Natalia Vasquez                  doc=1053833510   plan=Pareja                 2026-03-06 19:50:10 -> 2026-03-06T19:50:10
+  Juan David Giraldo               doc=1053840369   plan=Mensual                2026-03-09 06:28:25 -> 2026-03-09T06:28:25
+  Stefania Bedoya Muñoz            doc=1053862301   plan=Trio                   2026-03-09 07:12:45 -> 2026-03-09T07:12:45
+  Angelagrisales Nombre            doc=1053786353   plan=Mensual                2026-03-09 09:31:52 -> 2026-03-09T09:31:52
+  Isabella Parra Caldas            doc=1054872305   plan=Pareja                 2026-03-09 15:30:40 -> 2026-03-09T15:30:40
+  Samanta Veloza                   doc=1030531762   plan=Mensual                2026-03-09 17:08:20 -> 2026-03-09T17:08:20
+  Dilan Salcedo                    doc=1014660865   plan=Pareja                 2026-03-09 17:20:41 -> 2026-03-09T17:20:41
+  Juan Jose Moreno                 doc=1059208956   plan=Pareja                 2026-03-09 18:03:12 -> 2026-03-09T18:03:12
+  Mauricio Salgado                 doc=1053772763   plan=Mensual                2026-03-09 18:24:15 -> 2026-03-09T18:24:15
+  Jhonatan Mejia                   doc=1002656251   plan=Quincena               2026-03-09 20:10:47 -> 2026-03-09T20:10:47
+  Matias Cardona                   doc=1054885050   plan=Mensual                2026-03-09 21:42:51 -> 2026-03-09T21:42:51
+  Laura Vanessa Flores             doc=1054860863   plan=Mensual                2026-03-10 10:44:55 -> 2026-03-10T10:44:55
+  Laura Delgado                    doc=1056125782   plan=Mensual                2026-03-10 15:18:32 -> 2026-03-10T15:18:32
+  Henry Guetierrez                 doc=1053809802   plan=Mensual                2026-03-10 15:32:36 -> 2026-03-10T15:32:36
+  Angelica Castro                  doc=1010077859   plan=Mensual                2026-03-10 16:10:44 -> 2026-03-10T16:10:44
+  Nicol Dayana Martinez            doc=1010199081   plan=Mensual                2026-03-10 19:08:31 -> 2026-03-10T19:08:31
+  Javier Cardona Sanchez           doc=1002901477   plan=Mensual                2026-03-10 20:04:18 -> 2026-03-10T20:04:18
+  Sofia Rivas Villa                doc=1056121996   plan=Pareja                 2026-03-11 08:04:21 -> 2026-03-11T08:04:21
+  Jhostyn Guzman                   doc=1054398665   plan=Mensual                2026-03-11 18:33:15 -> 2026-03-11T18:33:15
+  Felipe Herrera                   doc=1000989731   plan=Mensual                2026-03-11 19:35:21 -> 2026-03-11T19:35:21
+  Leidy Tatiana Gonzales           doc=1121880277   plan=Pareja                 2026-03-11 21:14:34 -> 2026-03-11T21:14:34
+  Laura Martinez                   doc=1002654911   plan=Mensual                2026-03-12 20:58:33 -> 2026-03-12T20:58:33
+  Stiven Jaramillo                 doc=1035879624   plan=Mensual                2026-03-13 06:40:44 -> 2026-03-13T06:40:44
+  Johana Arias                     doc=1053773785   plan=Mensual                2026-03-14 12:05:18 -> 2026-03-14T12:05:18
+  Alejandra Medoza                 doc=1192801727   plan=Mensual                2026-03-16 09:11:39 -> 2026-03-16T09:11:39
+  Carlos Lopez                     doc=1053816114   plan=Mensual                2026-03-16 09:43:04 -> 2026-03-16T09:43:04
+  Felipe Castillo                  doc=1053837426   plan=Mensual                2026-03-16 14:08:48 -> 2026-03-16T14:08:48
+  Angie Daniela Giraldo            doc=1010074615   plan=Quincena               2026-03-16 14:13:29 -> 2026-03-16T14:13:29
+  Karen Orozco                     doc=1010146908   plan=Quincena               2026-03-16 14:13:29 -> 2026-03-16T14:13:29
+  Santiago Guillen                 doc=1058526296   plan=Mensual                2026-03-16 16:44:42 -> 2026-03-16T16:44:42
+  Veronica Alvarez                 doc=1053793348   plan=Mensual                2026-03-16 19:13:49 -> 2026-03-16T19:13:49
+  Julian David Aguirre             doc=1055757294   plan=Quincena               2026-03-16 19:49:49 -> 2026-03-16T19:49:49
+  Breiner Vargas                   doc=1193103416   plan=Mensual                2026-03-16 12:00:00 +0000 UTC -> 2026-03-16T22:07:58
+  ESTEFANIA  MEJIA AMAYA           doc=1007232042   plan=Mensual                2026-03-17 09:59:43 -> 2026-03-17T09:59:43
+  Michell Arroyave                 doc=1002544002   plan=Mensual                2026-03-17 21:44:34 -> 2026-03-17T21:44:34
+  Stefany Galvez                   doc=1002653036   plan=Mensual                2026-03-19 12:00:00 +0000 UTC -> 2026-03-19T16:02:05
+  Mario Andres Alzate              doc=1060651200   plan=Mensual                2026-03-19 12:00:00 +0000 UTC -> 2026-03-19T16:34:14
+  Maria Camila Pavon               doc=1002634576   plan=Mensual                2026-03-19 12:00:00 +0000 UTC -> 2026-03-19T19:06:40
+  3113130065 Nombre                doc=1053863795   plan=Pareja                 2026-03-23 11:28:41 -> 2026-03-23T11:28:41
+
+-- CEDULAS NO ENCONTRADAS EN BD --
+  [2025-12-01T21:10:17] faltantes=['1053780729 (sin suscripcion)']
+    Valeria estrella | Ana Sofía jagua | 1010020800 | 1053780729 | Mensualidad pareja | 130.000
+  [2025-12-01T21:11:20] faltantes=['1061368165 (sin suscripcion)']
+    Milena capera | Cristian Ramírez | 1018446580 | 1061368165 | 3147585300 | Mensualidad pareja | 130.0
+  [2025-12-01T21:12:55] faltantes=['1053826990 (no en BD)']
+    Johana palacio | Yenny Ospina | Luisa López | 1053816127 | 1053836076 | 1053826990 | Mensualidad pan
+  [2025-12-01T22:14:10] faltantes=['2025 (no en BD)']
+    1 diciembre 2025 | Caja final 64000 | Base 53000
+  [2025-12-02T19:53:29] faltantes=['1002635403 (sin suscripcion)']
+    Estefanía Bedoya | Jacob cifuentes | 1055752422 | 1002635403 | 3234111208 | Mensualidad pana | 130.0
+  [2025-12-02T20:54:22] faltantes=['1054398748 (sin suscripcion)', '1054856261 (sin suscripcion)']
+    Juan Felipe Jiménez | 1002656066 | 3234891807 | Yeison Ospina | 1054398748 | 3117108696 | Brayan mor
+  [2025-12-02T21:21:52] faltantes=['11447995 (sin suscripcion)']
+    Juan David Ramírez | 1002635000 | 3122343090 | Adriana Grajales | 3400100 | 3023612559 | Alexander d
+  [2025-12-03T10:43:32] faltantes=['30404166 (no en BD)']
+    Laura Muñoz | 30404166 | 3127739060 | Mensualidad | Canje espejos
+  [2025-12-03T22:03:38] faltantes=['1005025342 (sin suscripcion)']
+    Natalia Ospina | Mayra rivera | 1002609464 | 1005025342 | Mensualidad panas | 130.000
+  [2025-12-04T17:32:34] faltantes=['1193235415 (sin suscripcion)']
+    Miguel Ángel cardenas | Cristian álzate | 1002553865 | 1193235415 | Mesialidad panas | Dos pagaron 4
+  [2025-12-04T17:57:46] faltantes=['1055757643 (sin suscripcion)']
+    Leidy rojas Gaviria | Tatiana Muñoz | 1149184026 | 1055757643 | Mensualidad pareja | 130.000 | Efect
+  [2025-12-04T22:05:05] faltantes=['1053824380 (sin suscripcion)']
+    Ana María quintero | 1053833812 | 3207998430 | Alejandro torres | 1053824380 | 3102815134 | Panas | 
+  [2025-12-05T11:06:25] faltantes=['1054874070 (sin suscripcion)']
+    Edward Osorio | 1010120390 | 3205095223 | Juan José Laverde | 1054874070 | 3248266909 | Plan pareja 
+  [2025-12-06T08:57:00] faltantes=['1144199516 (no en BD)', '1007831319 (sin suscripcion)']
+    Valentina urquijo | 1144199516 | 3216479639 | Juana Valeria Hernández Ramírez | 1007831319 | 3002553
+  [2025-12-09T09:46:27] faltantes=['1055360147 (sin suscripcion)', '1059811309 (sin suscripcion)']
+    Lauren ramos | 1055360147 | 3147167567 | Julieth Henao | 1059811309 | 3227420156 | Parejas | 130000 
+  [2025-12-10T21:04:53] faltantes=['2773087 (no en BD)', '1002800345 (sin suscripcion)', '7473569 (no en BD)', '1053847909 (sin suscripcion)']
+    Angie Salome Marin Marulanda | TI: 1054399356 | TEL: 305 2773087 | Angy Paola Quintero Marin | CC: 1
+  [2025-12-11T21:42:17] faltantes=['1053851911 (sin suscripcion)', '1053870875 (sin suscripcion)']
+    Stefania herrera | Laura herrera | Mauricio Marín | 1053870873 | 1053851911 | 1053870875 | Mensualid
+  [2025-12-11T21:43:14] faltantes=['1055750967 (sin suscripcion)']
+    Yeferson lopez | Mario cano | 1007233702 | 1055750967 | 3222397856 | 3214140664 | Pareja | 130.000
+  [2025-12-11T21:51:35] faltantes=['1053813327 (no en BD)']
+    Daniel Felipe Marin Marulanda | Cc: 1053813327 | Tel: 3124693182 | 60000 | Estos 4 quedan en 200.000
+  [2025-12-15T16:10:43] faltantes=['1055758657 (sin suscripcion)']
+    Patricia Hernández | Sarita valencia | 30334548 | 1055758657 | 3116414284 | Mensualidad pareja | 130
+  [2025-12-15T18:56:25] faltantes=['1053858453 (no en BD)']
+    Marcela Hurtado | Yeimi Martínez | 30239801 | 1053858453 | Mensualidad pareja | 65.000 efectivo | 65
+  [2025-12-16T05:38:45] faltantes=['1052858046 (sin suscripcion)']
+    Juan Diego gallón | 1053869678 | 3205353758 | Manuela Trujillo | 1052858046 | 3107238041 | Pareja | 
+  [2025-12-16T18:56:31] faltantes=['314272351 (no en BD)', '1002800715 (sin suscripcion)']
+    Mayra Alexandra Osorio | 1002866048 | 314272351 | Juan David Muñoz | 1002800715 | 3005372819 | Parej
+  [2025-12-17T09:59:30] faltantes=['1054876792 (sin suscripcion)']
+    Alexandra Aguirre | 1053773107 | 3003208371 | Martina rivera | 1054876792 | 3003208371 | Pareja | 13
+  [2025-12-22T10:28:20] faltantes=['1053831252 (sin suscripcion)']
+    Yulieth López | 1053863795 | 3145353376 | Tania Osorio | 1053831252 | 3145639143 | Parejas | 130000 
+  [2026-01-02T17:58:21] faltantes=['352055801 (no en BD)']
+    Valeria Cortez | 352055801 | Quincena | 40.000
+  [2026-01-05T11:36:07] faltantes=['1053832492 (no en BD)']
+    Orlando idarraga | 1053832492 | 3185294991 | Mensualidad | 70000 | Nequi
+  [2026-01-05T14:52:07] faltantes=['1038803495 (sin suscripcion)']
+    Mónica rojas | 1007233638 | 3052883037 | Mauricio castillo | 1038803495 | 3225867611 | Pareja | 1300
+  [2026-01-05T17:48:18] faltantes=['1061367165 (no en BD)']
+    Milena Capera | 1018446580 | Cristian Ramírez | 1061367165 | Renuevan mensualidad | 130.000 | Nequi 
+  [2026-01-05T20:43:11] faltantes=['1053816139 (no en BD)']
+    Johan Tovar | 1002633306 | 3146649462 | Miguel menjura | 1053816139 | 3218691669 | Mensulidad panas 
+  [2026-01-06T05:26:30] faltantes=['1054861751 (sin suscripcion)']
+    María Fernanda abadía | 1007231892 | 3206300166 | Juliana Marulanda | 1054861751 | 3137078917 | Pare
+  [2026-01-06T06:53:50] faltantes=['1053769693 (sin suscripcion)', '1054865480 (no en BD)']
+    Emili agudelo | 30397044 | 3113130551 | Angélica agudelo | 1053769693 | 3146619002 | Melani agudelo 
+  [2026-01-06T09:16:02] faltantes=['1084791763 (no en BD)']
+    Dinesa Vargas | 1084791763 | 3172368719 | Mensualidad | 60000 | Nequi
+  [2026-01-06T09:39:18] faltantes=['5998708 (no en BD)']
+    Jacobo Botero | 310 5998708 | 1054881276 | Mensualidad | efectivo | 70000
+  [2026-01-07T07:40:47] faltantes=['1053811908 (no en BD)']
+    Jonh Edison Villamil | 1053811908 | 3104402914 | Mensualidad | 70000 | Nequi
+  [2026-01-13T05:58:48] faltantes=['1002544634 (sin suscripcion)']
+    Angélica Roma Marín | 1053847885 | 3012628792 | Marlén Dayana | 1002544634 | 3151249738 | Parejas | 
+  [2026-01-13T18:00:47] faltantes=['1054398119 (sin suscripcion)']
+    Juan Miguel grisales | 1056121415 | 3106060423 | Ángel David Vásquez castaño | 1054398119 | 31938990
+  [2026-01-14T08:00:07] faltantes=['1057121431 (sin suscripcion)']
+    Sarita Carmona Henao | 1056124467 | 3147982741 | María José Carmona Henao | 1057121431 | 3126526352 
+  [2026-01-14T15:16:15] faltantes=['1054399992 (sin suscripcion)', '1055756958 (sin suscripcion)']
+    Nicol Manuela zapata | 1053820527 | 3045492565 | Melani monsalve | 1054399992 | 3104459114 | Jhonata
+  [2026-01-15T08:58:28] faltantes=['1053793330 (no en BD)']
+    Katerine Figeroa | 1053793330 | 3217233294 | Mensualidad | Nequi
+  [2026-01-15T20:09:17] faltantes=['1053807124 (sin suscripcion)']
+    Tatiana acero | 1053807123 | 3157340150 | Brandon Rodríguez | 1053807124 | 3122253619 | Mensulidad p
+  [2026-01-16T21:50:48] faltantes=['1054879520 (sin suscripcion)', '1053813085 (sin suscripcion)']
+    3 personas: | María Camila quintero | 1053867896 | 3103319875 | Luisa Fernanda cortés | 1054879520 |
+  [2026-01-17T11:51:42] faltantes=['1054880094 (sin suscripcion)']
+    Incluido un más en 60 | Sergio Ciro | 1054880094 | 3215766363 | Efectivo
+  [2026-01-19T10:00:38] faltantes=['1054867640 (sin suscripcion)']
+    Laura Sofía Durán | 1054865877 | 3002398253 | Sofía Ocampo | 1054867640 | 3145775106 | Pareja | 1300
+  [2026-01-19T10:10:40] faltantes=['1054857741 (sin suscripcion)']
+    Angélica María Cardona Rondon | 1193555161 | 3205511398 | María José coy Rondon | 1054857741 | 32179
+  [2026-01-19T15:10:12] faltantes=['109127423 (sin suscripcion)']
+    Pilar Carmona | 109127407 | 3144278386 | Estefanía Carmona | 109127423 | 3144278486 | Pareja | 20 de
+  [2026-01-19T21:21:26] faltantes=['1053850344 (no en BD)', '1002655972 (no en BD)']
+    Ángela ciro Pérez | 1053850344 | 3146654842 | Sarita gallego | 1055755902 | 3215515583 | Santiago Oc
+  [2026-01-20T15:28:53] faltantes=['54865430 (sin suscripcion)']
+    Miyerlady Hernández | 1053848823 | 3134340466 | Juan Camilo Cortes | 54865430 | 3114045618 | Mensuli
+  [2026-01-21T14:46:14] faltantes=['1056126369 (sin suscripcion)']
+    Maria Camila Gutierrez | 1007231316 | 3205839551 | Isabella Gutiérrez | 1056126369 | Mensulidad | Pa
+  [2026-01-21T17:37:26] faltantes=['1055758129 (sin suscripcion)', '1056127883 (sin suscripcion)', '1053807529 (sin suscripcion)']
+    Tatiana usma | 1053820067 | 3213081924 | Nicol Suárez | 1055758129 | 3146800649 | Sofía Benavides | 
+  [2026-01-23T16:09:47] faltantes=['1059208220 (sin suscripcion)']
+    Alejandro Arango Garzón | 1055753549 | 3008236070 | Ana Cristina Garzón | 1059208220 | 3117327274 | 
+  [2026-01-26T18:21:16] faltantes=['300945221 (no en BD)']
+    Sebastián valencia Martínez | 1055750659 | 300945221 | Mensual | Nequi | 27 de enero
+  [2026-01-26T19:22:58] faltantes=['1054988514 (sin suscripcion)']
+    Eulogia usechi | 1018436756 | 3224761887 | Jhon Giraldo | 1054988514 | 3102041128 | Mensulidad parej
+  [2026-01-28T21:41:29] faltantes=['8906857 (no en BD)']
+    María Fernanda Osorio | 3104050538 | C.C 1054860857 | Mariana Moreno | 310 8906857
+  [2026-01-29T15:14:19] faltantes=['1055757399 (sin suscripcion)']
+    Claudia milena Sánchez | 1053770171 | 3145623407 | Michell yomara Valencia | 1055757399 | 3136052844
+  [2026-01-30T16:05:45] faltantes=['1055758260 (sin suscripcion)']
+    Dahiana Mancera | 1055756122 | 3001927178 | Katerine Mejía | 1055758260 | 3216862787 | Mensualidad |
+  [2026-01-30T19:41:51] faltantes=['1055759424 (sin suscripcion)']
+    Víctor Giraldo | 1053812813 | 3135114344 | Emili Giraldo | 1055759424 | Pareja | BBVA | Empiezan lun
+  [2026-02-02T10:16:33] faltantes=['1056121084 (sin suscripcion)']
+    Heyli Sofía Ochoa | 1056124258 | 3148929623 | Anna Ochoa | 1056121084 | 3234746959 | Pareja | Efecti
+  [2026-02-02T10:51:10] faltantes=['1055358827 (sin suscripcion)']
+    Valentina Velázquez | 1060657216 | 3157058787 | Simón londoño | 1055358827 | 3122740728 | Estefanía 
+  [2026-02-02T19:11:41] faltantes=['1002656455 (sin suscripcion)']
+    Leidy Llano | 1053868091 | 3232217446 | Mensualidad | Nequi | Anlly Llano | 1002656455 | 3235477522 
+  [2026-02-02T19:44:37] faltantes=['1053782440 (sin suscripcion)']
+    Yenny Paola Ramírez | 1053859422 | 3112226638 | Nasly Arango Álvarez | 1053782440 | 3006022242 | 2 m
+  [2026-02-02T20:05:30] faltantes=['1002545917 (sin suscripcion)']
+    Jhon edison Amaya | Cc 1002545917 | Tel 3233832326
+  [2026-02-02T20:15:22] faltantes=['1053798290 (sin suscripcion)']
+    Matías Cardona | 1056125909 | 3009503735 | Juan Pablo cano | 1053798290 | Pareja | Efectivo
+  [2026-02-03T06:49:41] faltantes=['1053848685 (sin suscripcion)']
+    Viviana Marcela araque | 1088316061 | 3150560887 | Dahiana Rodas soto | 1053848685 | 3107322509 | Pa
+  [2026-02-03T08:11:39] faltantes=['1006336774 (sin suscripcion)']
+    Emanuel caire | 1065015042 | 3244466007 | Melissa Valencia | 1006336774 | 3226626839 | Pareja | Nequ
+  [2026-02-03T18:44:42] faltantes=['1002543221 (sin suscripcion)']
+    Lina María Betancourt | 1053775366 | 3233966980 | Luisa Fernanda Ochoa | 1002543221 | 3165054571 | P
+  [2026-02-03T20:24:37] faltantes=['1054859374 (sin suscripcion)']
+    Juan Manuel Cardona | 1053862813 | 3104009810 | Luna Gaviria | 1054859374 | 3160411898 | Plan Pareja
+  [2026-02-04T19:53:31] faltantes=['1007303605 (sin suscripcion)']
+    Alejandro Murillo | 1088034952 | 3206206877 | Víctor espitia | 1007303605 | 3143895393 | Pareja | Ef
+  [2026-02-05T18:43:25] faltantes=['1060651270 (sin suscripcion)']
+    Amparo soto Londoño | 30326200 | 3148915544 | Daniela Escobar soto | 1060651270 | 3008332859 | Parej
+  [2026-02-09T10:22:03] faltantes=['1053818987 (no en BD)']
+    Juan Esteban Vásquez | 1053818987 | 3113386510 | Quincena | Efectivo
+  [2026-02-09T16:39:39] faltantes=['1055756394 (sin suscripcion)']
+    Marisol Espinoza | 1053795130 | 3196660688 | Mariana Villada | 1055756394 | 3126008864 | Juan David 
+  [2026-02-09T18:39:08] faltantes=['1054858108 (sin suscripcion)']
+    Angie arias | 1014240668 | 3205372144 | Catalina Ceballos | 1054858108 | 3105067715 | Pareja | Nequi
+  [2026-02-11T15:37:27] faltantes=['1055757916 (no en BD)']
+    Sofía Giraldo Hernández | 1055757916 | 3054444008 | Mensualidad | 60000
+  [2026-02-14T11:27:00] faltantes=['1002655949 (no en BD)']
+    Daniel González Ceballos | 1002655949 | 3107335088 | Mensualidad efectivo
+  [2026-02-16T16:03:05] faltantes=['1002546503 (no en BD)', '1057787301 (sin suscripcion)']
+    Karen Julieth Zuluaga | 1002546503 | 3145461240 | Luis Fernando Ruiz | 1057787301 | 3124350963 | Pla
+  [2026-02-16T19:34:37] faltantes=['1006410621 (sin suscripcion)']
+    Brayan cruz | 1117548273 | 3118652285 | Kevin Sánchez | 1006410621 | 3209547832 | Quincena | 80000 |
+  [2026-02-17T10:36:35] faltantes=['1056121029 (no en BD)']
+    José Miguel Ramírez | 1056121029 | 3142511414 | Mensualidad | Nequi (el sábado)
+  [2026-02-17T15:13:04] faltantes=['1053807124 (sin suscripcion)']
+    Tatiana Acero | 1053807123 | Brando Rodríguez | 1053807124 | Renueva mensualidad Pareja | Nequi
+  [2026-02-17T17:48:31] faltantes=['1055358521 (sin suscripcion)', '1055754262 (no en BD)', '1053871439 (sin suscripcion)']
+    Luisa Fernanda Gómez García | 1053829978 | 3117958087 | Juan David Gómez García | 1055358521 | 32166
+  [2026-02-20T20:13:55] faltantes=['1002798483 (sin suscripcion)', '1013679281 (sin suscripcion)', '1060652414 (sin suscripcion)']
+    Valentina arias | 1054842570 | 3235177106 | Juliana Giraldo | 1002798483 | 3225669557 | Estefanía Ma
+  [2026-02-23T17:34:53] faltantes=['1053857924 (no en BD)']
+    Sergio Andrés Giraldo | 1053857924 | Semana | 20 debe 10
+  [2026-02-23T18:20:17] faltantes=['1053851723 (sin suscripcion)']
+    Luisa Fernanda Marín Tamayo | 1093214010 | 3217704970 | Luz Marina Suárez Gómez | 1053851723 | 31161
+  [2026-02-23T19:56:25] faltantes=['1053825009 (sin suscripcion)']
+    Tatiana piedrahita | 1053837920 | 3022277564 | Leidy Johana soto | 1053825009 | 3024961703 | Mensual
+  [2026-02-23T20:43:28] faltantes=['1053848663 (sin suscripcion)']
+    Luz Alejandra Barrientos | 1059713513 | 3113130065 | Jhon Daniel Gonzales | 1053848663 | 3135067645 
+  [2026-02-24T15:42:28] faltantes=['1055360083 (sin suscripcion)']
+    Mariana Muñoz | 1053799824 | 3216599423 | Sara Rodríguez | 1055360083 | 3182925624 | Mensualidad pla
+  [2026-02-26T16:44:41] faltantes=['1053809788 (sin suscripcion)']
+    Laura María Cardona | 1002732444 | 3215445332 | Érica Cardona | 1053809788 | 3205569819 | Pareja | E
+  [2026-03-02T17:09:08] faltantes=['1055757029 (no en BD)']
+    Karen Ospina | 1053806649 | 3002344046 | Juan Castaño | 1055757029 | 3009532672 | Mensualidad Pareja
+  [2026-03-02T18:44:04] faltantes=['1053808089 (no en BD)']
+    Jazleidy Sepúlveda | 1053808089 | 3012675363 | Mensualidad
+  [2026-03-03T07:48:17] faltantes=['303148060 (no en BD)']
+    César Agusto MERCHAN | 10267435 | 303148060 | Mensualidad | Efectivo
+  [2026-03-03T13:37:04] faltantes=['30310202 (sin suscripcion)']
+    Marisol Murillo arias | 1055753808 | 3204212120 | Juli alba Giraldo | 30310202 | Pareja  <Se editó e
+  [2026-03-03T14:22:11] faltantes=['53200 (no en BD)']
+    690000 en membresía | 53200 en ventas pequeñas
+  [2026-03-03T15:10:59] faltantes=['1053813485 (no en BD)', '1053866821 (no en BD)', '1003614431 (no en BD)']
+    Yuri Viviana Salazar Vega | 1053813485 | 3135064915 | Lina Marcela Ortíz | 1053866821 | 3104934610 |
+  [2026-03-03T19:19:08] faltantes=['1053862399 (sin suscripcion)']
+    Sebastian Giraldo Agudelo | 1053866573 | 3008419148 | Juan José González | 1053862399 | 3113446529 |
+  [2026-03-04T09:54:29] faltantes=['30236206 (no en BD)', '314796289 (no en BD)']
+    Luz Andrea Marulanda | 30236206 | 314796289 | Renueva mensualidad
+  [2026-03-04T11:36:21] faltantes=['1007497487 (sin suscripcion)']
+    Lorena Rodríguez | 30230728 | 3127616857 | Melissa Blandón | 1007497487 | 3217682768 | Mensualidad p
+  [2026-03-05T10:58:17] faltantes=['1002546919 (sin suscripcion)']
+    Yilian Gonzales | 1053822156 | 3216870564 | Karen Ospina | 1002546919 | 3007971513 | Pareja | Efecti
+  [2026-03-05T14:37:33] faltantes=['1082992611 (no en BD)']
+    Dahiana Vargas | 1082992611 | Paga una Mensualidad pareja
+  [2026-03-06T15:52:50] faltantes=['1054861056 (sin suscripcion)']
+    María Eugenia correa | 30234838 | 3012180576 | Miguel Ángel correa García | 1054861056 | 3015924363 
+  [2026-03-06T19:50:10] faltantes=['1007582322 (sin suscripcion)']
+    Natalia Vásquez | 1053833510 | 3058128881 | Alexandra Rodríguez | 1007582322 | 3116223752 | Pareja |
+  [2026-03-09T07:12:45] faltantes=['1010022186 (sin suscripcion)', '1053829828 (sin suscripcion)']
+    Stefania Bedoya Muñoz | 1053862301 | 3003565253 | Tatiana Jaramillo | 1010022186 | 3115461218 | Lize
+  [2026-03-09T15:31:44] faltantes=['1055757164 (sin suscripcion)']
+    Steffania Bucuru | 1055757164 | 3117060318 | Mensualidad pareja efectivo | 70.000 Nequi
+  [2026-03-09T17:20:41] faltantes=['1189713308 (sin suscripcion)']
+    Dilan Salcedo | 1014660865 | 3019100157 | Luis Miguel parra | 1189713308 | 3001538562 | Plan pareja 
+  [2026-03-09T18:03:12] faltantes=['1060654208 (sin suscripcion)']
+    Juan José Moreno Zuluaga | 1059208956 | 3243031929 | Ximena Zuluaga Henao | 1060654208 | 3136823937 
+  [2026-03-11T06:53:00] faltantes=['1054861751 (sin suscripcion)']
+    Juliana Marulanda | 1054861751 | 3137078917 | Plan Pareja | Nequi
+  [2026-03-11T08:04:21] faltantes=['1002636627 (sin suscripcion)']
+    Sofía Rivas Villa | 1056121996 | 3117762821 | Michel Dahiana Loaiza | 1002636627 | 3242813482 | Quin
+  [2026-03-11T21:14:34] faltantes=['1029961161 (sin suscripcion)']
+    Leidy Tatiana Gonzales | 1121880277 | 3115121146 | Samy Valentina Ruiz g | 1029961161 | Pareja | Efe
+  [2026-03-16T09:11:39] faltantes=['8277807 (no en BD)']
+    Alejandra Mendoza | 1192801727 | 312 8277807 | Mensualidad efectivo
+  [2026-03-16T20:16:26] faltantes=['1053810927 (no en BD)']
+    Katherine Julieth Orozco Castañeda | 1053810927 | 3137220290 | Quincena, Nequi
+  [2026-03-17T06:34:51] faltantes=['1053848534 (no en BD)']
+    Angie Daniela castro | 1053848534 | 3218379562
+  [2026-03-17T17:18:10] faltantes=['1035438561 (no en BD)']
+    Juan Diego Caro Bustamante | 1035438561 | 3006229344 | Quincena efectivo
+  [2026-03-20T13:48:26] faltantes=['1002633307 (no en BD)', '1055754652 (no en BD)']
+    Daniela Martínez Betancourt | 1002633307 | 3114446791 | Valeria loaiza Betancourt | 1055754652 | 313
+  [2026-03-23T10:20:11] faltantes=['1053771346 (sin suscripcion)']
+    Diana Carolina Acevedo | 1053771346 | Quincena Nequi
+  [2026-03-23T11:28:41] faltantes=['1053831252 (sin suscripcion)']
+    1053863795 | 3145659143 | Tania Osorio | 1053831252 | 3145353376 | Yulieth López | Pareja mensualida
+  [2026-03-25T09:43:50] faltantes=['1055755425 (no en BD)']
+    Juan Camilo Muñoz | 1055755425 | Renueva efectivo
+  [2026-03-25T15:07:01] faltantes=['1055752407 (no en BD)']
+    Sofía Gómez | 1055752407 | 3126274630 | Quincena | Nequi  <Se editó este mensaje.>
+  [2026-03-25T15:07:29] faltantes=['24336587 (no en BD)']
+    Leidy contreras | 24336587 | 3233368171 | Quincena | Efectivo
+  [2026-03-25T18:06:22] faltantes=['1002634283 (no en BD)']
+    Angie Salazar | 1002634283 | 3104078364 | Mensualidad | Efectivo

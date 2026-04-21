@@ -69,7 +69,7 @@ type Payment struct {
 
 // NewPayment creates a new payment
 func NewPayment(gymID, userID, processedBy uuid.UUID, amount float64, currency string, method PaymentMethod, paymentType PaymentType, description string) *Payment {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	return &Payment{
 		ID:            uuid.New(),
 		GymID:         gymID,
@@ -91,13 +91,13 @@ func NewPayment(gymID, userID, processedBy uuid.UUID, amount float64, currency s
 func (p *Payment) Complete(transactionID string) {
 	p.Status = PaymentStatusCompleted
 	p.TransactionID = transactionID
-	p.UpdatedAt = time.Now()
+	p.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Fail marks payment as failed
 func (p *Payment) Fail() {
 	p.Status = PaymentStatusFailed
-	p.UpdatedAt = time.Now()
+	p.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // Refund refunds the payment
@@ -105,7 +105,7 @@ func (p *Payment) Refund(amount float64, reason string) error {
 	if p.Status != PaymentStatusCompleted {
 		return nil
 	}
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	p.Status = PaymentStatusRefunded
 	p.RefundedAmount = amount
 	p.RefundReason = reason
@@ -117,7 +117,7 @@ func (p *Payment) Refund(amount float64, reason string) error {
 // Cancel cancels the payment
 func (p *Payment) Cancel() {
 	p.Status = PaymentStatusCancelled
-	p.UpdatedAt = time.Now()
+	p.UpdatedAt = time.Now().UTC().Round(0)
 }
 
 // IsCompleted checks if payment is completed

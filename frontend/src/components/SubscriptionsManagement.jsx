@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import PlanSelectorGrid from './PlanSelectorGrid';
+import * as XLSX from 'xlsx';
 import api from '../utils/api';
 import Modal from './Modal';
 import SkeletonTable from './SkeletonTable';
@@ -72,14 +74,23 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
   const [profileUserId, setProfileUserId] = useState(null);
   const [subscriptions, setSubscriptions] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 15;
   const [users, setUsers] = useState([]);
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
   const [receipt, setReceipt] = useState(null); // { subscription, user, plan }
   const [gymName, setGymName] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterFrom, setFilterFrom] = useState('');
+  const [filterTo, setFilterTo] = useState('');
+
+  // Report state
+  const [activeTab, setActiveTab] = useState('list');
+  const [reportFrom, setReportFrom] = useState('');
+  const [reportTo, setReportTo] = useState('');
+  const [reportData, setReportData] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportSearch, setReportSearch] = useState('');
 
   // Action modals
   const [actionModal, setActionModal] = useState(null); // { type: 'cancel'|'freeze'|'renew', sub }
@@ -104,22 +115,22 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
   const [addMemberSearch, setAddMemberSearch] = useState('');
   // Renew payment method
   const [renewPaymentMethod, setRenewPaymentMethod] = useState('EFECTIVO');
+  const [renewAdditionalMembers, setRenewAdditionalMembers] = useState([]);
+  const [renewMemberSearch, setRenewMemberSearch] = useState('');
   // Edit dates
   const [editStartDate, setEditStartDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
   const [editAuditLog, setEditAuditLog] = useState([]);
 
-  useEffect(() => {
-    fetchSubscriptions();
-    fetchUsers();
-    fetchPlans();
-    api.get('/gym').then(r => r.ok ? r.json() : null).then(d => { if (d?.name) setGymName(d.name); });
-  }, []);
-
-  const fetchSubscriptions = async () => {
+  const fetchSubscriptions = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get('/subscriptions');
+      const params = new URLSearchParams();
+      if (filterStatus) params.set('status', filterStatus);
+      if (filterFrom) params.set('created_from', filterFrom);
+      if (filterTo) params.set('created_to', filterTo);
+      const qs = params.toString();
+      const response = await api.get(`/subscriptions${qs ? '?' + qs : ''}`);
       if (response.ok) {
         const result = await response.json();
         setSubscriptions(result.data || result || []);
@@ -129,7 +140,17 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterStatus, filterFrom, filterTo]);
+
+  useEffect(() => {
+    fetchSubscriptions();
+  }, [fetchSubscriptions]);
+
+  useEffect(() => {
+    fetchUsers();
+    fetchPlans();
+    api.get('/gym').then(r => r.ok ? r.json() : null).then(d => { if (d?.name) setGymName(d.name); });
+  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -165,6 +186,62 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     }
   }, [initialUser]);
 
+  // ── Report helpers ──
+  const generateReport = async () => {
+    if (!reportFrom || !reportTo) return;
+    setReportLoading(true);
+    try {
+      const res = await api.get(`/subscriptions/report?from=${reportFrom}&to=${reportTo}`);
+      if (res.ok) {
+        const data = await res.json();
+        setReportData(data || []);
+        setReportSearch('');
+      }
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const filteredReportData = (() => {
+    const q = reportSearch.toLowerCase().trim();
+    if (!q) return reportData;
+    return reportData.filter(sub => {
+      const memberName = sub.members?.length
+        ? sub.members.map(m => `${m.user?.first_name || ''} ${m.user?.last_name || ''}`).join(' ')
+        : `${sub.user?.first_name || ''} ${sub.user?.last_name || ''}`;
+      return memberName.toLowerCase().includes(q) ||
+        (sub.user?.document_number || '').toLowerCase().includes(q) ||
+        (sub.plan?.name || '').toLowerCase().includes(q) ||
+        (sub.payment_method || '').toLowerCase().includes(q);
+    });
+  })();
+
+  const downloadExcel = () => {
+    if (!filteredReportData.length) return;
+    const rows = filteredReportData.map(sub => {
+      const memberName = sub.members?.length
+        ? sub.members.map(m => `${m.user?.first_name || ''} ${m.user?.last_name || ''}`).join(' / ')
+        : `${sub.user?.first_name || ''} ${sub.user?.last_name || ''}`;
+      return {
+        'Miembro': memberName.trim(),
+        'Documento': sub.user?.document_number || '',
+        'Plan': sub.plan?.name || '',
+        'Inicio': sub.start_date ? new Date(sub.start_date).toLocaleDateString('es-CO') : '',
+        'Fin': sub.end_date ? new Date(sub.end_date).toLocaleDateString('es-CO') : '',
+        'Precio Plan': sub.price_paid || 0,
+        'Descuento': sub.discount_applied || 0,
+        'Total Pagado': sub.total_paid || 0,
+        'Método de Pago': sub.payment_method || '',
+        'Estado': sub.status || '',
+        'Fecha Registro': sub.date ? (sub.hour ? `${sub.date} ${sub.hour}` : sub.date) : '',
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Suscripciones');
+    XLSX.writeFile(wb, `reporte-suscripciones-${reportFrom}-${reportTo}.xlsx`);
+  };
+
   // ── Wizard helpers ──
   const openWizard = () => {
     setShowWizard(true);
@@ -198,6 +275,21 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     users.filter(u => {
       if (allSelectedIds.has(u.id)) return false;
       const q = addMemberSearch.toLowerCase();
+      return `${u.first_name} ${u.last_name}`.toLowerCase().includes(q) ||
+        (u.document_number || '').toLowerCase().includes(q);
+    }).slice(0, 6);
+
+  // Renew modal computed values
+  const renewSelectedPlan = plans.find(p => p.id === renewPlanId);
+  const renewMaxAdditional = renewSelectedPlan ? (renewSelectedPlan.max_members || 1) - 1 : 0;
+  const renewAllSelectedIds = new Set([
+    actionModal?.sub?.user_id,
+    ...renewAdditionalMembers.map(m => m.id),
+  ]);
+  const filteredRenewMembers = renewMemberSearch.trim().length < 2 ? [] :
+    users.filter(u => {
+      if (renewAllSelectedIds.has(u.id)) return false;
+      const q = renewMemberSearch.toLowerCase();
       return `${u.first_name} ${u.last_name}`.toLowerCase().includes(q) ||
         (u.document_number || '').toLowerCase().includes(q);
     }).slice(0, 6);
@@ -256,6 +348,12 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     setRenewPlanId(sub.plan_id || '');
     setRenewDiscount(0);
     setRenewPaymentMethod('EFECTIVO');
+    setRenewMemberSearch('');
+    // Pre-populate additional members from current subscription (non-primary)
+    const existing = (sub.members || [])
+      .filter(m => !m.is_primary)
+      .map(m => ({ id: m.user_id, first_name: m.user?.first_name, last_name: m.user?.last_name, document_number: m.user?.document_number }));
+    setRenewAdditionalMembers(existing);
     if (type === 'editDates') {
       setEditStartDate(sub.start_date ? sub.start_date.slice(0, 10) : '');
       setEditEndDate(sub.end_date ? sub.end_date.slice(0, 10) : '');
@@ -279,7 +377,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
       } else if (type === 'unfreeze') {
         res = await api.post(`/subscriptions/${sub.id}/unfreeze`, {});
       } else if (type === 'renew') {
-        res = await api.post(`/subscriptions/${sub.id}/renew`, { plan_id: renewPlanId, discount: parseFloat(renewDiscount) || 0, payment_method: renewPaymentMethod });
+        res = await api.post(`/subscriptions/${sub.id}/renew`, { plan_id: renewPlanId, discount: parseFloat(renewDiscount) || 0, payment_method: renewPaymentMethod, additional_members: renewAdditionalMembers.map(m => m.id) });
       } else if (type === 'editDates') {
         res = await api.patch(`/subscriptions/${sub.id}/dates`, { start_date: editStartDate, end_date: editEndDate });
       }
@@ -310,18 +408,26 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
 
   const filteredSubs = (() => {
     const q = searchQuery.toLowerCase();
-    const list = q
-      ? subscriptions.filter(s =>
-          `${s.user?.first_name} ${s.user?.last_name}`.toLowerCase().includes(q) ||
-          (s.user?.document_number || '').toLowerCase().includes(q) ||
-          (s.user?.email || '').toLowerCase().includes(q) ||
-          (s.plan?.name || '').toLowerCase().includes(q)
-        )
+    let list = q
+      ? subscriptions.filter(s => {
+          const primaryMatch =
+            `${s.user?.first_name} ${s.user?.last_name}`.toLowerCase().includes(q) ||
+            (s.user?.document_number || '').toLowerCase().includes(q) ||
+            (s.user?.email || '').toLowerCase().includes(q) ||
+            (s.plan?.name || '').toLowerCase().includes(q);
+          const memberMatch = (s.members || []).some(m =>
+            `${m.user?.first_name || ''} ${m.user?.last_name || ''}`.toLowerCase().includes(q) ||
+            (m.user?.document_number || '').toLowerCase().includes(q)
+          );
+          return primaryMatch || memberMatch;
+        })
       : subscriptions;
-    return [...list].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return [...list].sort((a, b) => {
+      const da = (b.date || '') + (b.hour || '');
+      const db2 = (a.date || '') + (a.hour || '');
+      return da > db2 ? 1 : da < db2 ? -1 : 0;
+    });
   })();
-  const totalPages = Math.ceil(filteredSubs.length / PAGE_SIZE);
-  const paginatedSubs = filteredSubs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   if (profileUserId) {
     return <MemberProfile userId={profileUserId} onBack={() => setProfileUserId(null)} />;
@@ -335,25 +441,63 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
           <h2 className="text-2xl font-extrabold text-gray-900">Suscripciones</h2>
           <p className="text-gray-500 text-sm mt-1">Gestiona las membresias de tus miembros</p>
         </div>
-        <button
-          onClick={openWizard}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-lg shadow-emerald-500/20"
-        >
-          <Svg path="M12 4v16m8-8H4" className="w-4 h-4" />
-          Nueva Suscripcion
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveTab(activeTab === 'report' ? 'list' : 'report')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 border font-semibold rounded-xl transition ${activeTab === 'report' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+          >
+            <Svg path="M9 17v-2m3 2v-4m3 4v-6M5 20h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z" className="w-4 h-4" />
+            Reporte
+          </button>
+          <button
+            onClick={openWizard}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-lg shadow-emerald-500/20"
+          >
+            <Svg path="M12 4v16m8-8H4" className="w-4 h-4" />
+            Nueva Suscripcion
+          </button>
+        </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Svg path={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Buscar por nombre, documento, email o plan..."
-          value={searchQuery}
-          onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
-          className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-        />
+      {activeTab === 'list' && <>
+      {/* Search + Filters */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-48">
+          <Svg path={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Buscar por nombre, documento, email o plan..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-gray-700"
+        >
+          <option value="">Todos los estados</option>
+          <option value="ACTIVE">Activas</option>
+          <option value="INACTIVE">Inactivas</option>
+          <option value="FROZEN">Congeladas</option>
+          <option value="EXPIRED">Expiradas</option>
+          <option value="CANCELLED">Canceladas</option>
+        </select>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400 font-medium whitespace-nowrap">Creado:</span>
+          <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
+            className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+          <span className="text-gray-300">–</span>
+          <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
+            className="px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+          {(filterFrom || filterTo) && (
+            <button onClick={() => { setFilterFrom(''); setFilterTo(''); }}
+              className="text-xs text-gray-400 hover:text-red-500 transition px-1" title="Limpiar filtro de fechas">
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -366,16 +510,17 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Periodo</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Precio</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Pago</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Creado</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {loading ? (
-              <tr><td colSpan="7" className="p-0"><SkeletonTable cols={7} rows={5} /></td></tr>
+              <tr><td colSpan="8" className="p-0"><SkeletonTable cols={8} rows={5} /></td></tr>
             ) : filteredSubs.length === 0 ? (
               <tr>
-                <td colSpan="7">
+                <td colSpan="8">
                   <EmptyState
                     icon="list"
                     title={searchQuery ? `Sin resultados para "${searchQuery}"` : 'No hay suscripciones'}
@@ -383,7 +528,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                   />
                 </td>
               </tr>
-            ) : paginatedSubs.map((sub) => {
+            ) : filteredSubs.map((sub) => {
                 const daysLeft = sub.end_date
                   ? Math.max(0, Math.ceil((new Date(sub.end_date) - new Date()) / (1000 * 60 * 60 * 24)))
                   : null;
@@ -459,6 +604,13 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                       </span>
                     </td>
                     <td className="px-6 py-4">
+                      <span className="text-sm text-gray-500">
+                        {sub.date
+                          ? <>{sub.date}{sub.hour ? <span className="text-xs text-gray-400 ml-1">{sub.hour}</span> : null}</>
+                          : <span className="text-gray-300">—</span>}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
                       <StatusBadge status={sub.status} />
                     </td>
                     <td className="px-6 py-4">
@@ -502,24 +654,102 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
             })}
           </tbody>
         </table>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100">
-            <p className="text-xs text-gray-500">
-              {filteredSubs.length} resultados — Página {page} de {totalPages}
-            </p>
-            <div className="flex gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                Anterior
-              </button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
       </div>
+      </>}
+
+      {/* ── Report View ── */}
+      {activeTab === 'report' && (
+        <div className="space-y-5">
+          {/* Filters bar */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-wrap gap-4 items-end">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Desde</label>
+              <input type="date" value={reportFrom} onChange={e => setReportFrom(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Hasta</label>
+              <input type="date" value={reportTo} onChange={e => setReportTo(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <button onClick={generateReport} disabled={!reportFrom || !reportTo || reportLoading}
+              className="px-5 py-2 bg-emerald-500 text-white font-semibold rounded-xl hover:bg-emerald-600 transition disabled:opacity-50 text-sm">
+              {reportLoading ? 'Buscando...' : 'Buscar'}
+            </button>
+            {reportData.length > 0 && (
+              <button onClick={downloadExcel}
+                className="ml-auto px-5 py-2 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition text-sm flex items-center gap-2">
+                <Svg path="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" className="w-4 h-4" />
+                Descargar Excel
+              </button>
+            )}
+          </div>
+
+          {reportData.length > 0 && (
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Svg path={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input type="text" placeholder="Filtrar por nombre, documento, plan o método de pago..."
+                  value={reportSearch} onChange={e => setReportSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+              </div>
+              <span className="text-sm text-gray-400 whitespace-nowrap">
+                {filteredReportData.length} de {reportData.length} registros
+              </span>
+            </div>
+          )}
+
+          {/* Results table */}
+          {filteredReportData.length > 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-100">
+                <thead>
+                  <tr className="bg-gray-50/80">
+                    {['Miembro','Documento','Plan','Inicio','Fin','Total Pagado','Método de Pago','Estado','Registrado'].map(h => (
+                      <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {filteredReportData.map(sub => {
+                    const memberName = sub.members?.length
+                      ? sub.members.map(m => `${m.user?.first_name || ''} ${m.user?.last_name || ''}`).join(' / ')
+                      : `${sub.user?.first_name || ''} ${sub.user?.last_name || ''}`;
+                    return (
+                      <tr key={sub.id} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="px-5 py-3.5 font-semibold text-gray-900">{memberName.trim()}</td>
+                        <td className="px-5 py-3.5 text-gray-500 text-sm">{sub.user?.document_number || '—'}</td>
+                        <td className="px-5 py-3.5 text-gray-700 text-sm">{sub.plan?.name || '—'}</td>
+                        <td className="px-5 py-3.5 text-gray-500 text-sm">{sub.start_date ? new Date(sub.start_date).toLocaleDateString('es-CO', {day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
+                        <td className="px-5 py-3.5 text-gray-500 text-sm">{sub.end_date ? new Date(sub.end_date).toLocaleDateString('es-CO', {day:'2-digit',month:'short',year:'numeric'}) : '—'}</td>
+                        <td className="px-5 py-3.5 font-bold text-gray-900">{fmt(sub.total_paid)}</td>
+                        <td className="px-5 py-3.5 text-gray-500 text-sm">
+                          {sub.payment_method === 'EFECTIVO' ? '💵 Efectivo'
+                            : sub.payment_method === 'TRANSFERENCIA' ? '📲 Transferencia'
+                            : sub.payment_method ? `💳 ${sub.payment_method}` : '—'}
+                        </td>
+                        <td className="px-5 py-3.5"><StatusBadge status={sub.status} /></td>
+                        <td className="px-5 py-3.5 text-gray-400 text-sm">
+                          {sub.date ? <>{sub.date}{sub.hour ? <span className="ml-1 text-xs text-gray-400">{sub.hour}</span> : null}</> : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : !reportLoading && reportFrom && reportTo ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+              <EmptyState icon="list" title="Sin resultados" description={`No hay suscripciones registradas entre ${reportFrom} y ${reportTo}`} />
+            </div>
+          ) : !reportFrom || !reportTo ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 flex flex-col items-center gap-2 text-gray-400">
+              <Svg path="M9 17v-2m3 2v-4m3 4v-6M5 20h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z" className="w-10 h-10 text-gray-200" />
+              <p className="text-sm">Selecciona un rango de fechas y presiona <strong>Buscar</strong></p>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       {/* ── Wizard Modal ── */}
       <Modal isOpen={showWizard} onClose={closeWizard} title="Nueva Suscripcion" maxWidth="2xl">
@@ -656,54 +886,11 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
               <Svg path={ICONS.back} className="w-4 h-4" /> Cambiar miembro
             </button>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {plans.map(plan => {
-                const isSelected = selectedPlan?.id === plan.id;
-                return (
-                  <button
-                    key={plan.id}
-                    onClick={() => setSelectedPlan(plan)}
-                    className={`relative text-left p-5 rounded-2xl border-2 transition-all duration-200
-                      ${isSelected
-                        ? 'border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-500/10'
-                        : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm'
-                      }`}
-                  >
-                    {isSelected && (
-                      <div className="absolute top-3 right-3 w-6 h-6 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center">
-                        <Svg path={ICONS.check} className="w-3.5 h-3.5 text-white" />
-                      </div>
-                    )}
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${
-                      isSelected ? 'bg-emerald-100' : 'bg-gray-100'
-                    }`}>
-                      <Svg path={ICONS.plan} className={`w-5 h-5 ${isSelected ? 'text-emerald-600' : 'text-gray-400'}`} />
-                    </div>
-                    <h4 className="font-bold text-gray-900 mb-1">{plan.name}</h4>
-                    {plan.description && <p className="text-xs text-gray-400 mb-3 line-clamp-2">{plan.description}</p>}
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-extrabold text-gray-900">{fmt(plan.price)}</span>
-                    </div>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Svg path={ICONS.clock} className="w-3.5 h-3.5" /> {plan.duration_days} dias
-                      </span>
-                      {plan.enrollment_fee > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Svg path={ICONS.tag} className="w-3.5 h-3.5" /> Inscripcion: {fmt(plan.enrollment_fee)}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {plans.length === 0 && (
-              <div className="text-center py-8">
-                <p className="text-sm text-gray-400">No hay planes disponibles. Crea uno primero.</p>
-              </div>
-            )}
+            <PlanSelectorGrid
+              plans={plans}
+              selectedPlan={selectedPlan}
+              onSelect={setSelectedPlan}
+            />
 
             <div className="flex justify-between pt-2">
               <button onClick={() => setWizardStep(1)} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">
@@ -790,8 +977,11 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
             <div className="flex justify-between pt-2">
               <button onClick={() => setWizardStep(2)} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">Atrás</button>
               <button onClick={() => setWizardStep(4)}
-                className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-md">
-                Continuar
+                disabled={additionalMembers.length < maxAdditional}
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-md disabled:opacity-40 disabled:cursor-not-allowed">
+                {additionalMembers.length < maxAdditional
+                  ? `Faltan ${maxAdditional - additionalMembers.length} persona${maxAdditional - additionalMembers.length > 1 ? 's' : ''}`
+                  : 'Continuar'}
               </button>
             </div>
           </div>
@@ -988,7 +1178,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
             </p>
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Plan</label>
-              <select value={renewPlanId} onChange={e => setRenewPlanId(e.target.value)}
+              <select value={renewPlanId} onChange={e => { setRenewPlanId(e.target.value); setRenewAdditionalMembers([]); setRenewMemberSearch(''); }}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
                 <option value="">Selecciona un plan...</option>
                 {plans.map(p => (
@@ -996,6 +1186,66 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                 ))}
               </select>
             </div>
+
+            {renewMaxAdditional > 0 && (
+              <div className="space-y-3">
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
+                  <p className="text-sm font-semibold text-emerald-800">
+                    {renewSelectedPlan.name} — hasta {renewSelectedPlan.max_members} personas
+                  </p>
+                  <p className="text-xs text-emerald-600 mt-0.5">
+                    Titular: <strong>{actionModal.sub.user?.first_name} {actionModal.sub.user?.last_name}</strong>
+                    &nbsp;·&nbsp; Adicionales: {renewAdditionalMembers.length} / {renewMaxAdditional}
+                  </p>
+                </div>
+
+                {renewAdditionalMembers.length < renewMaxAdditional && (
+                  <div className="relative">
+                    <Svg path={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input type="text" value={renewMemberSearch} onChange={e => setRenewMemberSearch(e.target.value)}
+                      placeholder="Buscar miembro adicional..."
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  </div>
+                )}
+
+                {filteredRenewMembers.length > 0 && (
+                  <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-100 rounded-xl p-1">
+                    {filteredRenewMembers.map(u => (
+                      <button key={u.id} onClick={() => { setRenewAdditionalMembers(prev => [...prev, u]); setRenewMemberSearch(''); }}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-emerald-50 transition text-left">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-bold text-emerald-700">{u.first_name?.[0]}{u.last_name?.[0]}</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{u.first_name} {u.last_name}</p>
+                          <p className="text-xs text-gray-400">{u.document_number}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {renewAdditionalMembers.length > 0 && (
+                  <div className="space-y-1.5">
+                    {renewAdditionalMembers.map((m, idx) => (
+                      <div key={m.id} className="flex items-center gap-3 p-2.5 bg-gray-50 rounded-xl">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-400 to-emerald-400 flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-bold text-white">{m.first_name?.[0]}{m.last_name?.[0]}</span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-800 flex-1">{m.first_name} {m.last_name}</p>
+                        <button onClick={() => setRenewAdditionalMembers(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-gray-400 hover:text-red-500 transition">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Descuento</label>
               <input type="number" min="0" step="100" value={renewDiscount} onChange={e => setRenewDiscount(e.target.value)}
@@ -1015,9 +1265,12 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={closeAction} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">Volver</button>
-              <button onClick={handleAction} disabled={actionLoading || !renewPlanId}
+              <button onClick={handleAction}
+                disabled={actionLoading || !renewPlanId || (renewMaxAdditional > 0 && renewAdditionalMembers.length < renewMaxAdditional)}
                 className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
-                {actionLoading ? 'Procesando...' : 'Renovar'}
+                {actionLoading ? 'Procesando...' : renewMaxAdditional > 0 && renewAdditionalMembers.length < renewMaxAdditional
+                  ? `Faltan ${renewMaxAdditional - renewAdditionalMembers.length} persona${renewMaxAdditional - renewAdditionalMembers.length > 1 ? 's' : ''}`
+                  : 'Renovar'}
               </button>
             </div>
           </div>

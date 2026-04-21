@@ -16,10 +16,16 @@ func NewPlanUseCase(planRepo repositories.PlanRepository) *PlanUseCase {
 	}
 }
 
-func (uc *PlanUseCase) CreatePlan(gymID uuid.UUID, name, description string, durationDays int, price, enrollmentFee float64) (*entities.Plan, error) {
+func (uc *PlanUseCase) CreatePlan(gymID uuid.UUID, name, description string, durationDays int, price, enrollmentFee float64, maxMembers int, billingMode string) (*entities.Plan, error) {
 	plan := entities.NewPlan(gymID, name, durationDays, price)
 	plan.Description = description
 	plan.EnrollmentFee = enrollmentFee
+	if maxMembers > 0 {
+		plan.MaxMembers = maxMembers
+	}
+	if billingMode == "30_DAYS" || billingMode == "CALENDAR_MONTH" {
+		plan.BillingMode = entities.BillingMode(billingMode)
+	}
 
 	if err := uc.planRepo.Create(plan); err != nil {
 		return nil, err

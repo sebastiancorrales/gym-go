@@ -63,7 +63,7 @@ type User struct {
 
 // NewUser creates a new user
 func NewUser(gymID uuid.UUID, email, firstName, lastName string, role UserRole) *User {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	return &User{
 		ID:            uuid.New(),
 		GymID:         gymID,
@@ -114,7 +114,7 @@ func (u *User) ResetFailedAttempts() {
 
 // UpdateLastLogin updates the last login timestamp
 func (u *User) UpdateLastLogin() {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	u.LastLogin = &now
 }
 

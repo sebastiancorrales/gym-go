@@ -7,7 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
+	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
+	"github.com/sebastiancorrales/gym-go/pkg/timeutil"
 )
 
 type SubscriptionHandler struct {
@@ -84,7 +87,8 @@ func (h *SubscriptionHandler) Create(c *gin.Context) {
 		}
 	}
 
-	subscription, err := h.subscriptionUseCase.CreateSubscription(userID, planID, gymID, req.Discount, req.PaymentMethod, additionalIDs)
+	loc := middleware.GetGymLocation(c)
+	subscription, err := h.subscriptionUseCase.CreateSubscription(userID, planID, gymID, req.Discount, req.PaymentMethod, additionalIDs, loc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -101,7 +105,39 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 		return
 	}
 
-	subscriptions, err := h.subscriptionUseCase.ListSubscriptionsByGym(gymID, 500, 0)
+	loc := middleware.GetGymLocation(c)
+	parseDate := func(s string) *time.Time {
+		if s == "" {
+			return nil
+		}
+		t, err := timeutil.ParseLocalDate(s, loc)
+		if err != nil {
+			return nil
+		}
+		return &t
+	}
+	parseDateEndOfDay := func(s string) *time.Time {
+		if s == "" {
+			return nil
+		}
+		t, err := timeutil.ParseLocalDateEndOfDay(s, loc)
+		if err != nil {
+			return nil
+		}
+		return &t
+	}
+
+	filter := repositories.SubscriptionFilter{
+		Status:      c.Query("status"),
+		CreatedFrom: c.Query("created_from"),
+		CreatedTo:   c.Query("created_to"),
+		StartFrom:   parseDate(c.Query("start_from")),
+		StartTo:     parseDateEndOfDay(c.Query("start_to")),
+		EndFrom:     parseDate(c.Query("end_from")),
+		EndTo:       parseDateEndOfDay(c.Query("end_to")),
+	}
+
+	subscriptions, err := h.subscriptionUseCase.ListSubscriptionsWithFilters(gymID, filter, 500, 0)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list subscriptions"})
 		return
@@ -163,9 +199,10 @@ func (h *SubscriptionHandler) Renew(c *gin.Context) {
 		return
 	}
 	var req struct {
-		PlanID        string  `json:"plan_id" binding:"required"`
-		Discount      float64 `json:"discount"`
-		PaymentMethod string  `json:"payment_method"`
+		PlanID            string   `json:"plan_id" binding:"required"`
+		Discount          float64  `json:"discount"`
+		PaymentMethod     string   `json:"payment_method"`
+		AdditionalMembers []string `json:"additional_members"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -176,11 +213,18 @@ func (h *SubscriptionHandler) Renew(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid plan ID"})
 		return
 	}
+	additionalIDs := make([]uuid.UUID, 0, len(req.AdditionalMembers))
+	for _, idStr := range req.AdditionalMembers {
+		if uid, err := uuid.Parse(idStr); err == nil {
+			additionalIDs = append(additionalIDs, uid)
+		}
+	}
 	gymIDStr := c.GetString("gym_id")
 	gymID, _ := uuid.Parse(gymIDStr)
-	newSub, err := h.subscriptionUseCase.RenewSubscription(id, planID, gymID, req.Discount, req.PaymentMethod)
+	renewLoc := middleware.GetGymLocation(c)
+	newSub, err := h.subscriptionUseCase.RenewSubscription(id, planID, gymID, req.Discount, req.PaymentMethod, additionalIDs, renewLoc)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to renew subscription"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, newSub)
@@ -273,6 +317,51 @@ func (h *SubscriptionHandler) Unfreeze(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Subscription unfrozen"})
+}
+
+func (h *SubscriptionHandler) Report(c *gin.Context) {
+	gymIDStr := c.GetString("gym_id")
+	gymID, err := uuid.Parse(gymIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid gym ID"})
+		return
+	}
+
+	fromStr := c.Query("from")
+	toStr := c.Query("to")
+	if fromStr == "" || toStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Parámetros 'from' y 'to' requeridos (YYYY-MM-DD)"})
+		return
+	}
+
+	subscriptions, err := h.subscriptionUseCase.GetSubscriptionReport(gymID, fromStr, toStr)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al generar reporte"})
+		return
+	}
+
+	response := make([]*SubscriptionResponse, 0, len(subscriptions))
+	for _, sub := range subscriptions {
+		subResp := &SubscriptionResponse{Subscription: sub}
+		if user, err := h.userUseCase.GetUserByID(sub.UserID); err == nil {
+			subResp.User = user
+		}
+		if plan, err := h.planUseCase.GetPlanByID(sub.PlanID); err == nil {
+			subResp.Plan = plan
+		}
+		if members, err := h.subscriptionUseCase.GetSubscriptionMembers(sub.ID); err == nil && len(members) > 0 {
+			for _, m := range members {
+				info := MemberInfo{UserID: m.UserID, IsPrimary: m.IsPrimary}
+				if u, err := h.userUseCase.GetUserByID(m.UserID); err == nil {
+					info.User = u
+				}
+				subResp.Members = append(subResp.Members, info)
+			}
+		}
+		response = append(response, subResp)
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func (h *SubscriptionHandler) GetStats(c *gin.Context) {

@@ -29,7 +29,7 @@ export async function apiFetch(endpoint, options = {}) {
     
     // Verificar si el token expiró o es inválido
     if (response.status === 401) {
-      const data = await response.json().catch(() => ({}));
+      const data = await response.clone().json().catch(() => ({}));
       
       // Si el error es de token inválido o expirado, limpiar y redirigir
       if (data.error && (

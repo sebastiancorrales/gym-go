@@ -6,6 +6,7 @@ import Toast from './Toast';
 import ConfirmDialog from './ConfirmDialog';
 import { fmt } from '../utils/currency';
 import MemberProfile from './MemberProfile';
+import PlanSelectorGrid from './PlanSelectorGrid';
 
 const FINGER_OPTIONS = [
   { value: 'right_index', label: 'Índice Derecho' },
@@ -20,8 +21,6 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
   const [users, setUsers] = useState([]);
   const [plans, setPlans] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 15;
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -29,8 +28,12 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
   // Plan step after creating a member
   const [createdUser, setCreatedUser] = useState(null);
   const [showPlanStep, setShowPlanStep] = useState(false);
-  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [planStep, setPlanStep] = useState(1); // 1: select plan, 2: group members
+  const [selectedPlan, setSelectedPlan] = useState(null);
   const [assigningPlan, setAssigningPlan] = useState(false);
+  const [planPaymentMethod, setPlanPaymentMethod] = useState('EFECTIVO');
+  const [planAdditionalMembers, setPlanAdditionalMembers] = useState([]);
+  const [planMemberSearch, setPlanMemberSearch] = useState('');
 
   // Fingerprint state
   const [enrollingUser, setEnrollingUser] = useState(null);
@@ -251,7 +254,9 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
         fetchUsers();
         // Mostrar paso opcional de plan
         setCreatedUser(newUser);
-        setSelectedPlanId('');
+        setSelectedPlan(null);
+        setPlanStep(1);
+        setPlanAdditionalMembers([]);
         setShowPlanStep(true);
       } else {
         const err = await response.json();
@@ -264,25 +269,38 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
     }
   };
 
+  const closePlanStep = () => {
+    setShowPlanStep(false);
+    setCreatedUser(null);
+    setSelectedPlan(null);
+    setPlanStep(1);
+    setPlanAdditionalMembers([]);
+    setPlanMemberSearch('');
+    setPlanPaymentMethod('EFECTIVO');
+  };
+
   const handleAssignPlan = async () => {
-    if (!selectedPlanId || !createdUser) return;
+    if (!selectedPlan || !createdUser) return;
     setAssigningPlan(true);
     try {
       const res = await api.post('/subscriptions', {
         user_id: createdUser.id,
-        plan_id: selectedPlanId,
-        discount: 0
+        plan_id: selectedPlan.id,
+        discount: 0,
+        payment_method: planPaymentMethod,
+        additional_members: planAdditionalMembers.map(m => m.id),
       });
       if (!res.ok) {
         const err = await res.json();
         setToast({ message: err.error || 'Error al asignar plan', type: 'error' });
+      } else {
+        setToast({ message: 'Plan asignado exitosamente', type: 'success' });
+        closePlanStep();
       }
     } catch (err) {
       setToast({ message: err.message || 'Error al asignar plan', type: 'error' });
     } finally {
       setAssigningPlan(false);
-      setShowPlanStep(false);
-      setCreatedUser(null);
     }
   };
 
@@ -443,8 +461,6 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
         (u.email || '').toLowerCase().includes(searchQuery.toLowerCase())
       )
     : users;
-  const totalPages = Math.ceil(filteredUsers.length / PAGE_SIZE);
-  const paginatedUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="p-6">
@@ -522,67 +538,175 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
       )}
 
       {/* ── Modal opcional: asignar plan tras registro ── */}
-      {showPlanStep && createdUser && (
-        <div className="fixed inset-0 bg-black/25 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl ring-1 ring-black/5 max-w-sm w-full p-6">
-            <div className="text-center mb-5">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-base font-semibold text-gray-900">
-                ¡{createdUser.first_name} registrado!
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">¿Deseas asignarle un plan ahora?</p>
-            </div>
+      {showPlanStep && createdUser && (() => {
+        const maxAdditional = selectedPlan ? (selectedPlan.max_members || 1) - 1 : 0;
+        const filteredPlanMembers = planMemberSearch.trim().length >= 2
+          ? users.filter(u =>
+              u.id !== createdUser.id &&
+              !planAdditionalMembers.some(m => m.id === u.id) &&
+              (`${u.first_name} ${u.last_name}`.toLowerCase().includes(planMemberSearch.toLowerCase()) ||
+               (u.document_number || '').toLowerCase().includes(planMemberSearch.toLowerCase()))
+            )
+          : [];
 
-            {plans.length > 0 ? (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  {plans.map(plan => (
-                    <label key={plan.id}
-                      className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition
-                        ${selectedPlanId === plan.id ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                      <div className="flex items-center gap-3">
-                        <input type="radio" name="plan" value={plan.id}
-                          checked={selectedPlanId === plan.id}
-                          onChange={() => setSelectedPlanId(plan.id)}
-                          className="accent-emerald-600" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-800">{plan.name}</p>
-                          <p className="text-xs text-gray-400">{plan.duration_days} días</p>
-                        </div>
+        return (
+          <div className="fixed inset-0 bg-black/25 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl ring-1 ring-black/5 max-w-2xl w-full p-6">
+
+              {/* Header */}
+              <div className="text-center mb-5">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-base font-semibold text-gray-900">¡{createdUser.first_name} registrado!</h3>
+                <p className="text-sm text-gray-500 mt-1">¿Deseas asignarle un plan ahora?</p>
+              </div>
+
+              {/* Paso 1: Seleccionar plan */}
+              {planStep === 1 && (
+                <>
+                  <div className="max-h-[50vh] overflow-y-auto pr-1">
+                    <PlanSelectorGrid plans={plans} selectedPlan={selectedPlan} onSelect={p => { setSelectedPlan(p); setPlanAdditionalMembers([]); }} />
+                  </div>
+                  <div className="flex gap-2 pt-4">
+                    <button onClick={closePlanStep}
+                      className="flex-1 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+                      Omitir
+                    </button>
+                    <button
+                      disabled={!selectedPlan}
+                      onClick={() => maxAdditional > 0 ? setPlanStep(2) : setPlanStep(3)}
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:from-emerald-600 hover:to-cyan-600">
+                      Continuar
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Paso 2: Miembros adicionales (solo planes grupales) */}
+              {planStep === 2 && selectedPlan && (
+                <>
+                  <div className="space-y-4">
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                      <p className="text-sm font-semibold text-emerald-800">
+                        {selectedPlan.name} — hasta {selectedPlan.max_members} personas
+                      </p>
+                      <p className="text-xs text-emerald-600 mt-0.5">
+                        Titular: <strong>{createdUser.first_name} {createdUser.last_name}</strong>
+                        &nbsp;·&nbsp; Adicionales: {planAdditionalMembers.length} / {maxAdditional}
+                      </p>
+                    </div>
+
+                    {planAdditionalMembers.length < maxAdditional && (
+                      <input
+                        type="text"
+                        value={planMemberSearch}
+                        onChange={e => setPlanMemberSearch(e.target.value)}
+                        placeholder="Buscar miembro adicional por nombre o documento..."
+                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    )}
+
+                    {filteredPlanMembers.length > 0 && (
+                      <div className="max-h-48 overflow-y-auto space-y-1 border border-gray-100 rounded-xl p-1">
+                        {filteredPlanMembers.map(u => (
+                          <button key={u.id} type="button"
+                            onClick={() => { setPlanAdditionalMembers(prev => [...prev, u]); setPlanMemberSearch(''); }}
+                            className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition text-left">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center flex-shrink-0">
+                              <span className="text-xs font-bold text-emerald-700">{u.first_name?.[0]}{u.last_name?.[0]}</span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">{u.first_name} {u.last_name}</p>
+                              <p className="text-xs text-gray-400">{u.document_number}</p>
+                            </div>
+                          </button>
+                        ))}
                       </div>
-                      <span className="text-sm font-semibold text-gray-700">
-                        {fmt(plan.price)}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <button onClick={() => { setShowPlanStep(false); setCreatedUser(null); }}
-                    className="flex-1 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
-                    Omitir
-                  </button>
-                  <button onClick={handleAssignPlan} disabled={!selectedPlanId || assigningPlan}
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:from-emerald-600 hover:to-cyan-600">
-                    {assigningPlan ? 'Asignando...' : 'Asignar Plan'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center space-y-3">
-                <p className="text-sm text-gray-500">No hay planes disponibles aún.</p>
-                <button onClick={() => { setShowPlanStep(false); setCreatedUser(null); }}
-                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200">
-                  Cerrar
-                </button>
-              </div>
-            )}
+                    )}
+
+                    {planAdditionalMembers.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Miembros del grupo</p>
+                        {planAdditionalMembers.map((m, idx) => (
+                          <div key={m.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-emerald-400 flex items-center justify-center flex-shrink-0">
+                              <span className="text-xs font-bold text-white">{m.first_name?.[0]}{m.last_name?.[0]}</span>
+                            </div>
+                            <p className="text-sm font-medium text-gray-800 flex-1">{m.first_name} {m.last_name}</p>
+                            <button type="button" onClick={() => setPlanAdditionalMembers(prev => prev.filter((_, i) => i !== idx))}
+                              className="text-gray-400 hover:text-red-500 transition">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 pt-4">
+                    <button onClick={() => setPlanStep(1)}
+                      className="flex-1 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+                      Atrás
+                    </button>
+                    <button
+                      disabled={planAdditionalMembers.length < maxAdditional}
+                      onClick={() => setPlanStep(3)}
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:from-emerald-600 hover:to-cyan-600">
+                      {planAdditionalMembers.length < maxAdditional
+                        ? `Faltan ${maxAdditional - planAdditionalMembers.length} persona${maxAdditional - planAdditionalMembers.length > 1 ? 's' : ''}`
+                        : 'Continuar'}
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Paso 3: Método de pago y confirmar */}
+              {planStep === 3 && selectedPlan && (
+                <>
+                  <div className="space-y-4">
+                    <div className="p-4 bg-gray-50 rounded-xl flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{selectedPlan.name}</p>
+                        <p className="text-xs text-gray-400">{selectedPlan.duration_days} días · {selectedPlan.max_members > 1 ? `${planAdditionalMembers.length + 1} personas` : '1 persona'}</p>
+                      </div>
+                      <p className="text-lg font-extrabold text-gray-900">${selectedPlan.price?.toLocaleString('es-CO')}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Método de pago</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[['EFECTIVO','💵','Efectivo'],['TRANSFERENCIA','📲','Transferencia'],['OTRO','💳','Otro']].map(([val, icon, label]) => (
+                          <button key={val} type="button" onClick={() => setPlanPaymentMethod(val)}
+                            className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all text-xs font-medium ${planPaymentMethod === val ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-gray-100 text-gray-500 hover:border-gray-200'}`}>
+                            <span className="text-base">{icon}</span>{label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-4">
+                    <button onClick={() => setPlanStep(maxAdditional > 0 ? 2 : 1)}
+                      className="flex-1 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
+                      Atrás
+                    </button>
+                    <button onClick={handleAssignPlan} disabled={assigningPlan}
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:from-emerald-600 hover:to-cyan-600">
+                      {assigningPlan ? 'Asignando...' : 'Confirmar y asignar'}
+                    </button>
+                  </div>
+                </>
+              )}
+
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Formulario de EDICIÓN — wizard 2 pasos ── */}
       {showForm && editingUser && (
@@ -716,7 +840,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
             type="text"
             placeholder="Buscar por nombre, documento o email..."
             value={searchQuery}
-            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+            onChange={e => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           />
         </div>
@@ -761,7 +885,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                   {searchQuery ? `Sin resultados para "${searchQuery}"` : 'No hay usuarios registrados'}
                 </td>
               </tr>
-            ) : paginatedUsers.map((user) => (
+            ) : filteredUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
@@ -870,23 +994,6 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
             ))}
           </tbody>
         </table>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100">
-            <p className="text-xs text-gray-500">
-              {filteredUsers.length} resultados — Página {page} de {totalPages}
-            </p>
-            <div className="flex gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                Anterior
-              </button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Fingerprint Enrollment Modal */}

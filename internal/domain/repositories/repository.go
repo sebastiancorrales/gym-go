@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 )
@@ -39,6 +41,20 @@ type PlanRepository interface {
 	List(limit, offset int) ([]*entities.Plan, error)
 }
 
+// SubscriptionFilter defines optional server-side filters for listing subscriptions.
+// Status can be a single value (e.g. "ACTIVE") or the meta-value "INACTIVE"
+// which maps to EXPIRED, CANCELLED and SUSPENDED.
+// CreatedFrom/CreatedTo filter by the local-date "date" column (YYYY-MM-DD strings).
+type SubscriptionFilter struct {
+	Status      string
+	CreatedFrom string
+	CreatedTo   string
+	StartFrom   *time.Time
+	StartTo     *time.Time
+	EndFrom     *time.Time
+	EndTo       *time.Time
+}
+
 // SubscriptionRepository defines subscription repository interface
 type SubscriptionRepository interface {
 	Create(subscription *entities.Subscription) error
@@ -46,6 +62,8 @@ type SubscriptionRepository interface {
 	FindByUserID(userID uuid.UUID) ([]*entities.Subscription, error)
 	FindActiveByUserID(userID uuid.UUID) (*entities.Subscription, error)
 	FindByGymID(gymID uuid.UUID, limit, offset int) ([]*entities.Subscription, error)
+	FindByGymIDWithFilters(gymID uuid.UUID, filter SubscriptionFilter, limit, offset int) ([]*entities.Subscription, error)
+	FindByGymIDAndDateRange(gymID uuid.UUID, from, to string) ([]*entities.Subscription, error)
 	Update(subscription *entities.Subscription) error
 	Delete(id uuid.UUID) error
 	CountActiveByGymID(gymID uuid.UUID) (int64, error)
@@ -84,8 +102,11 @@ type AccessLogRepository interface {
 	FindByID(id uuid.UUID) (*entities.AccessLog, error)
 	FindByUserID(userID uuid.UUID, limit, offset int) ([]*entities.AccessLog, error)
 	FindByGymID(gymID uuid.UUID, limit, offset int) ([]*entities.AccessLog, error)
-	FindByDateRange(gymID uuid.UUID, from, to string) ([]*entities.AccessLog, error)
-	CountTodayByGymID(gymID uuid.UUID) (int64, error)
+	// FindByDateRange devuelve los registros cuyo access_time esté en [from, to] UTC.
+	FindByDateRange(gymID uuid.UUID, from, to time.Time) ([]*entities.AccessLog, error)
+	// CountTodayByGymID cuenta registros de hoy usando la zona horaria loc para
+	// determinar los límites del día.
+	CountTodayByGymID(gymID uuid.UUID, loc *time.Location) (int64, error)
 }
 
 // DeviceRepository defines device repository interface
@@ -95,6 +116,19 @@ type DeviceRepository interface {
 	FindByGymID(gymID uuid.UUID) ([]*entities.Device, error)
 	FindActiveByGymID(gymID uuid.UUID) ([]*entities.Device, error)
 	Update(device *entities.Device) error
+	Delete(id uuid.UUID) error
+}
+
+// NotificationRecipientRepository manages configurable email recipients per gym and
+// notification type. Multiple recipients can be active for the same (gym, type) pair.
+type NotificationRecipientRepository interface {
+	Create(recipient *entities.NotificationRecipient) error
+	FindByID(id uuid.UUID) (*entities.NotificationRecipient, error)
+	// FindByGymID returns all recipients for a gym regardless of type or status.
+	FindByGymID(gymID uuid.UUID) ([]*entities.NotificationRecipient, error)
+	// FindActiveByGymIDAndType returns only active recipients for a given type.
+	FindActiveByGymIDAndType(gymID uuid.UUID, notifType entities.NotificationType) ([]*entities.NotificationRecipient, error)
+	Update(recipient *entities.NotificationRecipient) error
 	Delete(id uuid.UUID) error
 }
 

@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
@@ -25,9 +24,9 @@ type SaleRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*entities.Sale, error)
 	GetAll(ctx context.Context) ([]entities.Sale, error)
 	Update(ctx context.Context, sale *entities.Sale) error
-	GetByDateRange(ctx context.Context, startDate, endDate time.Time, userID *uuid.UUID) ([]entities.Sale, error)
-	GetSalesReport(ctx context.Context, startDate, endDate time.Time, userID *uuid.UUID) ([]SaleReport, error)
-	GetSalesReportByProduct(ctx context.Context, startDate, endDate time.Time) ([]SaleProductReport, error)
+	GetByDateRange(ctx context.Context, startDate, endDate string, userID *uuid.UUID) ([]entities.Sale, error)
+	GetSalesReport(ctx context.Context, startDate, endDate string, userID *uuid.UUID) ([]SaleReport, error)
+	GetSalesReportByProduct(ctx context.Context, startDate, endDate string) ([]SaleProductReport, error)
 }
 
 // SaleDetailRepository defines the interface for sale detail data operations

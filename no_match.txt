@@ -1,0 +1,467 @@
+[2025-12-01T21:10:17] plan=pareja docs=['1010020800', '1053780729']
+  Faltantes: ['1053780729 (sin suscripcion)']
+  Raw: Valeria estrella | Ana Sofía jagua | 1010020800 | 1053780729 | Mensualidad pareja | 130.000
+
+[2025-12-01T21:11:20] plan=pareja docs=['1018446580', '1061368165']
+  Faltantes: ['1061368165 (sin suscripcion)']
+  Raw: Milena capera | Cristian Ramírez | 1018446580 | 1061368165 | 3147585300 | Mensualidad pareja | 130.000
+
+[2025-12-01T21:12:55] plan=mensual docs=['1053816127', '1053836076', '1053826990']
+  Faltantes: ['1053826990 (no en BD)']
+  Raw: Johana palacio | Yenny Ospina | Luisa López | 1053816127 | 1053836076 | 1053826990 | Mensualidad pana | 140.000
+
+[2025-12-01T22:14:10] plan=None docs=['2025']
+  Faltantes: ['2025 (no en BD)']
+  Raw: 1 diciembre 2025 | Caja final 64000 | Base 53000
+
+[2025-12-02T19:53:29] plan=mensual docs=['1055752422', '1002635403']
+  Faltantes: ['1002635403 (sin suscripcion)']
+  Raw: Estefanía Bedoya | Jacob cifuentes | 1055752422 | 1002635403 | 3234111208 | Mensualidad pana | 130.000
+
+[2025-12-02T20:54:22] plan=panas docs=['1002656066', '1054398748', '1054856261']
+  Faltantes: ['1054398748 (sin suscripcion)', '1054856261 (sin suscripcion)']
+  Raw: Juan Felipe Jiménez | 1002656066 | 3234891807 | Yeison Ospina | 1054398748 | 3117108696 | Brayan morales | 1054856261 | 3225584352 | Mensualidad panas
+
+[2025-12-02T21:21:52] plan=panas docs=['11447995']
+  Faltantes: ['11447995 (sin suscripcion)']
+  Raw: Juan David Ramírez | 1002635000 | 3122343090 | Adriana Grajales | 3400100 | 3023612559 | Alexander duque | 11447995 | 3146312226 | Mensualidad panas
+
+[2025-12-03T10:43:32] plan=mensual docs=['30404166']
+  Faltantes: ['30404166 (no en BD)']
+  Raw: Laura Muñoz | 30404166 | 3127739060 | Mensualidad | Canje espejos
+
+[2025-12-03T22:03:38] plan=panas docs=['1002609464', '1005025342']
+  Faltantes: ['1005025342 (sin suscripcion)']
+  Raw: Natalia Ospina | Mayra rivera | 1002609464 | 1005025342 | Mensualidad panas | 130.000
+
+[2025-12-04T17:32:34] plan=panas docs=['1002553865', '1193235415']
+  Faltantes: ['1193235415 (sin suscripcion)']
+  Raw: Miguel Ángel cardenas | Cristian álzate | 1002553865 | 1193235415 | Mesialidad panas | Dos pagaron 46.000 | Efectivo  <Se editó este mensaje.>
+
+[2025-12-04T17:57:46] plan=pareja docs=['1149184026', '1055757643']
+  Faltantes: ['1055757643 (sin suscripcion)']
+  Raw: Leidy rojas Gaviria | Tatiana Muñoz | 1149184026 | 1055757643 | Mensualidad pareja | 130.000 | Efectivo
+
+[2025-12-04T22:05:05] plan=panas docs=['1053833812', '1053824380']
+  Faltantes: ['1053824380 (sin suscripcion)']
+  Raw: Ana María quintero | 1053833812 | 3207998430 | Alejandro torres | 1053824380 | 3102815134 | Panas | Mensualidad | 93000 | Efectivo
+
+[2025-12-05T11:06:25] plan=pareja docs=['1010120390', '1054874070']
+  Faltantes: ['1054874070 (sin suscripcion)']
+  Raw: Edward Osorio | 1010120390 | 3205095223 | Juan José Laverde | 1054874070 | 3248266909 | Plan pareja | 13000 | Efectivo  <Se editó este mensaje.>
+
+[2025-12-06T08:57:00] plan=panas docs=['1144199516', '1007831319']
+  Faltantes: ['1144199516 (no en BD)', '1007831319 (sin suscripcion)']
+  Raw: Valentina urquijo | 1144199516 | 3216479639 | Juana Valeria Hernández Ramírez | 1007831319 | 3002553941 | Panas | 130000 | Efectivo
+
+[2025-12-09T09:46:27] plan=pareja docs=['1055360147', '1059811309']
+  Faltantes: ['1055360147 (sin suscripcion)', '1059811309 (sin suscripcion)']
+  Raw: Lauren ramos | 1055360147 | 3147167567 | Julieth Henao | 1059811309 | 3227420156 | Parejas | 130000 | Nequi
+
+[2025-12-10T21:04:53] plan=None docs=['1054399356', '2773087', '1002800345', '7473569', '1053847909']
+  Faltantes: ['2773087 (no en BD)', '1002800345 (sin suscripcion)', '7473569 (no en BD)', '1053847909 (sin suscripcion)']
+  Raw: Angie Salome Marin Marulanda | TI: 1054399356 | TEL: 305 2773087 | Angy Paola Quintero Marin | CC: 1002800345 | Tel: 312 7473569 | Hector Julian Marin
+
+[2025-12-11T21:42:17] plan=mensual docs=['1053870873', '1053851911', '1053870875']
+  Faltantes: ['1053851911 (sin suscripcion)', '1053870875 (sin suscripcion)']
+  Raw: Stefania herrera | Laura herrera | Mauricio Marín | 1053870873 | 1053851911 | 1053870875 | Mensualidad pana | 140.000
+
+[2025-12-11T21:43:14] plan=pareja docs=['1007233702', '1055750967']
+  Faltantes: ['1055750967 (sin suscripcion)']
+  Raw: Yeferson lopez | Mario cano | 1007233702 | 1055750967 | 3222397856 | 3214140664 | Pareja | 130.000
+
+[2025-12-11T21:51:35] plan=None docs=['1053813327']
+  Faltantes: ['1053813327 (no en BD)']
+  Raw: Daniel Felipe Marin Marulanda | Cc: 1053813327 | Tel: 3124693182 | 60000 | Estos 4 quedan en 200.000
+
+[2025-12-15T16:10:43] plan=pareja docs=['30334548', '1055758657']
+  Faltantes: ['1055758657 (sin suscripcion)']
+  Raw: Patricia Hernández | Sarita valencia | 30334548 | 1055758657 | 3116414284 | Mensualidad pareja | 130.000 | Efectivo
+
+[2025-12-15T18:56:25] plan=pareja docs=['30239801', '1053858453']
+  Faltantes: ['1053858453 (no en BD)']
+  Raw: Marcela Hurtado | Yeimi Martínez | 30239801 | 1053858453 | Mensualidad pareja | 65.000 efectivo | 65.000 nequi
+
+[2025-12-16T05:38:45] plan=pareja docs=['1053869678', '1052858046']
+  Faltantes: ['1052858046 (sin suscripcion)']
+  Raw: Juan Diego gallón | 1053869678 | 3205353758 | Manuela Trujillo | 1052858046 | 3107238041 | Pareja | 130000 | Efectivo
+
+[2025-12-16T18:56:31] plan=pareja docs=['1002866048', '314272351', '1002800715']
+  Faltantes: ['314272351 (no en BD)', '1002800715 (sin suscripcion)']
+  Raw: Mayra Alexandra Osorio | 1002866048 | 314272351 | Juan David Muñoz | 1002800715 | 3005372819 | Parejas | 130000 | Nequi
+
+[2025-12-17T09:59:30] plan=pareja docs=['1053773107', '1054876792']
+  Faltantes: ['1054876792 (sin suscripcion)']
+  Raw: Alexandra Aguirre | 1053773107 | 3003208371 | Martina rivera | 1054876792 | 3003208371 | Pareja | 130000 | Nequi
+
+[2025-12-22T10:28:20] plan=pareja docs=['1053863795', '1053831252']
+  Faltantes: ['1053831252 (sin suscripcion)']
+  Raw: Yulieth López | 1053863795 | 3145353376 | Tania Osorio | 1053831252 | 3145639143 | Parejas | 130000 | Nequi
+
+[2026-01-02T17:58:21] plan=quincena docs=['352055801']
+  Faltantes: ['352055801 (no en BD)']
+  Raw: Valeria Cortez | 352055801 | Quincena | 40.000
+
+[2026-01-05T11:36:07] plan=mensual docs=['1053832492']
+  Faltantes: ['1053832492 (no en BD)']
+  Raw: Orlando idarraga | 1053832492 | 3185294991 | Mensualidad | 70000 | Nequi
+
+[2026-01-05T14:52:07] plan=pareja docs=['1007233638', '1038803495']
+  Faltantes: ['1038803495 (sin suscripcion)']
+  Raw: Mónica rojas | 1007233638 | 3052883037 | Mauricio castillo | 1038803495 | 3225867611 | Pareja | 130000 | Nequi
+
+[2026-01-05T17:48:18] plan=mensual docs=['1018446580', '1061367165']
+  Faltantes: ['1061367165 (no en BD)']
+  Raw: Milena Capera | 1018446580 | Cristian Ramírez | 1061367165 | Renuevan mensualidad | 130.000 | Nequi  <Se editó este mensaje.>
+
+[2026-01-05T20:43:11] plan=panas docs=['1002633306', '1053816139']
+  Faltantes: ['1053816139 (no en BD)']
+  Raw: Johan Tovar | 1002633306 | 3146649462 | Miguel menjura | 1053816139 | 3218691669 | Mensulidad panas | 130.000 | Nequi
+
+[2026-01-06T05:26:30] plan=pareja docs=['1007231892', '1054861751']
+  Faltantes: ['1054861751 (sin suscripcion)']
+  Raw: María Fernanda abadía | 1007231892 | 3206300166 | Juliana Marulanda | 1054861751 | 3137078917 | Parejas | 130000 | Efectivo
+
+[2026-01-06T06:53:50] plan=mensual docs=['30397044', '1053769693', '1054865480']
+  Faltantes: ['1053769693 (sin suscripcion)', '1054865480 (no en BD)']
+  Raw: Emili agudelo | 30397044 | 3113130551 | Angélica agudelo | 1053769693 | 3146619002 | Melani agudelo | 1054865480 | 3105888470 | Mensualidad
+
+[2026-01-06T09:16:02] plan=mensual docs=['1084791763']
+  Faltantes: ['1084791763 (no en BD)']
+  Raw: Dinesa Vargas | 1084791763 | 3172368719 | Mensualidad | 60000 | Nequi
+
+[2026-01-06T09:39:18] plan=mensual docs=['5998708', '1054881276']
+  Faltantes: ['5998708 (no en BD)']
+  Raw: Jacobo Botero | 310 5998708 | 1054881276 | Mensualidad | efectivo | 70000
+
+[2026-01-07T07:40:47] plan=mensual docs=['1053811908']
+  Faltantes: ['1053811908 (no en BD)']
+  Raw: Jonh Edison Villamil | 1053811908 | 3104402914 | Mensualidad | 70000 | Nequi
+
+[2026-01-13T05:58:48] plan=pareja docs=['1053847885', '1002544634']
+  Faltantes: ['1002544634 (sin suscripcion)']
+  Raw: Angélica Roma Marín | 1053847885 | 3012628792 | Marlén Dayana | 1002544634 | 3151249738 | Parejas | 130000 | Efectivo
+
+[2026-01-13T18:00:47] plan=pareja docs=['1056121415', '1054398119']
+  Faltantes: ['1054398119 (sin suscripcion)']
+  Raw: Juan Miguel grisales | 1056121415 | 3106060423 | Ángel David Vásquez castaño | 1054398119 | 3193899046 | Pareja | Efectivo
+
+[2026-01-14T08:00:07] plan=pareja docs=['1056124467', '1057121431']
+  Faltantes: ['1057121431 (sin suscripcion)']
+  Raw: Sarita Carmona Henao | 1056124467 | 3147982741 | María José Carmona Henao | 1057121431 | 3126526352 | Pareja | Efectivo
+
+[2026-01-14T15:16:15] plan=trio docs=['1053820527', '1054399992', '1055756958']
+  Faltantes: ['1054399992 (sin suscripcion)', '1055756958 (sin suscripcion)']
+  Raw: Nicol Manuela zapata | 1053820527 | 3045492565 | Melani monsalve | 1054399992 | 3104459114 | Jhonatan Darío izado | 1055756958 | 3225723875 | Trío
+
+[2026-01-15T08:58:28] plan=mensual docs=['1053793330']
+  Faltantes: ['1053793330 (no en BD)']
+  Raw: Katerine Figeroa | 1053793330 | 3217233294 | Mensualidad | Nequi
+
+[2026-01-15T20:09:17] plan=pareja docs=['1053807123', '1053807124']
+  Faltantes: ['1053807124 (sin suscripcion)']
+  Raw: Tatiana acero | 1053807123 | 3157340150 | Brandon Rodríguez | 1053807124 | 3122253619 | Mensulidad parejas | 130.000
+
+[2026-01-16T21:50:48] plan=None docs=['1053867896', '1054879520', '1053813085']
+  Faltantes: ['1054879520 (sin suscripcion)', '1053813085 (sin suscripcion)']
+  Raw: 3 personas: | María Camila quintero | 1053867896 | 3103319875 | Luisa Fernanda cortés | 1054879520 | 3184159750 | Diana Ríos | 1053813085 | 3127120893
+
+[2026-01-17T11:51:42] plan=None docs=['1054880094']
+  Faltantes: ['1054880094 (sin suscripcion)']
+  Raw: Incluido un más en 60 | Sergio Ciro | 1054880094 | 3215766363 | Efectivo
+
+[2026-01-19T10:00:38] plan=pareja docs=['1054865877', '1054867640']
+  Faltantes: ['1054867640 (sin suscripcion)']
+  Raw: Laura Sofía Durán | 1054865877 | 3002398253 | Sofía Ocampo | 1054867640 | 3145775106 | Pareja | 130000 | 79 en efectivo | 60 nequi
+
+[2026-01-19T10:10:40] plan=pareja docs=['1193555161', '1054857741']
+  Faltantes: ['1054857741 (sin suscripcion)']
+  Raw: Angélica María Cardona Rondon | 1193555161 | 3205511398 | María José coy Rondon | 1054857741 | 3217947798 | Pareja | 130000 | Efectivo
+
+[2026-01-19T15:10:12] plan=pareja docs=['109127407', '109127423']
+  Faltantes: ['109127423 (sin suscripcion)']
+  Raw: Pilar Carmona | 109127407 | 3144278386 | Estefanía Carmona | 109127423 | 3144278486 | Pareja | 20 de enero
+
+[2026-01-19T21:21:26] plan=mensual docs=['1053850344', '1055755902', '1002655972']
+  Faltantes: ['1053850344 (no en BD)', '1002655972 (no en BD)']
+  Raw: Ángela ciro Pérez | 1053850344 | 3146654842 | Sarita gallego | 1055755902 | 3215515583 | Santiago Ocampo | 1002655972 | 3003031114 | Mensulidad
+
+[2026-01-20T15:28:53] plan=panas docs=['1053848823', '54865430']
+  Faltantes: ['54865430 (sin suscripcion)']
+  Raw: Miyerlady Hernández | 1053848823 | 3134340466 | Juan Camilo Cortes | 54865430 | 3114045618 | Mensulidad amigos | 130.000
+
+[2026-01-21T14:46:14] plan=pareja docs=['1007231316', '1056126369']
+  Faltantes: ['1056126369 (sin suscripcion)']
+  Raw: Maria Camila Gutierrez | 1007231316 | 3205839551 | Isabella Gutiérrez | 1056126369 | Mensulidad | Pareja 130.000 efectivo
+
+[2026-01-21T17:37:26] plan=mensual docs=['1053820067', '1055758129', '1056127883', '1053807529']
+  Faltantes: ['1055758129 (sin suscripcion)', '1056127883 (sin suscripcion)', '1053807529 (sin suscripcion)']
+  Raw: Tatiana usma | 1053820067 | 3213081924 | Nicol Suárez | 1055758129 | 3146800649 | Sofía Benavides | 1056127883 | Leidy Jhoana moreno | 1053807529
+
+[2026-01-23T16:09:47] plan=mensual docs=['1055753549', '1059208220']
+  Faltantes: ['1059208220 (sin suscripcion)']
+  Raw: Alejandro Arango Garzón | 1055753549 | 3008236070 | Ana Cristina Garzón | 1059208220 | 3117327274 | Rigoberto conde | 3148121206 | Mensualidad 180.000
+
+[2026-01-26T18:21:16] plan=mensual docs=['1055750659', '300945221']
+  Faltantes: ['300945221 (no en BD)']
+  Raw: Sebastián valencia Martínez | 1055750659 | 300945221 | Mensual | Nequi | 27 de enero
+
+[2026-01-26T19:22:58] plan=pareja docs=['1018436756', '1054988514']
+  Faltantes: ['1054988514 (sin suscripcion)']
+  Raw: Eulogia usechi | 1018436756 | 3224761887 | Jhon Giraldo | 1054988514 | 3102041128 | Mensulidad pareja | 130.000
+
+[2026-01-28T21:41:29] plan=None docs=['1054860857', '8906857']
+  Faltantes: ['8906857 (no en BD)']
+  Raw: María Fernanda Osorio | 3104050538 | C.C 1054860857 | Mariana Moreno | 310 8906857
+
+[2026-01-29T15:14:19] plan=pareja docs=['1053770171', '1055757399']
+  Faltantes: ['1055757399 (sin suscripcion)']
+  Raw: Claudia milena Sánchez | 1053770171 | 3145623407 | Michell yomara Valencia | 1055757399 | 3136052844 | Pareja | Efectivo
+
+[2026-01-30T16:05:45] plan=mensual docs=['1055756122', '1055758260']
+  Faltantes: ['1055758260 (sin suscripcion)']
+  Raw: Dahiana Mancera | 1055756122 | 3001927178 | Katerine Mejía | 1055758260 | 3216862787 | Mensualidad | 130.000 efectivo
+
+[2026-01-30T19:41:51] plan=pareja docs=['1053812813', '1055759424']
+  Faltantes: ['1055759424 (sin suscripcion)']
+  Raw: Víctor Giraldo | 1053812813 | 3135114344 | Emili Giraldo | 1055759424 | Pareja | BBVA | Empiezan lunes 1 de febrero  <Se editó este mensaje.>
+
+[2026-02-02T10:16:33] plan=pareja docs=['1056124258', '1056121084']
+  Faltantes: ['1056121084 (sin suscripcion)']
+  Raw: Heyli Sofía Ochoa | 1056124258 | 3148929623 | Anna Ochoa | 1056121084 | 3234746959 | Pareja | Efectivo
+
+[2026-02-02T10:51:10] plan=trio docs=['1060657216', '1055358827', '1053836520']
+  Faltantes: ['1055358827 (sin suscripcion)']
+  Raw: Valentina Velázquez | 1060657216 | 3157058787 | Simón londoño | 1055358827 | 3122740728 | Estefanía Cristancho | 1053836520 | 3226134408 | Trío
+
+[2026-02-02T19:11:41] plan=mensual docs=['1053868091', '1002656455']
+  Faltantes: ['1002656455 (sin suscripcion)']
+  Raw: Leidy Llano | 1053868091 | 3232217446 | Mensualidad | Nequi | Anlly Llano | 1002656455 | 3235477522 | Mensualidad | Nequi
+
+[2026-02-02T19:44:37] plan=mensual docs=['1053859422', '1053782440']
+  Faltantes: ['1053782440 (sin suscripcion)']
+  Raw: Yenny Paola Ramírez | 1053859422 | 3112226638 | Nasly Arango Álvarez | 1053782440 | 3006022242 | 2 mensualidades 130.000 | Nequi
+
+[2026-02-02T20:05:30] plan=None docs=['1002545917']
+  Faltantes: ['1002545917 (sin suscripcion)']
+  Raw: Jhon edison Amaya | Cc 1002545917 | Tel 3233832326
+
+[2026-02-02T20:15:22] plan=pareja docs=['1056125909', '1053798290']
+  Faltantes: ['1053798290 (sin suscripcion)']
+  Raw: Matías Cardona | 1056125909 | 3009503735 | Juan Pablo cano | 1053798290 | Pareja | Efectivo
+
+[2026-02-03T06:49:41] plan=pareja docs=['1088316061', '1053848685']
+  Faltantes: ['1053848685 (sin suscripcion)']
+  Raw: Viviana Marcela araque | 1088316061 | 3150560887 | Dahiana Rodas soto | 1053848685 | 3107322509 | Pareja | Efectivo
+
+[2026-02-03T08:11:39] plan=pareja docs=['1065015042', '1006336774']
+  Faltantes: ['1006336774 (sin suscripcion)']
+  Raw: Emanuel caire | 1065015042 | 3244466007 | Melissa Valencia | 1006336774 | 3226626839 | Pareja | Nequi
+
+[2026-02-03T18:44:42] plan=pareja docs=['1053775366', '1002543221']
+  Faltantes: ['1002543221 (sin suscripcion)']
+  Raw: Lina María Betancourt | 1053775366 | 3233966980 | Luisa Fernanda Ochoa | 1002543221 | 3165054571 | Pareja | Nequi
+
+[2026-02-03T20:24:37] plan=pareja docs=['1053862813', '1054859374']
+  Faltantes: ['1054859374 (sin suscripcion)']
+  Raw: Juan Manuel Cardona | 1053862813 | 3104009810 | Luna Gaviria | 1054859374 | 3160411898 | Plan Pareja | Nequi
+
+[2026-02-04T19:53:31] plan=pareja docs=['1088034952', '1007303605']
+  Faltantes: ['1007303605 (sin suscripcion)']
+  Raw: Alejandro Murillo | 1088034952 | 3206206877 | Víctor espitia | 1007303605 | 3143895393 | Pareja | Efectivo
+
+[2026-02-05T18:43:25] plan=pareja docs=['30326200', '1060651270']
+  Faltantes: ['1060651270 (sin suscripcion)']
+  Raw: Amparo soto Londoño | 30326200 | 3148915544 | Daniela Escobar soto | 1060651270 | 3008332859 | Pareja | Nequi | Partir del lunes 9
+
+[2026-02-09T10:22:03] plan=quincena docs=['1053818987']
+  Faltantes: ['1053818987 (no en BD)']
+  Raw: Juan Esteban Vásquez | 1053818987 | 3113386510 | Quincena | Efectivo
+
+[2026-02-09T16:39:39] plan=None docs=['1053795130', '1055756394', '1054399244']
+  Faltantes: ['1055756394 (sin suscripcion)']
+  Raw: Marisol Espinoza | 1053795130 | 3196660688 | Mariana Villada | 1055756394 | 3126008864 | Juan David Henao López | 1054399244 | 3146973380 | Plan 3 per
+
+[2026-02-09T18:39:08] plan=pareja docs=['1014240668', '1054858108']
+  Faltantes: ['1054858108 (sin suscripcion)']
+  Raw: Angie arias | 1014240668 | 3205372144 | Catalina Ceballos | 1054858108 | 3105067715 | Pareja | Nequi
+
+[2026-02-11T15:37:27] plan=mensual docs=['1055757916']
+  Faltantes: ['1055757916 (no en BD)']
+  Raw: Sofía Giraldo Hernández | 1055757916 | 3054444008 | Mensualidad | 60000
+
+[2026-02-14T11:27:00] plan=mensual docs=['1002655949']
+  Faltantes: ['1002655949 (no en BD)']
+  Raw: Daniel González Ceballos | 1002655949 | 3107335088 | Mensualidad efectivo
+
+[2026-02-16T16:03:05] plan=pareja docs=['1002546503', '1057787301']
+  Faltantes: ['1002546503 (no en BD)', '1057787301 (sin suscripcion)']
+  Raw: Karen Julieth Zuluaga | 1002546503 | 3145461240 | Luis Fernando Ruiz | 1057787301 | 3124350963 | Plan Pareja 65.000 | Pagan 100 y mañana restante
+
+[2026-02-16T19:34:37] plan=quincena docs=['1117548273', '1006410621']
+  Faltantes: ['1006410621 (sin suscripcion)']
+  Raw: Brayan cruz | 1117548273 | 3118652285 | Kevin Sánchez | 1006410621 | 3209547832 | Quincena | 80000 | Efectivo
+
+[2026-02-17T10:36:35] plan=mensual docs=['1056121029']
+  Faltantes: ['1056121029 (no en BD)']
+  Raw: José Miguel Ramírez | 1056121029 | 3142511414 | Mensualidad | Nequi (el sábado)
+
+[2026-02-17T15:13:04] plan=pareja docs=['1053807123', '1053807124']
+  Faltantes: ['1053807124 (sin suscripcion)']
+  Raw: Tatiana Acero | 1053807123 | Brando Rodríguez | 1053807124 | Renueva mensualidad Pareja | Nequi
+
+[2026-02-17T17:48:31] plan=None docs=['1053829978', '1055358521', '1055754262', '1053871439']
+  Faltantes: ['1055358521 (sin suscripcion)', '1055754262 (no en BD)', '1053871439 (sin suscripcion)']
+  Raw: Luisa Fernanda Gómez García | 1053829978 | 3117958087 | Juan David Gómez García | 1055358521 | 3216613293 | Melany Castaño Valencia | 1055754262 | 300
+
+[2026-02-20T20:13:55] plan=None docs=['1054842570', '1002798483', '1013679281', '1060652414']
+  Faltantes: ['1002798483 (sin suscripcion)', '1013679281 (sin suscripcion)', '1060652414 (sin suscripcion)']
+  Raw: Valentina arias | 1054842570 | 3235177106 | Juliana Giraldo | 1002798483 | 3225669557 | Estefanía Martínez | 1013679281 | 3143962700 | Luisa Castrillo
+
+[2026-02-23T17:34:53] plan=semana docs=['1053857924']
+  Faltantes: ['1053857924 (no en BD)']
+  Raw: Sergio Andrés Giraldo | 1053857924 | Semana | 20 debe 10
+
+[2026-02-23T18:20:17] plan=pareja docs=['1093214010', '1053851723']
+  Faltantes: ['1053851723 (sin suscripcion)']
+  Raw: Luisa Fernanda Marín Tamayo | 1093214010 | 3217704970 | Luz Marina Suárez Gómez | 1053851723 | 3116196422 | Mensualidad Pareja
+
+[2026-02-23T19:56:25] plan=mensual docs=['1053837920', '1053825009']
+  Faltantes: ['1053825009 (sin suscripcion)']
+  Raw: Tatiana piedrahita | 1053837920 | 3022277564 | Leidy Johana soto | 1053825009 | 3024961703 | Mensualidad | 130000
+
+[2026-02-23T20:43:28] plan=pareja docs=['1059713513', '1053848663']
+  Faltantes: ['1053848663 (sin suscripcion)']
+  Raw: Luz Alejandra Barrientos | 1059713513 | 3113130065 | Jhon Daniel Gonzales | 1053848663 | 3135067645 | Pareja | 13000 | (Deben 65000)
+
+[2026-02-24T15:42:28] plan=pareja docs=['1053799824', '1055360083']
+  Faltantes: ['1055360083 (sin suscripcion)']
+  Raw: Mariana Muñoz | 1053799824 | 3216599423 | Sara Rodríguez | 1055360083 | 3182925624 | Mensualidad plan Pareja
+
+[2026-02-26T16:44:41] plan=pareja docs=['1002732444', '1053809788']
+  Faltantes: ['1053809788 (sin suscripcion)']
+  Raw: Laura María Cardona | 1002732444 | 3215445332 | Érica Cardona | 1053809788 | 3205569819 | Pareja | Efectivo
+
+[2026-03-02T17:09:08] plan=pareja docs=['1053806649', '1055757029']
+  Faltantes: ['1055757029 (no en BD)']
+  Raw: Karen Ospina | 1053806649 | 3002344046 | Juan Castaño | 1055757029 | 3009532672 | Mensualidad Pareja
+
+[2026-03-02T18:44:04] plan=mensual docs=['1053808089']
+  Faltantes: ['1053808089 (no en BD)']
+  Raw: Jazleidy Sepúlveda | 1053808089 | 3012675363 | Mensualidad
+
+[2026-03-03T07:48:17] plan=mensual docs=['10267435', '303148060']
+  Faltantes: ['303148060 (no en BD)']
+  Raw: César Agusto MERCHAN | 10267435 | 303148060 | Mensualidad | Efectivo
+
+[2026-03-03T13:37:04] plan=pareja docs=['1055753808', '30310202']
+  Faltantes: ['30310202 (sin suscripcion)']
+  Raw: Marisol Murillo arias | 1055753808 | 3204212120 | Juli alba Giraldo | 30310202 | Pareja  <Se editó este mensaje.>
+
+[2026-03-03T14:22:11] plan=mensual docs=['53200']
+  Faltantes: ['53200 (no en BD)']
+  Raw: 690000 en membresía | 53200 en ventas pequeñas
+
+[2026-03-03T15:10:59] plan=mensual docs=['1053813485', '1053866821', '1003614431']
+  Faltantes: ['1053813485 (no en BD)', '1053866821 (no en BD)', '1003614431 (no en BD)']
+  Raw: Yuri Viviana Salazar Vega | 1053813485 | 3135064915 | Lina Marcela Ortíz | 1053866821 | 3104934610 | Leidy Tatiana Pardo | 1003614431 | 3145507378 | M
+
+[2026-03-03T19:19:08] plan=pareja docs=['1053866573', '1053862399']
+  Faltantes: ['1053862399 (sin suscripcion)']
+  Raw: Sebastian Giraldo Agudelo | 1053866573 | 3008419148 | Juan José González | 1053862399 | 3113446529 | Mensualidad Plan Pareja efectivo
+
+[2026-03-04T09:54:29] plan=mensual docs=['30236206', '314796289']
+  Faltantes: ['30236206 (no en BD)', '314796289 (no en BD)']
+  Raw: Luz Andrea Marulanda | 30236206 | 314796289 | Renueva mensualidad
+
+[2026-03-04T11:36:21] plan=pareja docs=['30230728', '1007497487']
+  Faltantes: ['1007497487 (sin suscripcion)']
+  Raw: Lorena Rodríguez | 30230728 | 3127616857 | Melissa Blandón | 1007497487 | 3217682768 | Mensualidad plan Pareja
+
+[2026-03-05T10:58:17] plan=pareja docs=['1053822156', '1002546919']
+  Faltantes: ['1002546919 (sin suscripcion)']
+  Raw: Yilian Gonzales | 1053822156 | 3216870564 | Karen Ospina | 1002546919 | 3007971513 | Pareja | Efectivo
+
+[2026-03-05T14:37:33] plan=pareja docs=['1082992611']
+  Faltantes: ['1082992611 (no en BD)']
+  Raw: Dahiana Vargas | 1082992611 | Paga una Mensualidad pareja
+
+[2026-03-06T15:52:50] plan=pareja docs=['30234838', '1054861056']
+  Faltantes: ['1054861056 (sin suscripcion)']
+  Raw: María Eugenia correa | 30234838 | 3012180576 | Miguel Ángel correa García | 1054861056 | 3015924363 | Pareja | Nequi
+
+[2026-03-06T19:50:10] plan=pareja docs=['1053833510', '1007582322']
+  Faltantes: ['1007582322 (sin suscripcion)']
+  Raw: Natalia Vásquez | 1053833510 | 3058128881 | Alexandra Rodríguez | 1007582322 | 3116223752 | Pareja | 65 nequi | 65 efectivo | Clase
+
+[2026-03-09T07:12:45] plan=trio docs=['1053862301', '1010022186', '1053829828']
+  Faltantes: ['1010022186 (sin suscripcion)', '1053829828 (sin suscripcion)']
+  Raw: Stefania Bedoya Muñoz | 1053862301 | 3003565253 | Tatiana Jaramillo | 1010022186 | 3115461218 | Lizeth geraldine Bedoya | 1053829828 | 3147423715 | Tr
+
+[2026-03-09T15:31:44] plan=pareja docs=['1055757164']
+  Faltantes: ['1055757164 (sin suscripcion)']
+  Raw: Steffania Bucuru | 1055757164 | 3117060318 | Mensualidad pareja efectivo | 70.000 Nequi
+
+[2026-03-09T17:20:41] plan=pareja docs=['1014660865', '1189713308']
+  Faltantes: ['1189713308 (sin suscripcion)']
+  Raw: Dilan Salcedo | 1014660865 | 3019100157 | Luis Miguel parra | 1189713308 | 3001538562 | Plan pareja | Efectivo
+
+[2026-03-09T18:03:12] plan=semana docs=['1059208956', '1060654208']
+  Faltantes: ['1060654208 (sin suscripcion)']
+  Raw: Juan José Moreno Zuluaga | 1059208956 | 3243031929 | Ximena Zuluaga Henao | 1060654208 | 3136823937 | Pagan semana
+
+[2026-03-11T06:53:00] plan=pareja docs=['1054861751']
+  Faltantes: ['1054861751 (sin suscripcion)']
+  Raw: Juliana Marulanda | 1054861751 | 3137078917 | Plan Pareja | Nequi
+
+[2026-03-11T08:04:21] plan=quincena docs=['1056121996', '1002636627']
+  Faltantes: ['1002636627 (sin suscripcion)']
+  Raw: Sofía Rivas Villa | 1056121996 | 3117762821 | Michel Dahiana Loaiza | 1002636627 | 3242813482 | Quincena efectivo
+
+[2026-03-11T21:14:34] plan=pareja docs=['1121880277', '1029961161']
+  Faltantes: ['1029961161 (sin suscripcion)']
+  Raw: Leidy Tatiana Gonzales | 1121880277 | 3115121146 | Samy Valentina Ruiz g | 1029961161 | Pareja | Efectivo
+
+[2026-03-16T09:11:39] plan=mensual docs=['1192801727', '8277807']
+  Faltantes: ['8277807 (no en BD)']
+  Raw: Alejandra Mendoza | 1192801727 | 312 8277807 | Mensualidad efectivo
+
+[2026-03-16T20:16:26] plan=quincena docs=['1053810927']
+  Faltantes: ['1053810927 (no en BD)']
+  Raw: Katherine Julieth Orozco Castañeda | 1053810927 | 3137220290 | Quincena, Nequi
+
+[2026-03-17T06:34:51] plan=None docs=['1053848534']
+  Faltantes: ['1053848534 (no en BD)']
+  Raw: Angie Daniela castro | 1053848534 | 3218379562
+
+[2026-03-17T17:18:10] plan=quincena docs=['1035438561']
+  Faltantes: ['1035438561 (no en BD)']
+  Raw: Juan Diego Caro Bustamante | 1035438561 | 3006229344 | Quincena efectivo
+
+[2026-03-20T13:48:26] plan=pareja docs=['1002633307', '1055754652']
+  Faltantes: ['1002633307 (no en BD)', '1055754652 (no en BD)']
+  Raw: Daniela Martínez Betancourt | 1002633307 | 3114446791 | Valeria loaiza Betancourt | 1055754652 | 3136638475 | Pareja | Efectivo
+
+[2026-03-23T10:20:11] plan=quincena docs=['1053771346']
+  Faltantes: ['1053771346 (sin suscripcion)']
+  Raw: Diana Carolina Acevedo | 1053771346 | Quincena Nequi
+
+[2026-03-23T11:28:41] plan=pareja docs=['1053863795', '1053831252']
+  Faltantes: ['1053831252 (sin suscripcion)']
+  Raw: 1053863795 | 3145659143 | Tania Osorio | 1053831252 | 3145353376 | Yulieth López | Pareja mensualidad renueva
+
+[2026-03-25T09:43:50] plan=None docs=['1055755425']
+  Faltantes: ['1055755425 (no en BD)']
+  Raw: Juan Camilo Muñoz | 1055755425 | Renueva efectivo
+
+[2026-03-25T15:07:01] plan=quincena docs=['1055752407']
+  Faltantes: ['1055752407 (no en BD)']
+  Raw: Sofía Gómez | 1055752407 | 3126274630 | Quincena | Nequi  <Se editó este mensaje.>
+
+[2026-03-25T15:07:29] plan=quincena docs=['24336587']
+  Faltantes: ['24336587 (no en BD)']
+  Raw: Leidy contreras | 24336587 | 3233368171 | Quincena | Efectivo
+
+[2026-03-25T18:06:22] plan=mensual docs=['1002634283']
+  Faltantes: ['1002634283 (no en BD)']
+  Raw: Angie Salazar | 1002634283 | 3104078364 | Mensualidad | Efectivo

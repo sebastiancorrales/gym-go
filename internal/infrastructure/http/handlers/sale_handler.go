@@ -7,9 +7,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/dto"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
 	"github.com/sebastiancorrales/gym-go/pkg/errors"
 )
+
+// localDateStr formats time in the given location as "YYYY-MM-DD"
+func localDateStr(t time.Time, loc *time.Location) string { return t.In(loc).Format("2006-01-02") }
+
+// localHourStr formats time in the given location as "HH:MM"
+func localHourStr(t time.Time, loc *time.Location) string { return t.In(loc).Format("15:04") }
 
 // SaleHandler maneja las peticiones HTTP relacionadas con ventas
 type SaleHandler struct {
@@ -71,6 +78,11 @@ func (h *SaleHandler) CreateSale(c *gin.Context) {
 		})
 		return
 	}
+
+	saleLoc := middleware.GetGymLocation(c)
+	now := time.Now()
+	sale.Date = localDateStr(now, saleLoc)
+	sale.Hour = localHourStr(now, saleLoc)
 
 	if err := h.saleUseCase.CreateSale(c.Request.Context(), sale); err != nil {
 		statusCode := http.StatusInternalServerError
@@ -236,37 +248,9 @@ func (h *SaleHandler) GetSalesByDateRange(c *gin.Context) {
 	endDateStr := c.Query("end_date")
 
 	if startDateStr == "" || endDateStr == "" {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "Bad Request",
-			Message: "Fechas requeridas",
-		})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Bad Request", Message: "Fechas requeridas"})
 		return
 	}
-
-	startDateParsed, err := time.Parse("2006-01-02", startDateStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "Bad Request",
-			Message: "Formato de fecha inicio inválido",
-			Details: map[string]string{"detail": err.Error()},
-		})
-		return
-	}
-	startDate := time.Date(startDateParsed.Year(), startDateParsed.Month(), startDateParsed.Day(), 0, 0, 0, 0, time.UTC)
-
-	endDateParsed, err := time.Parse("2006-01-02", endDateStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "Bad Request",
-			Message: "Formato de fecha fin inválido",
-			Details: map[string]string{"detail": err.Error()},
-		})
-		return
-	}
-	endDate := time.Date(endDateParsed.Year(), endDateParsed.Month(), endDateParsed.Day(), 0, 0, 0, 0, time.UTC)
-
-	// Ajustar endDate al final del día (23:59:59.999999999)
-	endDate = endDate.Add(24*time.Hour - time.Nanosecond)
 
 	var userID *uuid.UUID
 	if userIDStr := c.Query("user_id"); userIDStr != "" {
@@ -276,18 +260,13 @@ func (h *SaleHandler) GetSalesByDateRange(c *gin.Context) {
 		}
 	}
 
-	sales, err := h.saleUseCase.GetSalesByDateRange(c.Request.Context(), startDate, endDate, userID)
+	sales, err := h.saleUseCase.GetSalesByDateRange(c.Request.Context(), startDateStr, endDateStr, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error:   "Internal Server Error",
-			Message: "Error al obtener ventas",
-			Details: map[string]string{"detail": err.Error()},
-		})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Internal Server Error", Message: "Error al obtener ventas", Details: map[string]string{"detail": err.Error()}})
 		return
 	}
 
-	response := dto.ToSaleResponseList(sales)
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, dto.ToSaleResponseList(sales))
 }
 
 // GetSalesReport genera un reporte de ventas
@@ -304,37 +283,9 @@ func (h *SaleHandler) GetSalesReport(c *gin.Context) {
 	endDateStr := c.Query("end_date")
 
 	if startDateStr == "" || endDateStr == "" {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "Bad Request",
-			Message: "Fechas requeridas",
-		})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Bad Request", Message: "Fechas requeridas"})
 		return
 	}
-
-	startDateParsed, err := time.Parse("2006-01-02", startDateStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "Bad Request",
-			Message: "Formato de fecha inicio inválido",
-			Details: map[string]string{"detail": err.Error()},
-		})
-		return
-	}
-	startDate := time.Date(startDateParsed.Year(), startDateParsed.Month(), startDateParsed.Day(), 0, 0, 0, 0, time.UTC)
-
-	endDateParsed, err := time.Parse("2006-01-02", endDateStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "Bad Request",
-			Message: "Formato de fecha fin inválido",
-			Details: map[string]string{"detail": err.Error()},
-		})
-		return
-	}
-	endDate := time.Date(endDateParsed.Year(), endDateParsed.Month(), endDateParsed.Day(), 0, 0, 0, 0, time.UTC)
-
-	// Ajustar endDate al final del día (23:59:59.999999999)
-	endDate = endDate.Add(24*time.Hour - time.Nanosecond)
 
 	var userID *uuid.UUID
 	if userIDStr := c.Query("user_id"); userIDStr != "" {
@@ -344,30 +295,21 @@ func (h *SaleHandler) GetSalesReport(c *gin.Context) {
 		}
 	}
 
-	reports, err := h.saleUseCase.GetSalesReport(c.Request.Context(), startDate, endDate, userID)
+	reports, err := h.saleUseCase.GetSalesReport(c.Request.Context(), startDateStr, endDateStr, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error:   "Internal Server Error",
-			Message: "Error al generar reporte",
-			Details: map[string]string{"detail": err.Error()},
-		})
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Internal Server Error", Message: "Error al generar reporte", Details: map[string]string{"detail": err.Error()}})
 		return
 	}
+
+	startDate, _ := time.Parse("2006-01-02", startDateStr)
+	endDate, _ := time.Parse("2006-01-02", endDateStr)
 
 	if len(reports) == 0 {
-		c.JSON(http.StatusOK, dto.SaleReportResponse{
-			TotalSales:    0,
-			TotalDiscount: 0,
-			NetSales:      0,
-			SalesCount:    0,
-			StartDate:     startDate,
-			EndDate:       endDate,
-		})
+		c.JSON(http.StatusOK, dto.SaleReportResponse{StartDate: startDate, EndDate: endDate})
 		return
 	}
 
-	response := dto.ToSaleReportResponse(reports[0], startDate, endDate)
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, dto.ToSaleReportResponse(reports[0], startDate, endDate))
 }
 
 // GetSalesReportByProduct genera un reporte de ventas por producto
@@ -383,39 +325,11 @@ func (h *SaleHandler) GetSalesReportByProduct(c *gin.Context) {
 	endDateStr := c.Query("end_date")
 
 	if startDateStr == "" || endDateStr == "" {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "Bad Request",
-			Message: "Fechas requeridas",
-		})
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Bad Request", Message: "Fechas requeridas"})
 		return
 	}
 
-	startDateParsed, err := time.Parse("2006-01-02", startDateStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "Bad Request",
-			Message: "Formato de fecha inicio inválido",
-			Details: map[string]string{"detail": err.Error()},
-		})
-		return
-	}
-	startDate := time.Date(startDateParsed.Year(), startDateParsed.Month(), startDateParsed.Day(), 0, 0, 0, 0, time.UTC)
-
-	endDateParsed, err := time.Parse("2006-01-02", endDateStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{
-			Error:   "Bad Request",
-			Message: "Formato de fecha fin inválido",
-			Details: map[string]string{"detail": err.Error()},
-		})
-		return
-	}
-	endDate := time.Date(endDateParsed.Year(), endDateParsed.Month(), endDateParsed.Day(), 0, 0, 0, 0, time.UTC)
-
-	// Ajustar endDate al final del día (23:59:59.999999999)
-	endDate = endDate.Add(24*time.Hour - time.Nanosecond)
-
-	reports, err := h.saleUseCase.GetSalesReportByProduct(c.Request.Context(), startDate, endDate)
+	reports, err := h.saleUseCase.GetSalesReportByProduct(c.Request.Context(), startDateStr, endDateStr)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
 			Error:   "Internal Server Error",

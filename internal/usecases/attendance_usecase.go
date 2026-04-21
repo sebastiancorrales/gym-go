@@ -76,7 +76,7 @@ func (uc *AttendanceUseCase) CheckIn(ctx context.Context, memberID string, class
 		MemberID:  memberID,
 		ClassID:   classID,
 		CheckIn:   time.Now(),
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().UTC().Round(0),
 	}
 
 	if err := uc.attendanceRepo.Create(ctx, attendance); err != nil {
@@ -98,7 +98,7 @@ func (uc *AttendanceUseCase) CheckOut(ctx context.Context, memberID string) erro
 	}
 
 	// Registrar check-out
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	attendance.CheckOut = &now
 
 	return uc.attendanceRepo.Update(ctx, attendance)

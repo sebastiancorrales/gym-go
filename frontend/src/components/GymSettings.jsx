@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../utils/api';
 import Toast from './Toast';
 import ImageUpload from './ImageUpload';
+import NotificationRecipients from './NotificationRecipients';
 import { COUNTRIES } from '../utils/countries';
 import { saveCurrencyPrefs } from '../utils/currency';
 
@@ -228,7 +229,7 @@ export default function GymSettings() {
         {/* SMTP */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h3 className="text-base font-bold text-gray-900 mb-1">Configuracion de Email (SMTP)</h3>
-          <p className="text-xs text-gray-400 mb-4">Necesario para enviar recordatorios de vencimiento a los miembros</p>
+          <p className="text-xs text-gray-400 mb-4">Necesario para enviar recordatorios de vencimiento, cierres diarios y reportes automaticos</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Servidor SMTP</label>
@@ -286,6 +287,9 @@ export default function GymSettings() {
           </button>
         </div>
       </form>
+
+      {/* Notification recipients — outside the form to avoid accidental submits */}
+      <NotificationRecipients onToast={setToast} />
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>

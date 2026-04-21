@@ -55,8 +55,8 @@ func (uc *ClassUseCase) CreateClass(ctx context.Context, class *entities.Class) 
 	// Generar ID y establecer valores por defecto
 	class.ID = uuid.New().String()
 	class.Status = entities.ClassStatusScheduled
-	class.CreatedAt = time.Now()
-	class.UpdatedAt = time.Now()
+	class.CreatedAt = time.Now().UTC().Round(0)
+	class.UpdatedAt = time.Now().UTC().Round(0)
 
 	return uc.classRepo.Create(ctx, class)
 }
@@ -85,7 +85,7 @@ func (uc *ClassUseCase) UpdateClass(ctx context.Context, class *entities.Class) 
 		return errors.New("clase no encontrada")
 	}
 
-	class.UpdatedAt = time.Now()
+	class.UpdatedAt = time.Now().UTC().Round(0)
 	return uc.classRepo.Update(ctx, class)
 }
 

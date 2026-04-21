@@ -209,41 +209,26 @@ func (h *BiometricHandler) EnrollFingerprintViaDevice(c *gin.Context) {
 	})
 }
 
-// VerifyFingerprint verifies a captured fingerprint
+// VerifyFingerprint triggers capture+match on the C# biometric service
 // POST /api/v1/biometric/verify
+// Body: { "device_id": "optional" }
 func (h *BiometricHandler) VerifyFingerprint(c *gin.Context) {
 	ctx := c.Request.Context()
 
-	var req dto.FingerprintVerifyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, dto.APIResponse{
-			Success: false,
-			Error:   "Invalid request body",
-		})
-		return
+	var req struct {
+		DeviceID string `json:"device_id"`
 	}
-
+	// body is optional — ignore parse errors
+	_ = c.ShouldBindJSON(&req)
 	if req.DeviceID == "" {
 		req.DeviceID = "web-interface"
 	}
 
-	user, matchScore, err := h.biometricService.VerifyFingerprintFromBase64(
-		ctx,
-		req.TemplateData,
-		req.DeviceID,
-	)
-
+	user, err := h.biometricService.VerifyFingerprint(ctx, req.DeviceID)
 	if err != nil {
-		response := dto.FingerprintVerifyResponse{
-			Success:    false,
-			MatchScore: matchScore,
-			Message:    err.Error(),
-		}
-
 		c.JSON(http.StatusUnauthorized, dto.APIResponse{
 			Success: false,
 			Error:   err.Error(),
-			Data:    response,
 		})
 		return
 	}
@@ -261,11 +246,10 @@ func (h *BiometricHandler) VerifyFingerprint(c *gin.Context) {
 	}
 
 	response := dto.FingerprintVerifyResponse{
-		Success:    true,
-		UserID:     user.ID.String(),
-		MatchScore: matchScore,
-		Message:    "Fingerprint verified successfully",
-		User:       userResponse,
+		Success: true,
+		UserID:  user.ID.String(),
+		Message: "Fingerprint verified successfully",
+		User:    userResponse,
 	}
 
 	c.JSON(http.StatusOK, dto.APIResponse{

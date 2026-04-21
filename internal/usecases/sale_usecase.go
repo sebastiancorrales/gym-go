@@ -108,10 +108,10 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 		sale.Status = entities.SaleStatusCompleted
 	}
 	if sale.SaleDate.IsZero() {
-		sale.SaleDate = time.Now()
+		sale.SaleDate = time.Now().UTC().Round(0)
 	}
-	sale.CreatedAt = time.Now()
-	sale.UpdatedAt = time.Now()
+	sale.CreatedAt = time.Now().UTC().Round(0)
+	sale.UpdatedAt = time.Now().UTC().Round(0)
 
 	// Calculate totals
 	sale.CalculateTotal()
@@ -175,15 +175,16 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 
 	// Update original sale status
 	originalSale.Status = entities.SaleStatusVoided
-	originalSale.UpdatedAt = time.Now()
+	originalSale.UpdatedAt = time.Now().UTC().Round(0)
 	if err := uc.saleRepo.Update(ctx, originalSale); err != nil {
 		return nil, err
 	}
 
 	// Create void sale
+	now := time.Now().UTC().Round(0)
 	voidSale := &entities.Sale{
 		ID:              uuid.New(),
-		SaleDate:        time.Now(),
+		SaleDate:        now,
 		Total:           -originalSale.Total,
 		TotalDiscount:   -originalSale.TotalDiscount,
 		UserID:          userID,
@@ -191,8 +192,8 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 		Status:          entities.SaleStatusCompleted,
 		PaymentMethodID: originalSale.PaymentMethodID,
 		VoidedSaleID:    &originalSale.ID,
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 
 	// Create void sale record
@@ -288,8 +289,8 @@ func (uc *SaleUseCase) GetAllSales(ctx context.Context) ([]entities.Sale, error)
 	return sales, nil
 }
 
-// GetSalesByDateRange retrieves sales within a date range
-func (uc *SaleUseCase) GetSalesByDateRange(ctx context.Context, startDate, endDate time.Time, userID *uuid.UUID) ([]entities.Sale, error) {
+// GetSalesByDateRange retrieves sales within a date range using local date strings (YYYY-MM-DD)
+func (uc *SaleUseCase) GetSalesByDateRange(ctx context.Context, startDate, endDate string, userID *uuid.UUID) ([]entities.Sale, error) {
 	sales, err := uc.saleRepo.GetByDateRange(ctx, startDate, endDate, userID)
 	if err != nil {
 		return nil, err
@@ -298,8 +299,8 @@ func (uc *SaleUseCase) GetSalesByDateRange(ctx context.Context, startDate, endDa
 	return sales, nil
 }
 
-// GetSalesReport generates a sales report for a date range
-func (uc *SaleUseCase) GetSalesReport(ctx context.Context, startDate, endDate time.Time, userID *uuid.UUID) ([]repositories.SaleReport, error) {
+// GetSalesReport generates a sales report for a date range using local date strings (YYYY-MM-DD)
+func (uc *SaleUseCase) GetSalesReport(ctx context.Context, startDate, endDate string, userID *uuid.UUID) ([]repositories.SaleReport, error) {
 	return uc.saleRepo.GetSalesReport(ctx, startDate, endDate, userID)
 }
 
@@ -323,7 +324,7 @@ func (uc *SaleUseCase) loadPaymentMethods(ctx context.Context, sales []entities.
 	}
 }
 
-// GetSalesReportByProduct generates a sales report grouped by product
-func (uc *SaleUseCase) GetSalesReportByProduct(ctx context.Context, startDate, endDate time.Time) ([]repositories.SaleProductReport, error) {
+// GetSalesReportByProduct generates a sales report grouped by product using local date strings (YYYY-MM-DD)
+func (uc *SaleUseCase) GetSalesReportByProduct(ctx context.Context, startDate, endDate string) ([]repositories.SaleProductReport, error) {
 	return uc.saleRepo.GetSalesReportByProduct(ctx, startDate, endDate)
 }

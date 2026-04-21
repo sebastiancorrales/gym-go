@@ -1,12 +1,13 @@
 package usecases
 
 import (
+	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
+	"io"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,21 +53,12 @@ func (s *BiometricService) SetReaderStatus(connected bool) {
 	s.readerConnected = connected
 }
 
-// CaptureFingerprint captures a fingerprint from the reader via the C# service
+// CaptureFingerprint — capture now happens inside /match on the C# service
 func (s *BiometricService) CaptureFingerprint(ctx context.Context) ([]byte, int, error) {
-	if !s.readerConnected {
-		return nil, 0, ErrNoFingerprintReader
-	}
-
-	template, quality, err := captureFingerprintFromService()
-	if err != nil {
-		return nil, 0, fmt.Errorf("capture failed: %w", err)
-	}
-
-	return template, quality, nil
+	return nil, 0, errors.New("use EnrollFingerprintViaService or VerifyFingerprint instead")
 }
 
-// EnrollFingerprint enrolls a new fingerprint for a user
+// EnrollFingerprint enrolls a new fingerprint for a user from raw template bytes
 func (s *BiometricService) EnrollFingerprint(
 	ctx context.Context,
 	userID string,
@@ -78,7 +70,6 @@ func (s *BiometricService) EnrollFingerprint(
 		return nil, ErrLowQuality
 	}
 
-	// Check if user already has this finger registered
 	fingerprints, err := s.fingerprintRepo.GetActiveByUserID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("error checking existing fingerprints: %w", err)
@@ -106,7 +97,7 @@ func (s *BiometricService) EnrollFingerprint(
 	return fingerprint, nil
 }
 
-// EnrollFingerprintViaService captures multiple samples via C# service and creates enrollment template
+// EnrollFingerprintViaService calls the C# service to capture 4 samples and build an enrollment template
 func (s *BiometricService) EnrollFingerprintViaService(
 	ctx context.Context,
 	userID string,
@@ -116,7 +107,6 @@ func (s *BiometricService) EnrollFingerprintViaService(
 		return nil, ErrNoFingerprintReader
 	}
 
-	// Check if user already has this finger registered
 	fingerprints, err := s.fingerprintRepo.GetActiveByUserID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("error checking existing fingerprints: %w", err)
@@ -127,17 +117,17 @@ func (s *BiometricService) EnrollFingerprintViaService(
 		}
 	}
 
-	// Call C# service to do multi-capture enrollment
-	templateData, quality, err := enrollFingerprintFromService()
+	// C# service captures 4 samples and returns the enrollment template as base64 XML
+	templateBase64, err := enrollFingerprintFromService()
 	if err != nil {
 		return nil, fmt.Errorf("enrollment failed: %w", err)
 	}
 
 	fingerprint := &entities.Fingerprint{
 		UserID:          userID,
-		FingerprintData: templateData,
+		FingerprintData: []byte(templateBase64), // store as base64 XML string
 		FingerIndex:     fingerIndex,
-		Quality:         quality,
+		Quality:         100,
 		IsActive:        true,
 	}
 
@@ -149,48 +139,43 @@ func (s *BiometricService) EnrollFingerprintViaService(
 	return fingerprint, nil
 }
 
-// VerifyFingerprint verifies a captured fingerprint against all registered fingerprints
-// Uses the C# biometric service for accurate matching
+// VerifyFingerprint triggers a fingerprint capture+match via the C# biometric service.
+// The C# service handles the capture internally when POST /match is called.
 func (s *BiometricService) VerifyFingerprint(
 	ctx context.Context,
-	capturedTemplate []byte,
 	deviceID string,
-) (*entities.User, int, error) {
-	// Get all registered fingerprints
+) (*entities.User, error) {
 	allFingerprints, err := s.fingerprintRepo.GetAllTemplates(ctx)
 	if err != nil {
-		return nil, 0, fmt.Errorf("error getting fingerprint templates: %w", err)
+		return nil, fmt.Errorf("error getting fingerprint templates: %w", err)
 	}
 
 	if len(allFingerprints) == 0 {
-		return nil, 0, errors.New("no fingerprints registered in system")
+		return nil, errors.New("no fingerprints registered in system")
 	}
-
-	// Prepare data for the C# matching service
-	capturedBase64 := base64.StdEncoding.EncodeToString(capturedTemplate)
 
 	storedTemplates := make([]storedTemplate, 0, len(allFingerprints))
 	for _, fp := range allFingerprints {
 		storedTemplates = append(storedTemplates, storedTemplate{
-			UserID:       fp.UserID,
-			TemplateData: base64.StdEncoding.EncodeToString(fp.FingerprintData),
+			UserID:   fp.UserID,
+			Template: string(fp.FingerprintData), // base64 XML string
 		})
 	}
 
-	// Send to C# service for matching
-	matchResult, err := matchFingerprintViaService(capturedBase64, storedTemplates)
+	// C# service captures live finger and compares against stored templates
+	result, err := matchFingerprintViaService(storedTemplates)
 	if err != nil {
-		return nil, 0, fmt.Errorf("matching error: %w", err)
+		return nil, fmt.Errorf("matching error: %w", err)
 	}
 
-	if !matchResult.Matched || matchResult.UserID == "" {
-		return nil, 0, ErrNoMatch
+	if !result.Matched || result.UserID == "" {
+		return nil, ErrNoMatch
 	}
 
 	// Log verification attempt
 	var matchedFP *entities.Fingerprint
 	for _, fp := range allFingerprints {
-		if fp.UserID == matchResult.UserID {
+		if fp.UserID == result.UserID {
 			matchedFP = fp
 			break
 		}
@@ -198,27 +183,38 @@ func (s *BiometricService) VerifyFingerprint(
 
 	if matchedFP != nil {
 		verification := &entities.FingerprintVerification{
-			UserID:        matchResult.UserID,
+			UserID:        result.UserID,
 			FingerprintID: matchedFP.ID,
-			MatchScore:    matchResult.MatchScore,
+			MatchScore:    0,
 			IsSuccess:     true,
 			DeviceID:      deviceID,
 		}
 		_ = s.fingerprintRepo.LogVerification(ctx, verification)
 	}
 
-	// Look up the user by UUID
-	userUUID, err := uuid.Parse(matchResult.UserID)
+	userUUID, err := uuid.Parse(result.UserID)
 	if err != nil {
-		return nil, matchResult.MatchScore, fmt.Errorf("invalid user ID from match: %w", err)
+		return nil, fmt.Errorf("invalid user ID from match: %w", err)
 	}
 
 	user, err := s.userRepo.FindByID(userUUID)
 	if err != nil {
-		return nil, matchResult.MatchScore, fmt.Errorf("user not found: %w", err)
+		return nil, fmt.Errorf("user not found: %w", err)
 	}
 
-	return user, matchResult.MatchScore, nil
+	return user, nil
+}
+
+// EnrollFingerprintFromBase64 enrolls a fingerprint from a base64-encoded template string
+func (s *BiometricService) EnrollFingerprintFromBase64(
+	ctx context.Context,
+	userID string,
+	fingerIndex string,
+	base64Template string,
+	quality int,
+) (*entities.Fingerprint, error) {
+	// Store the base64 string directly as bytes — it's already the wire format
+	return s.EnrollFingerprint(ctx, userID, fingerIndex, []byte(base64Template), quality)
 }
 
 // GetUserFingerprints retrieves all fingerprints for a user
@@ -231,190 +227,127 @@ func (s *BiometricService) DeleteFingerprint(ctx context.Context, fingerprintID 
 	return s.fingerprintRepo.Delete(ctx, fingerprintID)
 }
 
-// EnrollFingerprintFromBase64 enrolls a fingerprint from base64 encoded data
-func (s *BiometricService) EnrollFingerprintFromBase64(
-	ctx context.Context,
-	userID string,
-	fingerIndex string,
-	base64Template string,
-	quality int,
-) (*entities.Fingerprint, error) {
-	templateData, err := base64.StdEncoding.DecodeString(base64Template)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base64 data: %w", err)
-	}
-
-	return s.EnrollFingerprint(ctx, userID, fingerIndex, templateData, quality)
-}
-
-// VerifyFingerprintFromBase64 verifies a fingerprint from base64 encoded data
-func (s *BiometricService) VerifyFingerprintFromBase64(
-	ctx context.Context,
-	base64Template string,
-	deviceID string,
-) (*entities.User, int, error) {
-	templateData, err := base64.StdEncoding.DecodeString(base64Template)
-	if err != nil {
-		return nil, 0, fmt.Errorf("invalid base64 data: %w", err)
-	}
-
-	return s.VerifyFingerprint(ctx, templateData, deviceID)
-}
-
 // =========================================================================
-// TCP communication with C# biometric service
+// HTTP communication with C# biometric service on localhost:5001
 // =========================================================================
 
-const biometricServiceAddr = "localhost:9000"
+const biometricServiceURL = "http://localhost:5001"
 
-type biometricCommand struct {
-	Command         string           `json:"command"`
-	TemplateData    string           `json:"template_data,omitempty"`
-	StoredTemplates []storedTemplate `json:"stored_templates,omitempty"`
-}
+var httpClient = &http.Client{Timeout: 130 * time.Second}
 
 type storedTemplate struct {
-	UserID       string `json:"user_id"`
-	TemplateData string `json:"template_data"`
+	UserID   string `json:"userId"`
+	Template string `json:"template"`
 }
 
-type biometricResponse struct {
+type statusResponse struct {
+	Success   bool   `json:"success"`
+	Connected bool   `json:"connected"`
+	Status    string `json:"status"`
+	State     string `json:"state"`
+}
+
+type enrollResponse struct {
+	Success  bool   `json:"success"`
+	Message  string `json:"message"`
+	Template string `json:"template"`
+}
+
+type matchRequest struct {
+	Templates []storedTemplate `json:"templates"`
+}
+
+type matchResponse struct {
 	Success bool   `json:"success"`
+	Matched bool   `json:"matched"`
+	UserID  string `json:"user_id"`
 	Message string `json:"message"`
-	Data    struct {
-		Connected    bool   `json:"connected"`
-		TemplateData string `json:"template_data"`
-		Quality      int    `json:"quality"`
-		MatchScore   int    `json:"match_score"`
-		Matched      bool   `json:"matched"`
-		UserID       string `json:"user_id"`
-	} `json:"data"`
-}
-
-func checkBiometricService() (bool, error) {
-	conn, err := net.DialTimeout("tcp", biometricServiceAddr, 2*time.Second)
-	if err != nil {
-		return false, fmt.Errorf("biometric service not running on %s: %w", biometricServiceAddr, err)
-	}
-	defer conn.Close()
-
-	cmd := biometricCommand{Command: "status"}
-	encoder := json.NewEncoder(conn)
-	if err := encoder.Encode(cmd); err != nil {
-		return false, err
-	}
-
-	var resp biometricResponse
-	decoder := json.NewDecoder(conn)
-	if err := decoder.Decode(&resp); err != nil {
-		return false, err
-	}
-
-	return resp.Success && resp.Data.Connected, nil
-}
-
-func captureFingerprintFromService() ([]byte, int, error) {
-	conn, err := net.DialTimeout("tcp", biometricServiceAddr, 30*time.Second)
-	if err != nil {
-		return nil, 0, fmt.Errorf("cannot connect to biometric service: %w", err)
-	}
-	defer conn.Close()
-
-	conn.SetDeadline(time.Now().Add(35 * time.Second))
-
-	cmd := biometricCommand{Command: "capture"}
-	encoder := json.NewEncoder(conn)
-	if err := encoder.Encode(cmd); err != nil {
-		return nil, 0, err
-	}
-
-	var resp biometricResponse
-	decoder := json.NewDecoder(conn)
-	if err := decoder.Decode(&resp); err != nil {
-		return nil, 0, err
-	}
-
-	if !resp.Success {
-		return nil, 0, errors.New(resp.Message)
-	}
-
-	template, err := base64.StdEncoding.DecodeString(resp.Data.TemplateData)
-	if err != nil {
-		return nil, 0, fmt.Errorf("invalid template data: %w", err)
-	}
-
-	return template, resp.Data.Quality, nil
-}
-
-func enrollFingerprintFromService() ([]byte, int, error) {
-	conn, err := net.DialTimeout("tcp", biometricServiceAddr, 120*time.Second)
-	if err != nil {
-		return nil, 0, fmt.Errorf("cannot connect to biometric service: %w", err)
-	}
-	defer conn.Close()
-
-	// Enrollment takes longer (multiple captures)
-	conn.SetDeadline(time.Now().Add(120 * time.Second))
-
-	cmd := biometricCommand{Command: "enroll"}
-	encoder := json.NewEncoder(conn)
-	if err := encoder.Encode(cmd); err != nil {
-		return nil, 0, err
-	}
-
-	var resp biometricResponse
-	decoder := json.NewDecoder(conn)
-	if err := decoder.Decode(&resp); err != nil {
-		return nil, 0, err
-	}
-
-	if !resp.Success {
-		return nil, 0, errors.New(resp.Message)
-	}
-
-	template, err := base64.StdEncoding.DecodeString(resp.Data.TemplateData)
-	if err != nil {
-		return nil, 0, fmt.Errorf("invalid template data: %w", err)
-	}
-
-	return template, resp.Data.Quality, nil
 }
 
 type matchResult struct {
-	Matched    bool   `json:"matched"`
-	UserID     string `json:"user_id"`
-	MatchScore int    `json:"match_score"`
+	Matched bool
+	UserID  string
 }
 
-func matchFingerprintViaService(capturedBase64 string, templates []storedTemplate) (*matchResult, error) {
-	conn, err := net.DialTimeout("tcp", biometricServiceAddr, 30*time.Second)
+func checkBiometricService() (bool, error) {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(biometricServiceURL + "/status")
+	if err != nil {
+		return false, fmt.Errorf("biometric service not reachable: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var statusResp statusResponse
+	if err := json.NewDecoder(resp.Body).Decode(&statusResp); err != nil {
+		return false, fmt.Errorf("invalid status response: %w", err)
+	}
+
+	return statusResp.Success && statusResp.Connected, nil
+}
+
+func cancelBiometricService() {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Post(biometricServiceURL+"/cancel", "application/json", nil)
+	if err == nil {
+		resp.Body.Close()
+	}
+}
+
+func enrollFingerprintFromService() (string, error) {
+	cancelBiometricService() // libera el lector si hay un /match en curso (ej: ventana check-in abierta)
+	client := &http.Client{Timeout: 130 * time.Second}
+	resp, err := client.Post(biometricServiceURL+"/enroll", "application/json", nil)
+	if err != nil {
+		return "", fmt.Errorf("cannot connect to biometric service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading enroll response: %w", err)
+	}
+
+	var enrollResp enrollResponse
+	if err := json.Unmarshal(body, &enrollResp); err != nil {
+		return "", fmt.Errorf("invalid enroll response: %w", err)
+	}
+
+	if !enrollResp.Success {
+		return "", errors.New(enrollResp.Message)
+	}
+
+	return enrollResp.Template, nil
+}
+
+func matchFingerprintViaService(templates []storedTemplate) (*matchResult, error) {
+	payload := matchRequest{Templates: templates}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("error encoding match request: %w", err)
+	}
+
+	resp, err := httpClient.Post(biometricServiceURL+"/match", "application/json", bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("cannot connect to biometric service: %w", err)
 	}
-	defer conn.Close()
+	defer resp.Body.Close()
 
-	conn.SetDeadline(time.Now().Add(30 * time.Second))
-
-	cmd := biometricCommand{
-		Command:         "match",
-		TemplateData:    capturedBase64,
-		StoredTemplates: templates,
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error reading match response: %w", err)
 	}
 
-	encoder := json.NewEncoder(conn)
-	if err := encoder.Encode(cmd); err != nil {
-		return nil, err
+	var matchResp matchResponse
+	if err := json.Unmarshal(respBody, &matchResp); err != nil {
+		return nil, fmt.Errorf("invalid match response: %w", err)
 	}
 
-	var resp biometricResponse
-	decoder := json.NewDecoder(conn)
-	if err := decoder.Decode(&resp); err != nil {
-		return nil, err
+	if !matchResp.Success {
+		return nil, errors.New(matchResp.Message)
 	}
 
 	return &matchResult{
-		Matched:    resp.Data.Matched,
-		UserID:     resp.Data.UserID,
-		MatchScore: resp.Data.MatchScore,
+		Matched: matchResp.Matched,
+		UserID:  matchResp.UserID,
 	}, nil
 }

@@ -3,7 +3,6 @@ package persistence
 import (
 	"context"
 	"log"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
@@ -51,23 +50,23 @@ func (r *SQLiteSaleRepository) Update(ctx context.Context, sale *entities.Sale) 
 	return r.db.WithContext(ctx).Save(sale).Error
 }
 
-// GetByDateRange retrieves sales within a date range
-func (r *SQLiteSaleRepository) GetByDateRange(ctx context.Context, startDate, endDate time.Time, userID *uuid.UUID) ([]entities.Sale, error) {
+// GetByDateRange retrieves sales within a date range using the local date field
+func (r *SQLiteSaleRepository) GetByDateRange(ctx context.Context, startDate, endDate string, userID *uuid.UUID) ([]entities.Sale, error) {
 	var sales []entities.Sale
 
 	query := r.db.WithContext(ctx).
-		Where("sale_date >= ? AND sale_date <= ?", startDate, endDate)
+		Where("date >= ? AND date <= ?", startDate, endDate)
 
 	if userID != nil {
 		query = query.Where("user_id = ?", *userID)
 	}
 
-	err := query.Order("sale_date DESC").Find(&sales).Error
+	err := query.Order("date DESC, hour DESC").Find(&sales).Error
 	return sales, err
 }
 
 // GetSalesReport generates a sales report for a date range
-func (r *SQLiteSaleRepository) GetSalesReport(ctx context.Context, startDate, endDate time.Time, userID *uuid.UUID) ([]repositories.SaleReport, error) {
+func (r *SQLiteSaleRepository) GetSalesReport(ctx context.Context, startDate, endDate string, userID *uuid.UUID) ([]repositories.SaleReport, error) {
 	var reports []repositories.SaleReport
 
 	log.Printf("🔍 DEBUG GetSalesReport - startDate: %v, endDate: %v", startDate, endDate)
@@ -77,11 +76,11 @@ func (r *SQLiteSaleRepository) GetSalesReport(ctx context.Context, startDate, en
 		Select(`
 			COALESCE(SUM(CASE WHEN type = 'normal' THEN total ELSE 0 END), 0) as total_sales,
 			COALESCE(SUM(CASE WHEN type = 'normal' THEN total_discount ELSE 0 END), 0) as total_discount,
-			COALESCE(SUM(CASE WHEN type = 'normal' THEN total ELSE 0 END) - 
+			COALESCE(SUM(CASE WHEN type = 'normal' THEN total ELSE 0 END) -
 			         SUM(CASE WHEN type = 'void' THEN ABS(total) ELSE 0 END), 0) as net_sales,
 			COUNT(CASE WHEN type = 'normal' THEN 1 END) as sales_count
 		`).
-		Where("sale_date >= ? AND sale_date <= ?", startDate, endDate).
+		Where("date >= ? AND date <= ?", startDate, endDate).
 		Where("status = ?", entities.SaleStatusCompleted)
 
 	if userID != nil {
@@ -97,7 +96,7 @@ func (r *SQLiteSaleRepository) GetSalesReport(ctx context.Context, startDate, en
 }
 
 // GetSalesReportByProduct generates a sales report grouped by product
-func (r *SQLiteSaleRepository) GetSalesReportByProduct(ctx context.Context, startDate, endDate time.Time) ([]repositories.SaleProductReport, error) {
+func (r *SQLiteSaleRepository) GetSalesReportByProduct(ctx context.Context, startDate, endDate string) ([]repositories.SaleProductReport, error) {
 	var reports []repositories.SaleProductReport
 
 	err := r.db.WithContext(ctx).
@@ -112,7 +111,7 @@ func (r *SQLiteSaleRepository) GetSalesReportByProduct(ctx context.Context, star
 		`).
 		Joins("JOIN sales s ON sd.sale_id = s.id").
 		Joins("JOIN products p ON sd.product_id = p.id").
-		Where("s.sale_date >= ? AND s.sale_date <= ?", startDate, endDate).
+		Where("s.date >= ? AND s.date <= ?", startDate, endDate).
 		Where("s.status = ?", entities.SaleStatusCompleted).
 		Where("s.type = ?", entities.SaleTypeNormal).
 		Group("sd.product_id, p.name").

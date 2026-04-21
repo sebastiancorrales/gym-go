@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
+	"github.com/sebastiancorrales/gym-go/pkg/timeutil"
 	"gorm.io/gorm"
 )
 
@@ -49,19 +50,19 @@ func (r *SQLiteAccessLogRepository) FindByGymID(gymID uuid.UUID, limit, offset i
 	return logs, err
 }
 
-func (r *SQLiteAccessLogRepository) FindByDateRange(gymID uuid.UUID, from, to string) ([]*entities.AccessLog, error) {
+func (r *SQLiteAccessLogRepository) FindByDateRange(gymID uuid.UUID, from, to time.Time) ([]*entities.AccessLog, error) {
 	var logs []*entities.AccessLog
-	err := r.db.Where("gym_id = ? AND access_time BETWEEN ? AND ?", gymID, from, to).
+	err := r.db.Where("gym_id = ? AND access_time >= ? AND access_time <= ?", gymID, from, to).
 		Order("access_time DESC").
 		Find(&logs).Error
 	return logs, err
 }
 
-func (r *SQLiteAccessLogRepository) CountTodayByGymID(gymID uuid.UUID) (int64, error) {
+func (r *SQLiteAccessLogRepository) CountTodayByGymID(gymID uuid.UUID, loc *time.Location) (int64, error) {
 	var count int64
-	today := time.Now().Format("2006-01-02")
+	start, end := timeutil.TodayRange(loc)
 	err := r.db.Model(&entities.AccessLog{}).
-		Where("gym_id = ? AND DATE(access_time) = ?", gymID, today).
+		Where("gym_id = ? AND access_time >= ? AND access_time <= ?", gymID, start, end).
 		Count(&count).Error
 	return count, err
 }

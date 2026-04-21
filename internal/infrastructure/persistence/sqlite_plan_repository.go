@@ -42,7 +42,7 @@ func (r *SQLitePlanRepository) FindActiveByGymID(gymID uuid.UUID) ([]*entities.P
 }
 
 func (r *SQLitePlanRepository) Update(plan *entities.Plan) error {
-	plan.UpdatedAt = time.Now()
+	plan.UpdatedAt = time.Now().UTC().Round(0)
 	return r.db.Save(plan).Error
 }
 

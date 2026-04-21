@@ -11,6 +11,7 @@ const emptyForm = {
   price: 0,
   enrollment_fee: 0,
   max_members: 1,
+  billing_mode: 'CALENDAR_MONTH',
 };
 
 export default function PlansManagement() {
@@ -56,6 +57,7 @@ export default function PlansManagement() {
       price: plan.price || 0,
       enrollment_fee: plan.enrollment_fee || 0,
       max_members: plan.max_members || 1,
+      billing_mode: plan.billing_mode || 'CALENDAR_MONTH',
     });
     setShowForm(true);
   };
@@ -229,6 +231,40 @@ export default function PlansManagement() {
               />
               <p className="text-xs text-gray-400 mt-1">1 = individual · 2 = pareja · 3 = trío · 4 = cuarteto</p>
             </div>
+
+            {parseInt(formData.duration_days) === 30 && (
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Modo de cobro mensual
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, billing_mode: 'CALENDAR_MONTH' })}
+                    className={`px-4 py-3 rounded-xl border-2 text-left transition-all ${
+                      formData.billing_mode === 'CALENDAR_MONTH'
+                        ? 'border-emerald-500 bg-emerald-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-gray-800">Mes calendario</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Ej: 15 ene → 15 feb (recomendado)</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, billing_mode: '30_DAYS' })}
+                    className={`px-4 py-3 rounded-xl border-2 text-left transition-all ${
+                      formData.billing_mode === '30_DAYS'
+                        ? 'border-emerald-500 bg-emerald-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-gray-800">30 días exactos</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Ej: 31 ene → 1 mar siempre 30 días</p>
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="col-span-2 flex gap-3">
               <button

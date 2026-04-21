@@ -37,6 +37,7 @@ export const applyGymPrefs = (gym) => {
       localStorage.setItem('gym_prefs', JSON.stringify({
         locale: gym.locale,
         currency: gym.currency,
+        timezone: gym.timezone || 'America/Bogota',
       }));
     }
   }

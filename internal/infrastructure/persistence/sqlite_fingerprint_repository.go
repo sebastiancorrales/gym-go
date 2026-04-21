@@ -17,7 +17,7 @@ func NewSQLiteFingerprintRepository(db *gorm.DB) *SQLiteFingerprintRepository {
 }
 
 func (r *SQLiteFingerprintRepository) Create(ctx context.Context, fingerprint *entities.Fingerprint) error {
-	now := time.Now()
+	now := time.Now().UTC().Round(0)
 	fingerprint.CreatedAt = now
 	fingerprint.UpdatedAt = now
 	fingerprint.IsActive = true
@@ -47,14 +47,14 @@ func (r *SQLiteFingerprintRepository) GetActiveByUserID(ctx context.Context, use
 }
 
 func (r *SQLiteFingerprintRepository) Update(ctx context.Context, fingerprint *entities.Fingerprint) error {
-	fingerprint.UpdatedAt = time.Now()
+	fingerprint.UpdatedAt = time.Now().UTC().Round(0)
 	return r.db.WithContext(ctx).Save(fingerprint).Error
 }
 
 func (r *SQLiteFingerprintRepository) Delete(ctx context.Context, id int) error {
 	return r.db.WithContext(ctx).Model(&entities.Fingerprint{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"is_active":  false,
-		"updated_at": time.Now(),
+		"updated_at": time.Now().UTC().Round(0),
 	}).Error
 }
 
@@ -65,6 +65,6 @@ func (r *SQLiteFingerprintRepository) GetAllTemplates(ctx context.Context) ([]*e
 }
 
 func (r *SQLiteFingerprintRepository) LogVerification(ctx context.Context, verification *entities.FingerprintVerification) error {
-	verification.VerifiedAt = time.Now()
+	verification.VerifiedAt = time.Now().UTC().Round(0)
 	return r.db.WithContext(ctx).Create(verification).Error
 }

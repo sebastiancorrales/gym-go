@@ -206,7 +206,7 @@ export default function SalesHistory() {
                 {sales.map((sale) => (
                   <tr key={sale.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatDate(sale.sale_date)}
+                      {sale.date || '—'}{sale.hour ? <span className="text-xs text-gray-400 ml-1">{sale.hour}</span> : null}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`text-sm font-semibold ${sale.type === 'void' ? 'text-red-600' : 'text-green-600'}`}>
@@ -251,7 +251,7 @@ export default function SalesHistory() {
             <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Fecha:</span>
-                <span className="text-sm font-medium">{formatDate(selectedSale.sale_date)}</span>
+                <span className="text-sm font-medium">{selectedSale.date || '—'}{selectedSale.hour ? ` ${selectedSale.hour}` : ''}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Estado:</span>

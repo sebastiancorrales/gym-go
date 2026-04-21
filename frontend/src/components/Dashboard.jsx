@@ -13,12 +13,15 @@ import ProductsManagement from './inventory/ProductsManagement';
 import SalesTab from './inventory/SalesTab';
 import SalesHistory from './inventory/SalesHistory';
 import ReportsTab from './inventory/ReportsTab';
+import AccountingReports from './AccountingReports';
 import PaymentMethodsManagement from './inventory/PaymentMethodsManagement';
 import GymSettings from './GymSettings';
+import DevicesManagement from './DevicesManagement';
 import ProfileSettings from './ProfileSettings';
 import NotificationBell from './NotificationBell';
 import { SkeletonKpi } from './SkeletonTable';
 import { fmt } from '../utils/currency';
+import { todayStr } from '../utils/dateUtils';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 const Icon = ({ path, className = 'w-5 h-5' }) => (
@@ -39,6 +42,8 @@ const ICONS = {
   history:    'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
   reports:    'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
   payment:    'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z',
+  accounting: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z',
+  devices:    'M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18',
   logout:     'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1',
   chevronLeft:'M15 19l-7-7 7-7',
   chevronRight:'M9 5l7 7-7 7',
@@ -81,10 +86,17 @@ const NAV_GROUPS = [
     ],
   },
   {
+    label: 'Contabilidad',
+    items: [
+      { id: 'accounting-reports', label: 'Reportes', icon: 'accounting' },
+    ],
+  },
+  {
     label: 'Configuración',
     items: [
-      { id: 'gym-settings', label: 'Gimnasio',  icon: 'settings' },
-      { id: 'profile',      label: 'Mi Perfil',  icon: 'profile' },
+      { id: 'devices',      label: 'Dispositivos', icon: 'devices' },
+      { id: 'gym-settings', label: 'Gimnasio',      icon: 'settings' },
+      { id: 'profile',      label: 'Mi Perfil',     icon: 'profile' },
     ],
   },
 ];
@@ -113,7 +125,7 @@ export default function Dashboard({ user, onLogout }) {
   const [collapsed, setCollapsed]     = useState(false);
   const [deepLinkUserId, setDeepLinkUserId]   = useState(null);
   const [initialSubUser, setInitialSubUser]   = useState(null);
-  const [stats, setStats]           = useState({ activeSubscriptions: 0, todayRevenue: 0, todayAccess: 0, totalMembers: 0 });
+  const [stats, setStats]           = useState({ activeSubscriptions: 0, todayRevenue: 0, todayAccess: 0, totalMembers: 0, todaySales: 0 });
   const [loading, setLoading]       = useState(true);
   const [revenueChart, setRevenueChart]   = useState([]);
   const [accessChart, setAccessChart]     = useState([]);
@@ -125,26 +137,41 @@ export default function Dashboard({ user, onLogout }) {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      const [subsRes, allSubsRes, accessRes, usersRes] = await Promise.all([
-        api.get('/subscriptions/stats'),
+      const today = todayStr(); // fecha local Colombia, nunca toISOString() que devuelve UTC
+      const [allSubsRes, accessRes, usersRes, subsStatsRes, salesReportRes] = await Promise.all([
         api.get('/subscriptions'),
         api.get('/access/stats'),
         api.get('/users'),
+        api.get('/subscriptions/stats'),
+        api.get(`/sales/report?start_date=${today}&end_date=${today}`),
       ]);
 
-      const newStats = { activeSubscriptions: 0, todayRevenue: 0, todayAccess: 0, totalMembers: 0 };
+      const newStats = { activeSubscriptions: 0, todayRevenue: 0, todayAccess: 0, totalMembers: 0, todaySales: 0 };
 
-      if (subsRes.ok) {
-        const d = await subsRes.json();
+      // Suscripciones activas: conteo server-side (incluye ACTIVE y FROZEN, una por contrato)
+      if (subsStatsRes.ok) {
+        const d = await subsStatsRes.json();
         newStats.activeSubscriptions = d?.data?.active_count || 0;
       }
+
+      // Ventas de productos de hoy
+      if (salesReportRes.ok) {
+        const d = await salesReportRes.json();
+        newStats.todaySales = d?.net_sales || 0;
+      }
+
       if (allSubsRes.ok) {
         const all = await allSubsRes.json();
+
+        // Ingresos de hoy: solo suscripciones NO canceladas creadas hoy
         const today = new Date().toDateString();
-        const todayList = (all || []).filter(s => new Date(s.created_at).toDateString() === today);
+        const todayList = (all || []).filter(s =>
+          s.status !== 'CANCELLED' &&
+          new Date(s.created_at).toDateString() === today
+        );
         newStats.todayRevenue = todayList.reduce((sum, s) => sum + (s.total_paid || 0), 0);
 
-        // Daily summary by payment method
+        // Resumen diario por metodo de pago (solo no canceladas)
         const byMethod = {};
         for (const s of todayList) {
           const m = s.payment_method || 'SIN ESPECIFICAR';
@@ -154,7 +181,7 @@ export default function Dashboard({ user, onLogout }) {
         }
         setTodaySubs({ list: todayList, byMethod });
 
-        // Build last-7-days revenue chart
+        // Grafica ultimos 7 dias: solo suscripciones NO canceladas
         const days = Array.from({ length: 7 }, (_, i) => {
           const d = new Date();
           d.setDate(d.getDate() - (6 - i));
@@ -164,7 +191,7 @@ export default function Dashboard({ user, onLogout }) {
         const chartData = days.map(d => ({
           dia: dayNames[d.getDay()],
           ingresos: (all || [])
-            .filter(s => new Date(s.created_at).toDateString() === d.toDateString())
+            .filter(s => s.status !== 'CANCELLED' && new Date(s.created_at).toDateString() === d.toDateString())
             .reduce((sum, s) => sum + (s.total_paid || 0), 0),
         }));
         setRevenueChart(chartData);
@@ -242,17 +269,12 @@ export default function Dashboard({ user, onLogout }) {
         <div className={`flex items-center h-16 px-4 border-b border-white/10 flex-shrink-0
           ${collapsed ? 'justify-center' : 'justify-between'}`}>
           {!collapsed && (
-            <div className="flex items-center space-x-2 min-w-0">
-              <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/20">
-                <Icon path={ICONS.bolt} className="w-4 h-4 text-white" />
-              </div>
-              <span className="font-extrabold text-white truncate tracking-tight">Gym-Go</span>
+            <div className="flex items-center min-w-0">
+              <img src="/gymgologo.png" alt="Gymgosoft" className="h-9 w-auto object-contain" />
             </div>
           )}
           {collapsed && (
-            <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Icon path={ICONS.bolt} className="w-4 h-4 text-white" />
-            </div>
+            <img src="/gymgologo.png" alt="Gymgosoft" className="h-8 w-8 object-contain" />
           )}
           <button
             onClick={() => setCollapsed(c => !c)}
@@ -383,15 +405,16 @@ export default function Dashboard({ user, onLogout }) {
               </div>
 
               {/* KPIs */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                 {loading ? (
-                  Array.from({ length: 4 }).map((_, i) => <SkeletonKpi key={i} />)
+                  Array.from({ length: 5 }).map((_, i) => <SkeletonKpi key={i} />)
                 ) : (
                   <>
-                    <StatCard title="Suscripciones Activas" value={stats.activeSubscriptions} subtitle="Miembros con plan activo" iconPath={ICONS.users}   gradient="bg-gradient-to-br from-blue-500 to-blue-700" />
-                    <StatCard title="Ingresos de Hoy"       value={fmt(stats.todayRevenue)} subtitle="Pagos recibidos hoy" iconPath={ICONS.payment} gradient="bg-gradient-to-br from-emerald-500 to-emerald-700" />
-                    <StatCard title="Accesos Hoy"           value={stats.todayAccess}         subtitle="Entradas registradas" iconPath={ICONS.access}   gradient="bg-gradient-to-br from-violet-500 to-violet-700" />
-                    <StatCard title="Total Miembros"        value={stats.totalMembers}         subtitle="Miembros registrados" iconPath={ICONS.users}   gradient="bg-gradient-to-br from-amber-500 to-orange-600" />
+                    <StatCard title="Suscripciones Activas" value={stats.activeSubscriptions} subtitle="Contratos activos (incl. congelados)" iconPath={ICONS.subs}     gradient="bg-gradient-to-br from-blue-500 to-blue-700" />
+                    <StatCard title="Ingresos de Hoy"       value={fmt(stats.todayRevenue)}    subtitle="Pagos de suscripciones hoy"        iconPath={ICONS.payment}   gradient="bg-gradient-to-br from-emerald-500 to-emerald-700" />
+                    <StatCard title="Ventas Productos Hoy"  value={fmt(stats.todaySales)}      subtitle="Ventas netas de inventario"        iconPath={ICONS.sales}     gradient="bg-gradient-to-br from-teal-500 to-cyan-700" />
+                    <StatCard title="Accesos Hoy"           value={stats.todayAccess}           subtitle="Entradas registradas"              iconPath={ICONS.access}    gradient="bg-gradient-to-br from-violet-500 to-violet-700" />
+                    <StatCard title="Total Miembros"        value={stats.totalMembers}           subtitle="Miembros registrados"              iconPath={ICONS.users}     gradient="bg-gradient-to-br from-amber-500 to-orange-600" />
                   </>
                 )}
               </div>
@@ -586,8 +609,10 @@ export default function Dashboard({ user, onLogout }) {
           {activeTab === 'products'        && <ProductsManagement />}
           {activeTab === 'sales'           && <SalesTab user={user} />}
           {activeTab === 'sales-history'   && <SalesHistory />}
-          {activeTab === 'reports'         && <ReportsTab />}
-          {activeTab === 'payment-methods' && <PaymentMethodsManagement user={user} />}
+          {activeTab === 'reports'              && <ReportsTab />}
+          {activeTab === 'accounting-reports'  && <AccountingReports />}
+          {activeTab === 'payment-methods'     && <PaymentMethodsManagement user={user} />}
+          {activeTab === 'devices'         && <DevicesManagement />}
           {activeTab === 'gym-settings'    && <GymSettings />}
           {activeTab === 'profile'         && <ProfileSettings user={user} />}
         </main>

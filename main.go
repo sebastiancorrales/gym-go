@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -110,6 +113,8 @@ func main() {
 	attendanceRepo := persistence.NewSQLiteAttendanceRepository(database.DB)
 	memberRepo := persistence.NewInMemoryMemberRepository()
 	instructorRepo := persistence.NewInMemoryInstructorRepository()
+	notifRecipientRepo := persistence.NewSQLiteNotificationRecipientRepository(database.DB)
+	deviceRepo := persistence.NewSQLiteDeviceRepository(database.DB)
 
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(userRepo)
@@ -122,6 +127,26 @@ func main() {
 	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo)
 	classUseCase := usecases.NewClassUseCase(classRepo, instructorRepo)
 	attendanceUseCase := usecases.NewAttendanceUseCase(attendanceRepo, memberRepo, classRepo)
+
+	emailSender := email.NewSender(email.Config{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		Username: cfg.SMTP.Username,
+		Password: cfg.SMTP.Password,
+		From:     cfg.SMTP.From,
+	})
+	notifUseCase := usecases.NewNotificationUseCase(
+		notifRecipientRepo,
+		saleRepo,
+		saleDetailRepo,
+		subscriptionRepo,
+		planRepo,
+		gymRepo,
+		userRepo,
+		paymentMethodRepo,
+		productRepo,
+		emailSender,
+	)
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, gymRepo, jwtManager)
@@ -138,14 +163,8 @@ func main() {
 	accessHandler := handlers.NewAccessHandler(accessUseCase)
 	uploadHandler := handlers.NewUploadHandler("./uploads")
 	biometricHandler := handlers.NewBiometricHandler(biometricService)
-	emailSender := email.NewSender(email.Config{
-		Host:     cfg.SMTP.Host,
-		Port:     cfg.SMTP.Port,
-		Username: cfg.SMTP.Username,
-		Password: cfg.SMTP.Password,
-		From:     cfg.SMTP.From,
-	})
-	notificationHandler := handlers.NewNotificationHandler(subscriptionUseCase, userUseCase, planUseCase, gymRepo, emailSender)
+	notificationHandler := handlers.NewNotificationHandler(notifUseCase, gymRepo, emailSender)
+	deviceHandler := handlers.NewDeviceHandler(deviceRepo)
 
 	// Setup Gin router
 	if cfg.Server.Environment == "production" {
@@ -201,6 +220,7 @@ func main() {
 	// Protected routes
 	protected := router.Group("/api/v1")
 	protected.Use(middleware.AuthMiddleware(jwtManager))
+	protected.Use(middleware.GymTimezoneMiddleware(gymRepo, cfg.App.DefaultTimezone))
 	{
 		// Auth routes
 		protected.POST("/auth/logout", authHandler.Logout)
@@ -294,6 +314,7 @@ func main() {
 			subscriptions.GET("", subscriptionHandler.List)
 			subscriptions.POST("", subscriptionHandler.Create)
 			subscriptions.GET("/stats", subscriptionHandler.GetStats)
+			subscriptions.GET("/report", subscriptionHandler.Report)
 			subscriptions.POST("/:id/cancel", subscriptionHandler.Cancel)
 			subscriptions.POST("/:id/renew", subscriptionHandler.Renew)
 			subscriptions.POST("/:id/freeze", subscriptionHandler.Freeze)
@@ -332,7 +353,13 @@ func main() {
 		notifications.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
 		{
 			notifications.POST("/send-expiring", notificationHandler.SendExpiringReminders)
+			notifications.POST("/send-daily-close", notificationHandler.SendDailyClose)
 			notifications.POST("/test-email", notificationHandler.TestEmail)
+			// Recipient management
+			notifications.GET("/recipients", notificationHandler.ListRecipients)
+			notifications.POST("/recipients", notificationHandler.CreateRecipient)
+			notifications.PUT("/recipients/:id", notificationHandler.UpdateRecipient)
+			notifications.DELETE("/recipients/:id", notificationHandler.DeleteRecipient)
 		}
 
 		// Class routes
@@ -378,6 +405,17 @@ func main() {
 			paymentMethods.POST("", paymentMethodHandler.CreatePaymentMethod)
 			paymentMethods.PUT("/:id", paymentMethodHandler.UpdatePaymentMethod)
 			paymentMethods.DELETE("/:id", paymentMethodHandler.DeletePaymentMethod)
+		}
+
+		// Device (relay) routes - Only ADMIN_GYM and SUPER_ADMIN
+		devices := protected.Group("/devices")
+		devices.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		{
+			devices.GET("", deviceHandler.List)
+			devices.POST("", deviceHandler.Create)
+			devices.PUT("/:id", deviceHandler.Update)
+			devices.DELETE("/:id", deviceHandler.Delete)
+			devices.POST("/:id/trigger", deviceHandler.Trigger)
 		}
 
 		// Sales routes - Multiple roles
@@ -444,6 +482,39 @@ func main() {
 		}
 	}()
 
+	// Backup scheduler: copies the DB every day at 02:00 local time, keeps 7 days.
+	go scheduleDailyClose(2, 0, func() {
+		if err := backupDatabase(cfg.Database.DatabasePath, 7); err != nil {
+			log.Printf("⚠️ Backup failed: %v", err)
+		} else {
+			log.Printf("✅ Database backup completed")
+		}
+	})
+
+	// Daily-close scheduler: sends the end-of-day report at 23:00 local time.
+	// Iterates over every registered gym and sends to each gym's DAILY_CLOSE recipients.
+	go scheduleDailyClose(23, 0, func() {
+		gyms, err := gymRepo.List(100, 0)
+		if err != nil {
+			log.Printf("⚠️ Daily-close: failed to list gyms: %v", err)
+			return
+		}
+		for _, gym := range gyms {
+			loc := time.Local
+			if gym.Timezone != "" {
+				if l, err := time.LoadLocation(gym.Timezone); err == nil {
+					loc = l
+				}
+			}
+			now := time.Now().In(loc)
+			if err := notifUseCase.SendDailyClose(gym.ID, now, now, loc); err != nil {
+				log.Printf("⚠️ Daily-close gym %q: %v", gym.Name, err)
+			} else {
+				log.Printf("✅ Daily-close sent for gym %q", gym.Name)
+			}
+		}
+	})
+
 	// Start server
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	go func() {
@@ -465,6 +536,62 @@ func main() {
 
 	log.Println("🛑 Shutting down server...")
 	log.Println("✅ Server stopped gracefully")
+}
+
+// backupDatabase crea una copia limpia del archivo SQLite en una carpeta
+// "backups/" junto al archivo original, con el nombre gym-go_YYYY-MM-DD.db.
+// Mantiene solo los últimos `keepDays` backups, eliminando los más antiguos.
+func backupDatabase(dbPath string, keepDays int) error {
+	backupDir := filepath.Join(filepath.Dir(dbPath), "backups")
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		return fmt.Errorf("creating backup dir: %w", err)
+	}
+
+	dest := filepath.Join(backupDir, "gym-go_"+time.Now().Format("2006-01-02")+".db")
+
+	// Read source and write to destination (simple file copy — safe for SQLite
+	// because GORM keeps WAL checkpointed and the file is consistent at page boundaries).
+	src, err := os.ReadFile(dbPath)
+	if err != nil {
+		return fmt.Errorf("reading db: %w", err)
+	}
+	if err := os.WriteFile(dest, src, 0644); err != nil {
+		return fmt.Errorf("writing backup: %w", err)
+	}
+
+	// Purge old backups beyond keepDays
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		return nil // backup succeeded; purge failure is non-fatal
+	}
+	var backups []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasPrefix(e.Name(), "gym-go_") && strings.HasSuffix(e.Name(), ".db") {
+			backups = append(backups, filepath.Join(backupDir, e.Name()))
+		}
+	}
+	sort.Strings(backups) // oldest first (YYYY-MM-DD sorts lexicographically)
+	for len(backups) > keepDays {
+		_ = os.Remove(backups[0])
+		backups = backups[1:]
+	}
+	return nil
+}
+
+// scheduleDailyClose fires task once per day at hour:minute (local time).
+func scheduleDailyClose(hour, minute int, task func()) {
+	go func() {
+		for {
+			now := time.Now()
+			next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.Local)
+			if !now.Before(next) {
+				next = next.Add(24 * time.Hour)
+			}
+			timer := time.NewTimer(next.Sub(now))
+			<-timer.C
+			task()
+		}
+	}()
 }
 
 // corsMiddleware provides basic CORS support

@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
+	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
 	"gorm.io/gorm"
 )
 
@@ -58,7 +59,7 @@ func (r *SQLiteSubscriptionRepository) FindByGymID(gymID uuid.UUID, limit, offse
 }
 
 func (r *SQLiteSubscriptionRepository) Update(subscription *entities.Subscription) error {
-	subscription.UpdatedAt = time.Now()
+	subscription.UpdatedAt = time.Now().UTC().Round(0)
 	return r.db.Save(subscription).Error
 }
 
@@ -73,14 +74,56 @@ func (r *SQLiteSubscriptionRepository) MarkExpiredSubscriptions() (int64, error)
 	return result.RowsAffected, result.Error
 }
 
+func (r *SQLiteSubscriptionRepository) FindByGymIDWithFilters(gymID uuid.UUID, filter repositories.SubscriptionFilter, limit, offset int) ([]*entities.Subscription, error) {
+	var subscriptions []*entities.Subscription
+	q := r.db.Where("gym_id = ?", gymID)
+	switch filter.Status {
+	case "INACTIVE":
+		q = q.Where("status IN ?", []string{"EXPIRED", "CANCELLED", "SUSPENDED"})
+	case "":
+		// no status filter
+	default:
+		q = q.Where("status = ?", filter.Status)
+	}
+	if filter.CreatedFrom != "" {
+		q = q.Where("date >= ?", filter.CreatedFrom)
+	}
+	if filter.CreatedTo != "" {
+		q = q.Where("date <= ?", filter.CreatedTo)
+	}
+	if filter.StartFrom != nil {
+		q = q.Where("start_date >= ?", *filter.StartFrom)
+	}
+	if filter.StartTo != nil {
+		q = q.Where("start_date <= ?", *filter.StartTo)
+	}
+	if filter.EndFrom != nil {
+		q = q.Where("end_date >= ?", *filter.EndFrom)
+	}
+	if filter.EndTo != nil {
+		q = q.Where("end_date <= ?", *filter.EndTo)
+	}
+	err := q.Limit(limit).Offset(offset).Order("created_at DESC").Find(&subscriptions).Error
+	return subscriptions, err
+}
+
+func (r *SQLiteSubscriptionRepository) FindByGymIDAndDateRange(gymID uuid.UUID, from, to string) ([]*entities.Subscription, error) {
+	var subscriptions []*entities.Subscription
+	err := r.db.Where("gym_id = ? AND date >= ? AND date <= ?", gymID, from, to).
+		Order("date DESC, hour DESC").
+		Find(&subscriptions).Error
+	return subscriptions, err
+}
+
 func (r *SQLiteSubscriptionRepository) CountActiveByGymID(gymID uuid.UUID) (int64, error) {
 	var count int64
+	activeStatuses := []string{
+		string(entities.SubscriptionStatusActive),
+		string(entities.SubscriptionStatusFrozen),
+	}
 	err := r.db.Model(&entities.Subscription{}).
-		Where("gym_id = ? AND status = ? AND end_date > ?",
-			gymID, entities.SubscriptionStatusActive, time.Now()).
+		Where("gym_id = ? AND status IN ? AND end_date > ?",
+			gymID, activeStatuses, time.Now()).
 		Count(&count).Error
 	return count, err
 }
-
-
-
