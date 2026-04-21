@@ -172,19 +172,23 @@ export default function CheckIn() {
               const d = await ciRes.json();
               setResult({ success: false, user, message: 'Acceso Denegado', reason: d.reason || 'Sin suscripción activa' });
             }
-            await sleep(5500); // wait for countdown overlay to finish
+            await sleep(5500);
             setResult(null);
             setError(null);
 
           } else {
             const errMsg = (verData.error || '').toLowerCase();
             const isTimeout = errMsg.includes('timeout') || errMsg.includes('ninguna huella');
-            if (!isTimeout) {
+            const isBusy   = errMsg.includes('ocupado') || errMsg.includes('busy') || errMsg.includes('matching error');
+            if (isBusy) {
+              // Reader busy (enrollment in progress) — retry silently after a short pause
+              if (alive) await sleep(1500);
+            } else if (!isTimeout) {
               setError({ message: 'Huella no reconocida', detail: 'No coincide con ningún usuario registrado' });
               await sleep(3000);
               setError(null);
             }
-            // timeout → just loop again immediately
+            // timeout → loop again immediately
           }
         } catch {
           setCapturingFingerprint(false);

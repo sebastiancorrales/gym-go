@@ -51,7 +51,9 @@
       "Bash(powershell -Command \"Get-ChildItem ''C:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\biometric-service\\\\bin\\\\Debug\\\\net8.0-windows\\\\'' | Where-Object { $_.Name -like ''dp*'' -or $_.Name -like ''DP*'' } | Select-Object Name\")",
       "Bash(powershell -Command \"Start-Process ''C:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\biometric-service\\\\bin\\\\Debug\\\\net8.0-windows\\\\BiometricPOC.exe''\")",
       "Bash(powershell -Command \"Stop-Process -Name BiometricPOC -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; Start-Process ''C:\\\\Users\\\\sebas\\\\OneDrive\\\\Desktop\\\\gym-go\\\\biometric-service\\\\bin\\\\Debug\\\\net8.0-windows\\\\BiometricPOC.exe''\")",
-      "Bash(powershell -Command \"Stop-Process -Name BiometricPOC -Force -ErrorAction SilentlyContinue; Write-Host OK\")"
+      "Bash(powershell -Command \"Stop-Process -Name BiometricPOC -Force -ErrorAction SilentlyContinue; Write-Host OK\")",
+      "Bash(grep -E \"\\\\.\\(exe|bat|msi|zip\\)$\")",
+      "Bash(grep -E \"installer|\\\\.nsi$\")"
     ]
   }
 }

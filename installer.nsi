@@ -53,7 +53,7 @@ Section "Gym-Go (requerido)" SecCore
   
   ; Detener procesos existentes si estan corriendo
   nsExec::ExecToLog 'taskkill /F /IM gym-go.exe'
-  nsExec::ExecToLog 'taskkill /F /IM BiometricService.exe'
+  nsExec::ExecToLog 'taskkill /F /IM BiometricPOC.exe'
   
   ; ================================
   ; Backend Go + Frontend embebido
@@ -168,7 +168,7 @@ Section "Uninstall"
   
   ; Detener todos los procesos
   nsExec::ExecToLog 'taskkill /F /IM gym-go.exe'
-  nsExec::ExecToLog 'taskkill /F /IM BiometricService.exe'
+  nsExec::ExecToLog 'taskkill /F /IM BiometricPOC.exe'
   
   ; Quitar del autostart
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Gym-Go"

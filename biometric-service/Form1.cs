@@ -18,6 +18,7 @@ namespace BiometricPOC
 
         private enum State { Idle, Enrolling, Matching }
         private volatile State _state = State.Idle;
+        private readonly object _stateLock = new object();
 
         // Enrollment
         private List<Fmd> _enrollFmds = new List<Fmd>();
@@ -240,6 +241,8 @@ namespace BiometricPOC
 
                 if (path == "/status" && method == "GET")
                     response = HandleStatus();
+                else if (path == "/cancel" && method == "POST")
+                    response = HandleCancel();
                 else if (path == "/enroll" && method == "POST")
                     response = await HandleEnroll();
                 else if (path == "/match" && method == "POST")
@@ -267,17 +270,27 @@ namespace BiometricPOC
             }
         }
 
+        // POST /cancel — aborta cualquier operación pendiente (match o enroll)
+        object HandleCancel()
+        {
+            State prev;
+            lock (_stateLock)
+            {
+                prev = _state;
+                _state = State.Idle;
+                _enrollTcs?.TrySetCanceled();
+                _matchTcs?.TrySetCanceled();
+                _enrollFmds.Clear();
+            }
+            Log($"[API] POST /cancel — estado anterior: {prev}");
+            return new { success = true, message = "Operación cancelada" };
+        }
+
         // GET /status
         object HandleStatus()
         {
-            bool connected = _reader != null;
-            string status = "disconnected";
-            if (connected)
-            {
-                _reader.GetStatus();
-                status = _reader.Status.Status.ToString().ToLower();
-            }
-            Log("[API] GET /status");
+            bool connected = _reader != null && _running;
+            string status = connected ? "ready" : "disconnected";
             return new { success = true, connected, status, state = _state.ToString().ToLower() };
         }
 
@@ -287,14 +300,26 @@ namespace BiometricPOC
         {
             if (_reader == null)
                 return new { success = false, message = "Lector no conectado" };
-            if (_state != State.Idle)
-                return new { success = false, message = "Lector ocupado: " + _state };
+
+            lock (_stateLock)
+            {
+                // Enrollment tiene prioridad sobre un match en curso (ej: ventana check-in abierta)
+                if (_state == State.Matching)
+                {
+                    _matchTcs?.TrySetCanceled();
+                    _state = State.Idle;
+                    Log("[API] POST /enroll — match cancelado para dar paso al enrollment.");
+                }
+
+                if (_state != State.Idle)
+                    return new { success = false, message = "Lector ocupado: " + _state };
+
+                _enrollFmds.Clear();
+                _enrollTcs = new TaskCompletionSource<Fmd>();
+                _state = State.Enrolling;
+            }
 
             Log("[API] POST /enroll — iniciando...");
-
-            _enrollFmds.Clear();
-            _enrollTcs = new TaskCompletionSource<Fmd>();
-            _state = State.Enrolling;
             Log("👆 Pon el dedo... (1/4)");
 
             // Esperar máximo 120 segundos
@@ -328,8 +353,6 @@ namespace BiometricPOC
         {
             if (_reader == null)
                 return new { success = false, message = "Lector no conectado" };
-            if (_state != State.Idle)
-                return new { success = false, message = "Lector ocupado: " + _state };
 
             MatchRequest matchReq;
             try { matchReq = JsonSerializer.Deserialize<MatchRequest>(body, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); }
@@ -338,11 +361,17 @@ namespace BiometricPOC
             if (matchReq?.Templates == null || matchReq.Templates.Count == 0)
                 return new { success = false, message = "No se enviaron templates" };
 
-            Log($"[API] POST /match — {matchReq.Templates.Count} template(s)");
+            lock (_stateLock)
+            {
+                if (_state != State.Idle)
+                    return new { success = false, message = "Lector ocupado: " + _state };
 
-            _matchTemplates = matchReq.Templates;
-            _matchTcs = new TaskCompletionSource<string>();
-            _state = State.Matching;
+                _matchTemplates = matchReq.Templates;
+                _matchTcs = new TaskCompletionSource<string>();
+                _state = State.Matching;
+            }
+
+            Log($"[API] POST /match — {matchReq.Templates.Count} template(s)");
             Log("👆 Pon el dedo para verificar...");
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
@@ -358,7 +387,8 @@ namespace BiometricPOC
             }
             catch (TaskCanceledException)
             {
-                _state = State.Idle;
+                // Solo resetear a Idle si aún somos dueños del estado (enrollment pudo haberlo tomado)
+                lock (_stateLock) { if (_state == State.Matching) _state = State.Idle; }
                 return new { success = false, message = "Timeout: ninguna huella detectada" };
             }
         }

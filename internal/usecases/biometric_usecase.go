@@ -285,7 +285,16 @@ func checkBiometricService() (bool, error) {
 	return statusResp.Success && statusResp.Connected, nil
 }
 
+func cancelBiometricService() {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Post(biometricServiceURL+"/cancel", "application/json", nil)
+	if err == nil {
+		resp.Body.Close()
+	}
+}
+
 func enrollFingerprintFromService() (string, error) {
+	cancelBiometricService() // libera el lector si hay un /match en curso (ej: ventana check-in abierta)
 	client := &http.Client{Timeout: 130 * time.Second}
 	resp, err := client.Post(biometricServiceURL+"/enroll", "application/json", nil)
 	if err != nil {

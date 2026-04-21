@@ -14,7 +14,7 @@ If LCase(fso.GetFileName(installDir)) = "scripts" Then
 End If
 
 gymExe = installDir & "\gym-go.exe"
-bioExe = installDir & "\biometric\BiometricService.exe"
+bioExe = installDir & "\biometric\BiometricPOC.exe"
 
 ' Verificar que existan los ejecutables
 If Not fso.FileExists(gymExe) Then
@@ -25,7 +25,7 @@ End If
 ' Verificar si ya estan corriendo
 Dim gymRunning, bioRunning
 gymRunning = IsProcessRunning("gym-go.exe")
-bioRunning = IsProcessRunning("BiometricService.exe")
+bioRunning = IsProcessRunning("BiometricPOC.exe")
 
 ' Iniciar servicio biometrico (si existe y no esta corriendo)
 If fso.FileExists(bioExe) And Not bioRunning Then

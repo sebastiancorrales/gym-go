@@ -28,8 +28,8 @@ cd /d "%~dp0"
 :: -----------------------------------------------
 :: 2. Servicio biometrico C# - HTTP en puerto 5001
 :: -----------------------------------------------
-echo [2/3] Iniciando servicio biometrico C# (HTTP puerto 5001)...
-start "Gym-Go Biometric Service" cmd /k "cd /d "%~dp0" && echo === SERVICIO BIOMETRICO === && echo API HTTP: http://localhost:5001 && echo. && biometric-service\bin\Debug\net8.0-windows\BiometricPOC.exe"
+echo [2/3] Compilando y iniciando servicio biometrico C# (HTTP puerto 5001)...
+start "Gym-Go Biometric Service" cmd /k "cd /d "%~dp0biometric-service" && dotnet build -c Debug && cd /d "%~dp0" && echo === SERVICIO BIOMETRICO === && echo API HTTP: http://localhost:5001 && echo. && biometric-service\bin\Debug\net8.0-windows\BiometricPOC.exe"
 timeout /t 3 /nobreak >nul
 echo [OK] Servicio biometrico iniciado (ver ventana aparte)
 echo.
