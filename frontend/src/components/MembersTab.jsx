@@ -217,7 +217,7 @@ export default function MembersTab() {
 
         {message && (
           <div className={`p-4 rounded mb-4 ${
-            message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+            message.type === 'success' ? 'bg-[#DCFCE7] text-[#059669]' : 'bg-red-100 text-red-700'
           }`}>
             {message.text}
           </div>
@@ -228,32 +228,32 @@ export default function MembersTab() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
               <input type="text" name="first_name" value={formData.first_name} onChange={handleChange} required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Apellido *</label>
               <input type="text" name="last_name" value={formData.last_name} onChange={handleChange} required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
               <input type="email" name="email" value={formData.email} onChange={handleChange} required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
               <input type="tel" name="phone" value={formData.phone} onChange={handleChange} required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Fecha de Nacimiento *</label>
               <input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
           </div>
 
           <button type="submit"
-            className="w-full bg-gradient-to-r from-emerald-500 to-cyan-500 text-white py-3 px-4 rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-colors font-medium">
+            className="w-full bg-[#1272D6] text-white py-3 px-4 rounded-lg  transition-colors font-medium">
             Registrar Miembro
           </button>
         </form>
@@ -286,7 +286,7 @@ export default function MembersTab() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{member.phone}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       {fps.length > 0 ? (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#DCFCE7] text-[#065F46]">
                           ✅ {fps.length} huella(s)
                         </span>
                       ) : (
@@ -297,7 +297,7 @@ export default function MembersTab() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        member.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        member.status === 'active' ? 'bg-[#DCFCE7] text-[#065F46]' : 'bg-gray-100 text-gray-800'
                       }`}>
                         {member.status}
                       </span>
@@ -311,7 +311,7 @@ export default function MembersTab() {
                       </button>
                       <button
                         onClick={() => { setEnrollingMember(member); setEnrollStatus('idle'); setEnrollMessage(''); }}
-                        className="text-green-600 hover:text-green-800 font-medium"
+                        className="text-[#059669] hover:text-[#065F46] font-medium"
                       >
                         🖐 Huella
                       </button>
@@ -339,7 +339,7 @@ export default function MembersTab() {
                 <p className="text-sm font-medium text-gray-700 mb-2">Huellas registradas:</p>
                 {(memberFingerprints[enrollingMember.id] || []).map(fp => (
                   <div key={fp.id} className="flex items-center justify-between text-sm py-1">
-                    <span className="text-green-700">
+                    <span className="text-[#059669]">
                       ✅ {FINGER_OPTIONS.find(f => f.value === fp.finger_index)?.label || fp.finger_index}
                     </span>
                     <button
@@ -359,7 +359,7 @@ export default function MembersTab() {
               <select
                 value={fingerIndex}
                 onChange={(e) => setFingerIndex(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6]"
                 disabled={enrollStatus === 'enrolling'}
               >
                 {FINGER_OPTIONS.map(opt => (
@@ -371,7 +371,7 @@ export default function MembersTab() {
             {/* Status message */}
             {enrollMessage && (
               <div className={`p-3 rounded mb-4 text-sm ${
-                enrollStatus === 'success' ? 'bg-green-100 text-green-700' :
+                enrollStatus === 'success' ? 'bg-[#DCFCE7] text-[#059669]' :
                 enrollStatus === 'error' ? 'bg-red-100 text-red-700' :
                 'bg-blue-100 text-blue-700'
               }`}>
@@ -417,27 +417,27 @@ export default function MembersTab() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Nombre *</label>
                   <input type="text" name="first_name" value={editFormData.first_name} onChange={handleEditChange} required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Apellido *</label>
                   <input type="text" name="last_name" value={editFormData.last_name} onChange={handleEditChange} required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
                   <input type="email" name="email" value={editFormData.email} onChange={handleEditChange} required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Teléfono *</label>
                   <input type="tel" name="phone" value={editFormData.phone} onChange={handleEditChange} required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Fecha de Nacimiento *</label>
                   <input type="date" name="date_of_birth" value={editFormData.date_of_birth} onChange={handleEditChange} required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                 </div>
               </div>
 
@@ -448,7 +448,7 @@ export default function MembersTab() {
                   <div className="space-y-2 mb-3">
                     {(memberFingerprints[editingMember.id] || []).map(fp => (
                       <div key={fp.id} className="flex items-center justify-between bg-green-50 p-2 rounded">
-                        <span className="text-sm text-green-700">
+                        <span className="text-sm text-[#059669]">
                           ✅ {FINGER_OPTIONS.find(f => f.value === fp.finger_index)?.label || fp.finger_index}
                         </span>
                         <button
@@ -479,7 +479,7 @@ export default function MembersTab() {
 
               <div className="flex gap-3 pt-2">
                 <button type="submit"
-                  className="flex-1 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white py-2 px-4 rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-colors font-medium">
+                  className="flex-1 bg-[#1272D6] text-white py-2 px-4 rounded-lg  transition-colors font-medium">
                   Guardar Cambios
                 </button>
                 <button type="button" onClick={() => setEditingMember(null)}

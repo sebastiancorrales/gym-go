@@ -41,7 +41,7 @@ function Avatar({ user, size = 'lg' }) {
   }
   const initials = `${user?.first_name?.[0] || ''}${user?.last_name?.[0] || ''}`.toUpperCase();
   return (
-    <div className={`${sz} rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center border-4 border-white shadow-xl`}>
+    <div className={`${sz} rounded-full bg-[#1272D6] flex items-center justify-center border-4 border-white shadow-xl`}>
       <span className="font-bold text-white">{initials}</span>
     </div>
   );
@@ -275,7 +275,7 @@ export default function CheckIn() {
             ))}
           </select>
         )}
-        <span className={`w-2 h-2 rounded-full ${readerStatus?.reader_connected ? 'bg-green-400' : 'bg-gray-600'}`} />
+        <span className={`w-2 h-2 rounded-full ${readerStatus?.reader_connected ? 'bg-[#10B981]' : 'bg-gray-600'}`} />
         <span className="text-xs text-white/40">
           {readerStatus?.reader_connected ? 'Lector conectado' : 'Sin lector'}
         </span>
@@ -287,7 +287,7 @@ export default function CheckIn() {
         {/* Logo + clock */}
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
+            <div className="w-10 h-10 bg-[#1272D6] rounded-xl flex items-center justify-center shadow-sm">
               <Svg path={BOLT_PATH} className="w-5 h-5 text-white" />
             </div>
             <span className="text-2xl font-bold text-white tracking-wide">GYM-GO</span>
@@ -327,12 +327,12 @@ export default function CheckIn() {
                   placeholder="Número de documento"
                   disabled={loading}
                   autoFocus
-                  className="w-full px-5 py-4 text-xl text-center bg-white/10 border border-white/20 text-white placeholder-white/30 rounded-2xl focus:outline-none focus:border-emerald-400 focus:bg-white/15 transition"
+                  className="w-full px-5 py-4 text-xl text-center bg-white/10 border border-white/20 text-white placeholder-white/30 rounded-2xl focus:outline-none focus:border-[#1272D6] focus:bg-white/15 transition"
                 />
                 <button
                   type="submit"
                   disabled={loading || !documentNumber.trim()}
-                  className="w-full py-4 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white text-lg font-bold rounded-2xl transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full py-4 bg-[#1272D6] hover:bg-[#0D5BAD] text-white text-lg font-bold rounded-2xl transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {loading
                     ? <span className="flex items-center justify-center gap-2"><svg className="animate-spin w-5 h-5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>Verificando...</span>
@@ -346,8 +346,8 @@ export default function CheckIn() {
             {checkInMethod === 'fingerprint' && (
               <div className="space-y-4 text-center">
                 <div className={`mx-auto w-28 h-28 rounded-full flex items-center justify-center transition-all
-                  ${capturingFingerprint ? 'bg-emerald-500/20 ring-4 ring-emerald-400/30 animate-pulse' : 'bg-white/10'}`}>
-                  <Svg path={FINGERPRINT_PATH} className={`w-14 h-14 transition-colors ${capturingFingerprint ? 'text-emerald-400' : 'text-white/30'}`} />
+                  ${capturingFingerprint ? 'bg-[#EBF3FF]0/20 ring-4 ring-[rgba(18,114,214,0.30)] animate-pulse' : 'bg-white/10'}`}>
+                  <Svg path={FINGERPRINT_PATH} className={`w-14 h-14 transition-colors ${capturingFingerprint ? 'text-[#1272D6]' : 'text-white/30'}`} />
                 </div>
                 <p className="text-white/60 text-sm">
                   {capturingFingerprint ? '👆 Coloca tu dedo en el lector...' : 'Esperando lector...'}
@@ -364,7 +364,7 @@ export default function CheckIn() {
             <div className="flex justify-center">
               <div className="relative">
                 <Avatar user={result.user} size="lg" />
-                <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-green-500 rounded-full flex items-center justify-center border-2 border-gray-950">
+                <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-[#10B981] rounded-full flex items-center justify-center border-2 border-gray-950">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d={CHECK_PATH} />
                   </svg>
@@ -372,15 +372,15 @@ export default function CheckIn() {
               </div>
             </div>
             <div>
-              <p className="text-green-400 text-sm font-semibold uppercase tracking-widest mb-1">
+              <p className="text-[#10B981] text-sm font-semibold uppercase tracking-widest mb-1">
                 {result.byFingerprint ? '✓ Huella reconocida' : '✓ Acceso permitido'}
               </p>
               <h2 className="text-3xl font-bold text-white">{result.user.first_name} {result.user.last_name}</h2>
               <p className="text-white/50 text-sm mt-1">{result.user.document_type} {result.user.document_number}</p>
             </div>
             {result.subscription && (
-              <div className="bg-green-500/10 border border-green-400/30 rounded-2xl px-5 py-3">
-                <p className="text-green-400 text-xs mb-0.5">Plan activo hasta</p>
+              <div className="bg-[rgba(16,185,129,0.10)] border border-[rgba(16,185,129,0.30)] rounded-2xl px-5 py-3">
+                <p className="text-[#10B981] text-xs mb-0.5">Plan activo hasta</p>
                 <p className="text-white font-semibold">{formatDate(result.subscription.end_date)}</p>
               </div>
             )}

@@ -135,7 +135,7 @@ export default function PlansManagement() {
         </div>
         <button
           onClick={showForm ? closeForm : openCreateForm}
-          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 shadow-lg"
+          className="px-4 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition-all duration-200 shadow-sm"
         >
           {showForm ? 'Cancelar' : '+ Nuevo Plan'}
         </button>
@@ -156,7 +156,7 @@ export default function PlansManagement() {
                 required
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                 placeholder="ej. Plan Mensual, Plan Trimestral"
               />
             </div>
@@ -168,7 +168,7 @@ export default function PlansManagement() {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                 rows="3"
                 placeholder="Describe las características del plan..."
               />
@@ -184,7 +184,7 @@ export default function PlansManagement() {
                 min="1"
                 value={formData.duration_days}
                 onChange={(e) => setFormData({ ...formData, duration_days: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
               />
             </div>
 
@@ -199,7 +199,7 @@ export default function PlansManagement() {
                 step="0.01"
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
               />
             </div>
 
@@ -213,7 +213,7 @@ export default function PlansManagement() {
                 step="0.01"
                 value={formData.enrollment_fee}
                 onChange={(e) => setFormData({ ...formData, enrollment_fee: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
               />
             </div>
 
@@ -227,7 +227,7 @@ export default function PlansManagement() {
                 max="10"
                 value={formData.max_members}
                 onChange={(e) => setFormData({ ...formData, max_members: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
               />
               <p className="text-xs text-gray-400 mt-1">1 = individual · 2 = pareja · 3 = trío · 4 = cuarteto</p>
             </div>
@@ -243,7 +243,7 @@ export default function PlansManagement() {
                     onClick={() => setFormData({ ...formData, billing_mode: 'CALENDAR_MONTH' })}
                     className={`px-4 py-3 rounded-xl border-2 text-left transition-all ${
                       formData.billing_mode === 'CALENDAR_MONTH'
-                        ? 'border-emerald-500 bg-emerald-50'
+                        ? 'border-[#1272D6] bg-[#EBF3FF]'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -255,7 +255,7 @@ export default function PlansManagement() {
                     onClick={() => setFormData({ ...formData, billing_mode: '30_DAYS' })}
                     className={`px-4 py-3 rounded-xl border-2 text-left transition-all ${
                       formData.billing_mode === '30_DAYS'
-                        ? 'border-emerald-500 bg-emerald-50'
+                        ? 'border-[#1272D6] bg-[#EBF3FF]'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
@@ -277,7 +277,7 @@ export default function PlansManagement() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 shadow-lg disabled:opacity-50"
+                className="flex-1 px-4 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition-all duration-200 shadow-sm disabled:opacity-50"
               >
                 {loading
                   ? editingPlan ? 'Guardando...' : 'Creando...'
@@ -305,7 +305,7 @@ export default function PlansManagement() {
                 key={plan.id}
                 className={`bg-white rounded-xl shadow-lg p-6 border-2 transition-all duration-200 ${
                   active
-                    ? 'border-gray-200 hover:border-emerald-500'
+                    ? 'border-gray-200 hover:border-[#1272D6]'
                     : 'border-gray-100 opacity-60'
                 }`}
               >
@@ -314,7 +314,7 @@ export default function PlansManagement() {
                   <span
                     className={`flex-shrink-0 px-2 py-1 text-xs font-semibold rounded-full ${
                       active
-                        ? 'bg-green-100 text-green-800'
+                        ? 'bg-[#DCFCE7] text-[#065F46]'
                         : 'bg-gray-200 text-gray-500'
                     }`}
                   >
@@ -335,7 +335,7 @@ export default function PlansManagement() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Precio:</span>
-                    <span className="font-bold text-emerald-600 text-lg">
+                    <span className="font-bold text-[#1272D6] text-lg">
                       {fmt(plan.price)}
                     </span>
                   </div>
@@ -357,7 +357,7 @@ export default function PlansManagement() {
                     {/* Edit button */}
                     <button
                       onClick={() => openEditForm(plan)}
-                      className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition"
+                      className="p-1.5 text-[#1272D6] hover:text-[#0A4A8F] hover:bg-[#EBF3FF] rounded-lg transition"
                       title="Editar plan"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

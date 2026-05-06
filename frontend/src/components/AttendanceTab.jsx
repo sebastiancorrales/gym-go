@@ -105,7 +105,7 @@ export default function AttendanceTab() {
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Miembro *</label>
             <select required value={formData.member_id}
               onChange={e => setFormData({ ...formData, member_id: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white">
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent bg-white">
               <option value="">Seleccionar miembro...</option>
               {users.map(u => (
                 <option key={u.id} value={u.id}>{u.first_name} {u.last_name}</option>
@@ -117,7 +117,7 @@ export default function AttendanceTab() {
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Clase (opcional)</label>
             <select value={formData.class_id}
               onChange={e => setFormData({ ...formData, class_id: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white">
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent bg-white">
               <option value="">Asistencia general</option>
               {classes.filter(c => c.status === 'scheduled' || c.status === 'ongoing').map(c => (
                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -126,7 +126,7 @@ export default function AttendanceTab() {
           </div>
 
           <button type="submit"
-            className="px-4 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-sm shadow-emerald-500/20">
+            className="px-4 py-3 bg-[#1272D6] text-white font-semibold rounded-xl  transition shadow-sm">
             Registrar Check-In
           </button>
         </form>
@@ -143,19 +143,19 @@ export default function AttendanceTab() {
               <Svg path="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input type="text" placeholder="Buscar miembro o clase..."
                 value={search} onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs text-gray-500 whitespace-nowrap">Desde</label>
               <input type="date" value={dateFrom}
                 onChange={e => setDateFrom(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs text-gray-500 whitespace-nowrap">Hasta</label>
               <input type="date" value={dateTo}
                 onChange={e => setDateTo(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             {(search || dateFrom || dateTo) && (
               <button onClick={resetFilters}
@@ -196,7 +196,7 @@ export default function AttendanceTab() {
                       {new Date(a.check_out).toLocaleString('es-CO', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                    <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#DCFCE7] text-[#0A4A8F]">
                       En el gym
                     </span>
                   )}

@@ -77,7 +77,7 @@ export default function AccessManagement() {
 
   const getStatusBadge = (status) => {
     return status === 'GRANTED' 
-      ? 'bg-green-100 text-green-800' 
+      ? 'bg-[#DCFCE7] text-[#065F46]' 
       : 'bg-red-100 text-red-800';
   };
 
@@ -87,7 +87,7 @@ export default function AccessManagement() {
 
   const getAccessTypeIcon = (type) => {
     return type === 'ENTRY' ? (
-      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-5 h-5 text-[#059669]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
       </svg>
     ) : (
@@ -111,7 +111,7 @@ export default function AccessManagement() {
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 shadow-lg"
+          className="px-4 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition-all duration-200 shadow-sm"
         >
           {showForm ? 'Cancelar' : '+ Registrar Entrada'}
         </button>
@@ -123,12 +123,12 @@ export default function AccessManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Entradas Hoy</p>
-              <p className="text-3xl font-bold text-green-600">
+              <p className="text-3xl font-bold text-[#059669]">
                 {todayAccess.filter(a => a.access_type === 'ENTRY' && a.status === 'GRANTED').length}
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-[#DCFCE7] rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-[#059669]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
               </svg>
             </div>
@@ -155,12 +155,12 @@ export default function AccessManagement() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Registros</p>
-              <p className="text-3xl font-bold text-emerald-600">
+              <p className="text-3xl font-bold text-[#1272D6]">
                 {todayAccess.length}
               </p>
             </div>
-            <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
-              <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-12 h-12 bg-[#DCFCE7] rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-[#1272D6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
@@ -180,7 +180,7 @@ export default function AccessManagement() {
                 required
                 value={formData.user_id}
                 onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
               >
                 <option value="">Seleccionar usuario...</option>
                 {users.map(user => (
@@ -198,7 +198,7 @@ export default function AccessManagement() {
               <select
                 value={formData.method}
                 onChange={(e) => setFormData({ ...formData, method: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
               >
                 <option value="MANUAL">Manual</option>
                 <option value="QR">Código QR</option>
@@ -211,7 +211,7 @@ export default function AccessManagement() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 shadow-lg disabled:opacity-50"
+                className="w-full px-4 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition-all duration-200 shadow-sm disabled:opacity-50"
               >
                 {loading ? 'Registrando...' : 'Registrar Entrada'}
               </button>

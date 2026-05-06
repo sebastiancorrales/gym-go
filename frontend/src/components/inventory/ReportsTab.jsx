@@ -30,7 +30,7 @@ const Delta = ({ curr, prev }) => {
   if (pct === null) return null;
   const up = pct >= 0;
   return (
-    <span className={`text-xs font-semibold flex items-center gap-0.5 ${up ? 'text-green-600' : 'text-red-500'}`}>
+    <span className={`text-xs font-semibold flex items-center gap-0.5 ${up ? 'text-[#059669]' : 'text-red-500'}`}>
       {up ? '▲' : '▼'} {Math.abs(pct).toFixed(1)}%
     </span>
   );
@@ -97,7 +97,7 @@ const ExportBtns = ({ onCSV, onPDF, onExcel }) => (
       </svg>
       PDF
     </button>
-    <button onClick={onExcel} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 border border-green-200 rounded-lg hover:bg-green-50 transition">
+    <button onClick={onExcel} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#059669] border border-[#A7F3D0] rounded-lg hover:bg-[#DCFCE7] transition">
       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
       </svg>
@@ -157,7 +157,7 @@ function TabVentas({ dateRange, prevDate, genKey }) {
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard title="Total Ventas"    value={report.total_sales || 0}                           prevValue={[report.total_sales, prevReport?.total_sales]}          icon="🧾" accent="text-blue-600" />
-            <KpiCard title="Ingresos Brutos" value={fmt(report.gross_sales)}                           prevValue={[report.gross_sales, prevReport?.gross_sales]}           icon="💰" accent="text-green-600" />
+            <KpiCard title="Ingresos Brutos" value={fmt(report.gross_sales)}                           prevValue={[report.gross_sales, prevReport?.gross_sales]}           icon="💰" accent="text-[#059669]" />
             <KpiCard title="Descuentos"      value={fmt(report.total_discounts)}                       prevValue={[report.total_discounts, prevReport?.total_discounts]}   icon="🏷️" accent="text-orange-500" />
             <KpiCard title="Ingresos Netos"  value={fmt(report.net_sales)}                             prevValue={[report.net_sales, prevReport?.net_sales]}               icon="📈" accent="text-purple-600" />
           </div>
@@ -276,7 +276,7 @@ function TabProductos({ dateRange, genKey }) {
                           </div>
                         </td>
                         <td className="px-5 py-3 text-sm text-gray-700">{p.quantity_sold} <span className="text-gray-400 text-xs">uds</span></td>
-                        <td className="px-5 py-3 text-sm font-semibold text-green-600">{fmt(p.total_revenue)}</td>
+                        <td className="px-5 py-3 text-sm font-semibold text-[#059669]">{fmt(p.total_revenue)}</td>
                         <td className="px-5 py-3 text-sm text-gray-600">{fmt(p.quantity_sold ? p.total_revenue / p.quantity_sold : 0)}</td>
                       </tr>
                     ))}
@@ -285,7 +285,7 @@ function TabProductos({ dateRange, genKey }) {
                     <tr>
                       <td colSpan={2} className="px-5 py-3 text-xs font-bold text-gray-600 uppercase">Total</td>
                       <td className="px-5 py-3 text-sm font-bold text-gray-800">{products.reduce((s, p) => s + p.quantity_sold, 0)} uds</td>
-                      <td className="px-5 py-3 text-sm font-bold text-green-600">{fmt(products.reduce((s, p) => s + (p.total_revenue || 0), 0))}</td>
+                      <td className="px-5 py-3 text-sm font-bold text-[#059669]">{fmt(products.reduce((s, p) => s + (p.total_revenue || 0), 0))}</td>
                       <td />
                     </tr>
                   </tfoot>
@@ -370,7 +370,7 @@ function TabMembresías({ dateRange, genKey }) {
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <KpiCard title="Nuevas Suscripciones" value={data.total}          icon="📋" accent="text-blue-600" />
-            <KpiCard title="Ingresos Membresías"  value={fmt(data.revenue)}   icon="💳" accent="text-green-600" />
+            <KpiCard title="Ingresos Membresías"  value={fmt(data.revenue)}   icon="💳" accent="text-[#059669]" />
             <KpiCard title="Activas Actualmente"  value={data.active}         icon="✅" accent="text-purple-600" />
             <KpiCard title="Por Vencer (7 días)"  value={data.expiring.length} icon="⚠️" accent="text-orange-500" />
           </div>
@@ -549,7 +549,7 @@ function TabAccesos({ dateRange, genKey }) {
                   return (
                     <div key={i} className="flex items-center gap-4 px-5 py-3">
                       <span className="text-sm font-bold text-gray-300 w-5 text-center">{i + 1}</span>
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-[#1272D6] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                         {u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -703,7 +703,7 @@ function TabConsolidado({ dateRange, genKey }) {
           {/* Botones de exportación */}
           <div className="flex items-center justify-between">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
-              <KpiCard title="Ingresos Suscripciones" value={fmt(data.subsRevenue)}   icon="🪪" accent="text-emerald-600" sub={`${data.subs.length} suscripciones`} />
+              <KpiCard title="Ingresos Suscripciones" value={fmt(data.subsRevenue)}   icon="🪪" accent="text-[#1272D6]" sub={`${data.subs.length} suscripciones`} />
               <KpiCard title="Ingresos Ventas"         value={fmt(data.salesRevenue)} icon="🛍️" accent="text-blue-600"    sub={`${data.salesReport?.total_sales ?? data.salesList.length} ventas`} />
               <KpiCard title="Total General"            value={fmt(data.grandTotal)}   icon="💰" accent="text-purple-600"  sub="Suscripciones + Ventas" />
             </div>
@@ -758,7 +758,7 @@ function TabConsolidado({ dateRange, genKey }) {
                   </tbody>
                   <tfoot><tr className="border-t-2 border-gray-200 bg-gray-50">
                     <td colSpan={4} className="px-5 py-3 text-sm font-bold text-gray-700">Subtotal suscripciones</td>
-                    <td className="px-5 py-3 text-right text-sm font-bold text-emerald-700">{fmt(data.subsRevenue)}</td>
+                    <td className="px-5 py-3 text-right text-sm font-bold text-[#0D5BAD]">{fmt(data.subsRevenue)}</td>
                   </tr></tfoot>
                 </table>
               </div>
@@ -817,7 +817,7 @@ function TabConsolidado({ dateRange, genKey }) {
                 </tbody>
                 <tfoot><tr className="border-t-2 border-gray-900 bg-gray-900">
                   <td className="px-5 py-4 text-sm font-bold text-white">TOTAL GENERAL</td>
-                  <td className="px-5 py-4 text-right text-sm font-bold text-emerald-300">{fmt(data.subsRevenue)}</td>
+                  <td className="px-5 py-4 text-right text-sm font-bold text-[#5BA8E8]">{fmt(data.subsRevenue)}</td>
                   <td className="px-5 py-4 text-right text-sm font-bold text-blue-300">{fmt(data.salesRevenue)}</td>
                   <td className="px-5 py-4 text-right text-lg font-extrabold text-white">{fmt(data.grandTotal)}</td>
                 </tr></tfoot>

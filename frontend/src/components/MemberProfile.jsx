@@ -9,7 +9,7 @@ const Svg = ({ path, className = 'w-5 h-5' }) => (
 );
 
 const STATUS_MAP = {
-  ACTIVE:    { label: 'Activa',     cls: 'bg-emerald-100 text-emerald-800' },
+  ACTIVE:    { label: 'Activa',     cls: 'bg-[#DCFCE7] text-[#0A4A8F]' },
   PENDING:   { label: 'Pendiente',  cls: 'bg-yellow-100 text-yellow-800' },
   SUSPENDED: { label: 'Suspendida', cls: 'bg-orange-100 text-orange-800' },
   CANCELLED: { label: 'Cancelada',  cls: 'bg-red-100 text-red-800' },
@@ -44,7 +44,7 @@ export default function MemberProfile({ userId, onBack, onEdit, onNewSubscriptio
 
   if (loading) return (
     <div className="flex items-center justify-center py-24">
-      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-500" />
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#1272D6]" />
     </div>
   );
 
@@ -71,7 +71,7 @@ export default function MemberProfile({ userId, onBack, onEdit, onNewSubscriptio
       </button>
 
       {/* Hero card */}
-      <div className="bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-2xl p-6 text-white shadow-lg shadow-emerald-500/20">
+      <div className="bg-[#1272D6] rounded-2xl p-6 text-white shadow-sm">
         <div className="flex items-center gap-5">
           {user.photo_url ? (
             <img src={user.photo_url} alt={user.first_name} className="w-20 h-20 rounded-full object-cover border-4 border-white/30" />
@@ -119,8 +119,8 @@ export default function MemberProfile({ userId, onBack, onEdit, onNewSubscriptio
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         {[
-          { label: 'Suscripciones', value: subscriptions.length, icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', color: 'text-emerald-600' },
-          { label: 'Total pagado', value: fmt(totalPaid), icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-cyan-600' },
+          { label: 'Suscripciones', value: subscriptions.length, icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', color: 'text-[#1272D6]' },
+          { label: 'Total pagado', value: fmt(totalPaid), icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z', color: 'text-[#1272D6]' },
           { label: 'Plan activo', value: activeSub ? activeSub.plan?.name || 'Plan' : 'Sin plan', badge: activeSub ? activeMembershipType : null, icon: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z', color: 'text-violet-600' },
           { label: 'Dias restantes', value: daysLeft !== null ? daysLeft : '—', icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z', color: daysLeft !== null && daysLeft <= 5 ? 'text-red-500' : 'text-amber-500' },
           { label: 'Accesos registrados', value: accessLogs.length, icon: 'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1', color: 'text-indigo-500' },
@@ -180,7 +180,7 @@ export default function MemberProfile({ userId, onBack, onEdit, onNewSubscriptio
                       <td className="px-5 py-3 text-sm text-gray-600">{fmtDate(sub.start_date)}</td>
                       <td className="px-5 py-3 text-sm text-gray-600">{fmtDate(sub.end_date)}</td>
                       <td className="px-5 py-3 text-sm font-semibold text-gray-900">{fmt(sub.total_paid)}</td>
-                      <td className="px-5 py-3 text-sm text-emerald-600">{sub.discount_applied > 0 ? `-${fmt(sub.discount_applied)}` : '—'}</td>
+                      <td className="px-5 py-3 text-sm text-[#1272D6]">{sub.discount_applied > 0 ? `-${fmt(sub.discount_applied)}` : '—'}</td>
                       <td className="px-5 py-3">
                         <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${s.cls}`}>{s.label}</span>
                       </td>
@@ -218,7 +218,7 @@ export default function MemberProfile({ userId, onBack, onEdit, onNewSubscriptio
                     <td className="px-5 py-3 text-sm text-gray-700">{log.access_type === 'ENTRY' ? 'Entrada' : 'Salida'}</td>
                     <td className="px-5 py-3 text-sm text-gray-500">{log.access_method === 'MANUAL' ? 'Manual' : log.access_method === 'FINGERPRINT' ? 'Huella' : log.access_method || '—'}</td>
                     <td className="px-5 py-3">
-                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${granted ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'}`}>
+                      <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${granted ? 'bg-[#DCFCE7] text-[#0A4A8F]' : 'bg-red-100 text-red-700'}`}>
                         {granted ? 'Permitido' : 'Denegado'}
                       </span>
                     </td>

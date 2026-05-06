@@ -434,7 +434,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
     const colors = {
       'SUPER_ADMIN': 'bg-purple-100 text-purple-800',
       'ADMIN_GYM': 'bg-blue-100 text-blue-800',
-      'RECEPCIONISTA': 'bg-green-100 text-green-800',
+      'RECEPCIONISTA': 'bg-[#EBF3FF] text-[#1272D6]',
       'STAFF': 'bg-yellow-100 text-yellow-800',
       'MEMBER': 'bg-gray-100 text-gray-800'
     };
@@ -478,7 +478,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
               setFormStep(1);
             }
           }}
-          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all duration-200 shadow-lg"
+          className="px-4 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition-all duration-200 shadow-sm"
         >
           {showForm ? 'Cancelar' : '+ Nuevo Usuario'}
         </button>
@@ -494,19 +494,19 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
                 <input type="text" required autoFocus value={formData.firstName}
                   onChange={e => setFormData({ ...formData, firstName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
                 <input type="text" required value={formData.lastName}
                   onChange={e => setFormData({ ...formData, lastName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
                 <select required value={formData.documentType}
                   onChange={e => setFormData({ ...formData, documentType: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent">
                   {documentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
@@ -514,13 +514,13 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                 <label className="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
                 <input type="text" required value={formData.documentNumber}
                   onChange={e => setFormData({ ...formData, documentNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                 <input type="tel" value={formData.phone}
                   onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
               </div>
             </div>
             <div className="flex justify-end gap-3 pt-3 border-t">
@@ -529,7 +529,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                 Cancelar
               </button>
               <button type="submit" disabled={loading}
-                className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-lg text-sm font-medium disabled:opacity-50">
+                className="px-6 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition-all shadow-sm text-sm font-medium disabled:opacity-50">
                 {loading ? 'Registrando...' : 'Registrar Miembro'}
               </button>
             </div>
@@ -555,8 +555,8 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
 
               {/* Header */}
               <div className="text-center mb-5">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 bg-[#DCFCE7] rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-6 h-6 text-[#059669]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
@@ -578,7 +578,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                     <button
                       disabled={!selectedPlan}
                       onClick={() => maxAdditional > 0 ? setPlanStep(2) : setPlanStep(3)}
-                      className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:from-emerald-600 hover:to-cyan-600">
+                      className="flex-1 px-4 py-2 bg-[#1272D6] text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-[#0D5BAD]">
                       Continuar
                     </button>
                   </div>
@@ -589,11 +589,11 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
               {planStep === 2 && selectedPlan && (
                 <>
                   <div className="space-y-4">
-                    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-                      <p className="text-sm font-semibold text-emerald-800">
+                    <div className="bg-[#EBF3FF] border border-[#C5DEFA] rounded-xl p-4">
+                      <p className="text-sm font-semibold text-[#0F1C35]">
                         {selectedPlan.name} — hasta {selectedPlan.max_members} personas
                       </p>
-                      <p className="text-xs text-emerald-600 mt-0.5">
+                      <p className="text-xs text-[#1272D6] mt-0.5">
                         Titular: <strong>{createdUser.first_name} {createdUser.last_name}</strong>
                         &nbsp;·&nbsp; Adicionales: {planAdditionalMembers.length} / {maxAdditional}
                       </p>
@@ -605,7 +605,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                         value={planMemberSearch}
                         onChange={e => setPlanMemberSearch(e.target.value)}
                         placeholder="Buscar miembro adicional por nombre o documento..."
-                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        className="w-full px-4 py-3 bg-[#F4F7FC] border border-[#E2E8EF] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1272D6]"
                       />
                     )}
 
@@ -614,9 +614,9 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                         {filteredPlanMembers.map(u => (
                           <button key={u.id} type="button"
                             onClick={() => { setPlanAdditionalMembers(prev => [...prev, u]); setPlanMemberSearch(''); }}
-                            className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-emerald-50 transition text-left">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-100 to-cyan-100 flex items-center justify-center flex-shrink-0">
-                              <span className="text-xs font-bold text-emerald-700">{u.first_name?.[0]}{u.last_name?.[0]}</span>
+                            className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-[#EBF3FF] transition text-left">
+                            <div className="w-8 h-8 rounded-full bg-[#EBF3FF] flex items-center justify-center flex-shrink-0">
+                              <span className="text-xs font-bold text-[#1272D6]">{u.first_name?.[0]}{u.last_name?.[0]}</span>
                             </div>
                             <div>
                               <p className="text-sm font-semibold text-gray-900">{u.first_name} {u.last_name}</p>
@@ -632,7 +632,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Miembros del grupo</p>
                         {planAdditionalMembers.map((m, idx) => (
                           <div key={m.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-400 to-emerald-400 flex items-center justify-center flex-shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-[#1272D6] flex items-center justify-center flex-shrink-0">
                               <span className="text-xs font-bold text-white">{m.first_name?.[0]}{m.last_name?.[0]}</span>
                             </div>
                             <p className="text-sm font-medium text-gray-800 flex-1">{m.first_name} {m.last_name}</p>
@@ -656,7 +656,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                     <button
                       disabled={planAdditionalMembers.length < maxAdditional}
                       onClick={() => setPlanStep(3)}
-                      className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:from-emerald-600 hover:to-cyan-600">
+                      className="flex-1 px-4 py-2 bg-[#1272D6] text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-[#0D5BAD]">
                       {planAdditionalMembers.length < maxAdditional
                         ? `Faltan ${maxAdditional - planAdditionalMembers.length} persona${maxAdditional - planAdditionalMembers.length > 1 ? 's' : ''}`
                         : 'Continuar'}
@@ -682,7 +682,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                       <div className="grid grid-cols-3 gap-2">
                         {[['EFECTIVO','💵','Efectivo'],['TRANSFERENCIA','📲','Transferencia'],['OTRO','💳','Otro']].map(([val, icon, label]) => (
                           <button key={val} type="button" onClick={() => setPlanPaymentMethod(val)}
-                            className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all text-xs font-medium ${planPaymentMethod === val ? 'border-emerald-400 bg-emerald-50 text-emerald-700' : 'border-gray-100 text-gray-500 hover:border-gray-200'}`}>
+                            className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all text-xs font-medium ${planPaymentMethod === val ? 'border-[#1272D6] bg-[#EBF3FF] text-[#1272D6]' : 'border-[#E2E8EF] text-[#4B5778] hover:border-[#C5DEFA]'}`}>
                             <span className="text-base">{icon}</span>{label}
                           </button>
                         ))}
@@ -696,7 +696,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                       Atrás
                     </button>
                     <button onClick={handleAssignPlan} disabled={assigningPlan}
-                      className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:from-emerald-600 hover:to-cyan-600">
+                      className="flex-1 px-4 py-2 bg-[#1272D6] text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-[#0D5BAD]">
                       {assigningPlan ? 'Asignando...' : 'Confirmar y asignar'}
                     </button>
                   </div>
@@ -717,12 +717,12 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
               <div key={n} className="flex items-center flex-1 last:flex-none">
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
-                    ${formStep === n ? 'bg-emerald-600 text-white' : formStep > n ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                    ${formStep === n ? 'bg-[#1272D6] text-white' : formStep > n ? 'bg-[#10B981] text-white' : 'bg-[#F0F4F9] text-[#94A3B8]'}`}>
                     {formStep > n ? '✓' : n}
                   </div>
-                  <span className={`text-xs font-medium hidden sm:inline ${formStep === n ? 'text-emerald-600' : 'text-gray-400'}`}>{label}</span>
+                  <span className={`text-xs font-medium hidden sm:inline ${formStep === n ? 'text-[#1272D6]' : 'text-[#94A3B8]'}`}>{label}</span>
                 </div>
-                {idx < arr.length - 1 && <div className={`flex-1 h-0.5 mx-2 ${formStep > n ? 'bg-green-400' : 'bg-gray-200'}`} />}
+                {idx < arr.length - 1 && <div className={`flex-1 h-0.5 mx-2 ${formStep > n ? 'bg-[#10B981]' : 'bg-[#E2E8EF]'}`} />}
               </div>
             ))}
             <span className="text-sm font-semibold text-gray-700 ml-4">Editar Miembro</span>
@@ -736,36 +736,36 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
                     <input type="text" required value={formData.firstName} onChange={e => setFormData({ ...formData, firstName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
                     <input type="text" required value={formData.lastName} onChange={e => setFormData({ ...formData, lastName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
                     <select value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent">
                       {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento *</label>
                     <select required value={formData.documentType} onChange={e => setFormData({ ...formData, documentType: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent">
                       {documentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
                     <input type="text" required value={formData.documentNumber} onChange={e => setFormData({ ...formData, documentNumber: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento</label>
                     <input type="date" value={formData.dateOfBirth} onChange={e => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                   </div>
                 </div>
               </div>
@@ -777,33 +777,33 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
                     <input type="tel" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
                     <input type="text" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
                     <input type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Contacto Emergencia</label>
                     <input type="text" value={formData.emergencyContactName} onChange={e => setFormData({ ...formData, emergencyContactName: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tel. Emergencia</label>
                     <input type="tel" value={formData.emergencyContactPhone} onChange={e => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
                   <textarea value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} rows="2"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                     placeholder="Información adicional..." />
                 </div>
               </div>
@@ -816,12 +816,12 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
               </button>
               {formStep < 2 ? (
                 <button type="button" onClick={() => setFormStep(2)}
-                  className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-lg text-sm font-medium">
+                  className="px-6 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition-all shadow-sm text-sm font-medium">
                   Siguiente →
                 </button>
               ) : (
                 <button type="submit" disabled={loading}
-                  className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition-all shadow-lg text-sm font-medium disabled:opacity-50">
+                  className="px-6 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition-all shadow-sm text-sm font-medium disabled:opacity-50">
                   {loading ? 'Guardando...' : 'Guardar Cambios'}
                 </button>
               )}
@@ -841,7 +841,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
             placeholder="Buscar por nombre, documento o email..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
           />
         </div>
       </div>
@@ -898,16 +898,16 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                           <img
                             src={user.photo_url}
                             alt={`${user.first_name} ${user.last_name}`}
-                            className="h-10 w-10 rounded-full object-cover group-hover:ring-2 group-hover:ring-emerald-400 transition"
+                            className="h-10 w-10 rounded-full object-cover group-hover:ring-2 group-hover:ring-[#1272D6] transition"
                           />
                         ) : (
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 flex items-center justify-center text-white font-bold group-hover:from-emerald-500 group-hover:to-cyan-500 transition">
+                          <div className="h-10 w-10 rounded-full bg-[#1272D6] flex items-center justify-center text-white font-bold group-hover:bg-[#0D5BAD] transition">
                             {user.first_name?.[0]}{user.last_name?.[0]}
                           </div>
                         )}
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900 group-hover:text-emerald-600 transition-colors underline-offset-2 group-hover:underline">
+                        <div className="text-sm font-medium text-gray-900 group-hover:text-[#1272D6] transition-colors underline-offset-2 group-hover:underline">
                           {user.first_name} {user.last_name}
                         </div>
                         <div className="text-xs text-gray-500">
@@ -935,7 +935,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                     {(() => {
                       const fps = userFingerprints[user.id] || [];
                       return fps.length > 0 ? (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#DCFCE7] text-[#059669]">
                           ✅ {fps.length}
                         </span>
                       ) : (
@@ -948,8 +948,8 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       user.status === 'ACTIVE'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-200 text-gray-500'
+                        ? 'bg-[#DCFCE7] text-[#059669]'
+                        : 'bg-[#F0F4F9] text-[#94A3B8]'
                     }`}>
                       {user.status === 'ACTIVE' ? 'Activo' : 'Inactivo'}
                     </span>
@@ -957,7 +957,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => setProfileUserId(user.id)}
-                      className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition mr-2"
+                      className="p-1.5 text-gray-400 hover:text-[#1272D6] hover:bg-[#EBF3FF] rounded-lg transition mr-2"
                       title="Ver perfil"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -966,7 +966,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                     </button>
                     <button
                       onClick={() => handleEdit(user)}
-                      className="text-emerald-600 hover:text-emerald-900 mr-3"
+                      className="text-[#1272D6] hover:text-[#0D5BAD] mr-3"
                       title="Editar"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -975,7 +975,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                     </button>
                     <button
                       onClick={() => openEnrollModal(user)}
-                      className="text-green-600 hover:text-green-900 mr-3"
+                      className="text-[#10B981] hover:text-[#059669] mr-3"
                       title="Registrar huella"
                     >
                       🖐
@@ -1011,7 +1011,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                 <p className="text-sm font-medium text-gray-700 mb-2">Huellas registradas:</p>
                 {(userFingerprints[enrollingUser.id] || []).map(fp => (
                   <div key={fp.id} className="flex items-center justify-between text-sm py-1">
-                    <span className="text-green-700">
+                    <span className="text-[#059669]">
                       ✅ {FINGER_OPTIONS.find(f => f.value === fp.finger_index)?.label || fp.finger_index}
                     </span>
                     <button
@@ -1031,7 +1031,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
               <select
                 value={fingerIndex}
                 onChange={(e) => setFingerIndex(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-4 py-2 border border-[#E2E8EF] rounded-lg focus:ring-2 focus:ring-[#1272D6]"
                 disabled={enrollStatus === 'enrolling'}
               >
                 {FINGER_OPTIONS.map(opt => (
@@ -1043,7 +1043,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
             {/* Status message */}
             {enrollMessage && (
               <div className={`p-3 rounded-lg mb-4 text-sm ${
-                enrollStatus === 'success' ? 'bg-green-100 text-green-700' :
+                enrollStatus === 'success' ? 'bg-[#DCFCE7] text-[#059669]' :
                 enrollStatus === 'error' ? 'bg-red-100 text-red-700' :
                 'bg-blue-100 text-blue-700'
               }`}>
@@ -1059,7 +1059,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
               {enrollStatus !== 'enrolling' && (
                 <button
                   onClick={startEnrollment}
-                  className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-2 px-4 rounded-lg hover:from-green-700 hover:to-green-800 transition-all font-medium shadow"
+                  className="flex-1 bg-[#1272D6] text-white py-2 px-4 rounded-lg hover:bg-[#0D5BAD] transition-all font-medium shadow-sm"
                 >
                   {enrollStatus === 'success' ? 'Registrar Otra Huella' : '🖐 Iniciar Captura'}
                 </button>

@@ -39,17 +39,17 @@ export default function PlanSelectorGrid({ plans = [], selectedPlan, onSelect })
             onClick={() => onSelect(plan)}
             className={`relative text-left p-5 rounded-2xl border-2 transition-all duration-200
               ${isSelected
-                ? 'border-emerald-400 bg-emerald-50 shadow-md shadow-emerald-500/10'
+                ? 'border-[#1272D6] bg-[#EBF3FF] shadow-md shadow-[rgba(18,114,214,0.10)]'
                 : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm'
               }`}
           >
             {isSelected && (
-              <div className="absolute top-3 right-3 w-6 h-6 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center">
+              <div className="absolute top-3 right-3 w-6 h-6 bg-gradient-to-br  rounded-full flex items-center justify-center">
                 <Svg path={ICON_CHECK} className="w-3.5 h-3.5 text-white" />
               </div>
             )}
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${isSelected ? 'bg-emerald-100' : 'bg-gray-100'}`}>
-              <Svg path={ICON_PLAN} className={`w-5 h-5 ${isSelected ? 'text-emerald-600' : 'text-gray-400'}`} />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${isSelected ? 'bg-[#DCFCE7]' : 'bg-gray-100'}`}>
+              <Svg path={ICON_PLAN} className={`w-5 h-5 ${isSelected ? 'text-[#1272D6]' : 'text-gray-400'}`} />
             </div>
             <h4 className="font-bold text-gray-900 mb-1">{plan.name}</h4>
             {plan.description && (
@@ -68,7 +68,7 @@ export default function PlanSelectorGrid({ plans = [], selectedPlan, onSelect })
                 </span>
               )}
               {plan.max_members > 1 && (
-                <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                <span className="flex items-center gap-1 text-[#1272D6] font-medium">
                   👥 {plan.max_members} personas
                 </span>
               )}

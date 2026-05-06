@@ -163,7 +163,7 @@ export default function ProductsManagement() {
     } else if (stock < 10) {
       return <span className="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full">Stock Bajo</span>;
     } else {
-      return <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">Disponible</span>;
+      return <span className="px-2 py-1 text-xs font-semibold bg-[#DCFCE7] text-[#065F46] rounded-full">Disponible</span>;
     }
   };
 
@@ -177,7 +177,7 @@ export default function ProductsManagement() {
         </div>
         <button
           onClick={openCreateModal}
-          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition flex items-center space-x-2"
+          className="px-4 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition flex items-center space-x-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -194,7 +194,7 @@ export default function ProductsManagement() {
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder="Buscar productos por nombre..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
           />
           <svg
             className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -211,7 +211,7 @@ export default function ProductsManagement() {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1272D6] mx-auto"></div>
             <p className="text-gray-600 mt-4">Cargando productos...</p>
           </div>
         ) : products.length === 0 ? (
@@ -266,7 +266,7 @@ export default function ProductsManagement() {
                       <span
                         className={`px-2 py-1 text-xs font-semibold rounded-full ${
                           product.status === 'active'
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-[#DCFCE7] text-[#065F46]'
                             : 'bg-gray-100 text-gray-800'
                         }`}
                       >
@@ -277,7 +277,7 @@ export default function ProductsManagement() {
                       <div className="flex items-center space-x-2">
                         <button
                           onClick={() => openStockModal(product)}
-                          className="text-emerald-600 hover:text-emerald-900 font-medium"
+                          className="text-[#1272D6] hover:text-[#0A4A8F] font-medium"
                           title="Actualizar stock"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -286,7 +286,7 @@ export default function ProductsManagement() {
                         </button>
                         <button
                           onClick={() => openEditModal(product)}
-                          className="text-emerald-600 hover:text-emerald-900 font-medium"
+                          className="text-[#1272D6] hover:text-[#0A4A8F] font-medium"
                           title="Editar"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -330,7 +330,7 @@ export default function ProductsManagement() {
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                   />
                 </div>
 
@@ -342,7 +342,7 @@ export default function ProductsManagement() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                   />
                 </div>
 
@@ -357,7 +357,7 @@ export default function ProductsManagement() {
                     min="0"
                     value={formData.unit_price}
                     onChange={(e) => setFormData({ ...formData, unit_price: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                   />
                 </div>
 
@@ -371,7 +371,7 @@ export default function ProductsManagement() {
                     min="0"
                     value={formData.stock}
                     onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                   />
                 </div>
 
@@ -382,7 +382,7 @@ export default function ProductsManagement() {
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                   >
                     <option value="active">Activo</option>
                     <option value="inactive">Inactivo</option>
@@ -399,7 +399,7 @@ export default function ProductsManagement() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition"
+                    className="flex-1 px-4 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition"
                   >
                     {editingProduct ? 'Actualizar' : 'Crear'}
                   </button>
@@ -429,7 +429,7 @@ export default function ProductsManagement() {
                 min="0"
                 value={newStock}
                 onChange={(e) => setNewStock(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                 autoFocus
               />
             </div>
@@ -442,7 +442,7 @@ export default function ProductsManagement() {
               </button>
               <button
                 onClick={handleUpdateStock}
-                className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition"
+                className="flex-1 px-4 py-2 bg-[#1272D6] text-white rounded-xl  transition"
               >
                 Actualizar
               </button>

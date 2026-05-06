@@ -215,7 +215,7 @@ export default function SalesTab({ user }) {
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder="Buscar productos..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
             />
             <svg
               className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
@@ -234,18 +234,18 @@ export default function SalesTab({ user }) {
             <div
               key={product.id}
               onClick={() => addToCart(product)}
-              className="group relative bg-white rounded-2xl border border-gray-100 p-4 cursor-pointer hover:border-emerald-200 hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-200"
+              className="group relative bg-white rounded-2xl border border-gray-100 p-4 cursor-pointer hover:border-[#A7F3D0] hover:shadow-lg hover:shadow-emerald-500/5 transition-all duration-200"
             >
               <div className="flex flex-col h-full">
                 <div className="flex-1">
                   <div className="flex items-start justify-between mb-2">
                     <div className="w-10 h-10 bg-gradient-to-br from-emerald-50 to-cyan-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-[#1272D6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                       </svg>
                     </div>
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      product.stock <= 5 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                      product.stock <= 5 ? 'bg-amber-100 text-amber-700' : 'bg-[#DCFCE7] text-[#0D5BAD]'
                     }`}>
                       {product.stock} uds
                     </span>
@@ -256,10 +256,10 @@ export default function SalesTab({ user }) {
                   )}
                 </div>
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
-                  <span className="text-lg font-extrabold text-emerald-600">
+                  <span className="text-lg font-extrabold text-[#1272D6]">
                     {fmt(product.unit_price)}
                   </span>
-                  <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
+                  <div className="w-8 h-8 bg-[#EBF3FF]0 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                     </svg>
@@ -281,7 +281,7 @@ export default function SalesTab({ user }) {
       <div className="lg:col-span-1">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sticky top-6">
           <h3 className="text-lg font-extrabold text-gray-900 mb-4 flex items-center">
-            <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-lg flex items-center justify-center mr-2 shadow-md shadow-emerald-500/20">
+            <div className="w-8 h-8 bg-gradient-to-br  rounded-lg flex items-center justify-center mr-2 shadow-md ">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
@@ -374,7 +374,7 @@ export default function SalesTab({ user }) {
               {/* Checkout Button */}
               <button
                 onClick={handleCheckout}
-                className="w-full py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition font-bold shadow-lg shadow-emerald-500/20"
+                className="w-full py-3 bg-[#1272D6] text-white rounded-xl  transition font-bold shadow-sm"
               >
                 Procesar Venta
               </button>
@@ -422,7 +422,7 @@ export default function SalesTab({ user }) {
             <select
               value={selectedPaymentMethod}
               onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
               required
             >
               {paymentMethods.map((method) => (

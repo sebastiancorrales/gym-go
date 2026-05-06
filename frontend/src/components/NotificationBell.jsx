@@ -107,8 +107,8 @@ export default function NotificationBell({ onUserClick }) {
           <div className="max-h-80 overflow-y-auto">
             {count === 0 ? (
               <div className="px-4 py-8 text-center">
-                <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-10 h-10 bg-[#EBF3FF] rounded-full flex items-center justify-center mx-auto mb-2">
+                  <svg className="w-5 h-5 text-[#1272D6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
@@ -120,7 +120,7 @@ export default function NotificationBell({ onUserClick }) {
                 <div
                   key={n.id}
                   onClick={() => { if (onUserClick && n.userId) { onUserClick(n.userId); setOpen(false); } }}
-                  className={`px-4 py-3 border-b border-gray-50 transition-colors ${onUserClick && n.userId ? 'hover:bg-emerald-50 cursor-pointer' : 'hover:bg-gray-50'}`}
+                  className={`px-4 py-3 border-b border-gray-50 transition-colors ${onUserClick && n.userId ? 'hover:bg-[#EBF3FF] cursor-pointer' : 'hover:bg-gray-50'}`}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -168,7 +168,7 @@ export default function NotificationBell({ onUserClick }) {
                     alert('Error de conexion');
                   }
                 }}
-                className="w-full text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg py-1.5 transition"
+                className="w-full text-xs font-semibold text-[#1272D6] hover:text-[#0D5BAD] hover:bg-[#EBF3FF] rounded-lg py-1.5 transition"
               >
                 Enviar recordatorios por email
               </button>

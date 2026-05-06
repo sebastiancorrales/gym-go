@@ -25,7 +25,10 @@
       "Bash(python -X utf8 import_clientes.py)",
       "Bash(python -c \":*)",
       "Bash(sqlite3 gym-go.db \":*)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(python \"c:/Users/sebas/OneDrive/Desktop/gym-go/fix_colors.py\")",
+      "Bash(sed -n '128,131p' \"c:/Users/sebas/OneDrive/Desktop/gym-go/frontend/src/components/GymSettings.jsx\")",
+      "Bash(sed -n '91,94p' \"c:/Users/sebas/OneDrive/Desktop/gym-go/frontend/src/components/ProfileSettings.jsx\")"
     ]
   }
 }
