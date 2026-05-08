@@ -1,8 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "jt3kDGI9qd4=",
+  "dgSpecHash": "dSEYKXOmhh4=",
   "success": true,
   "projectFilePath": "C:\\Users\\sebas\\OneDrive\\Desktop\\gym-go\\biometric-service\\BiometricPOC.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\sebas\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.24\\microsoft.netcore.app.runtime.win-x64.8.0.24.nupkg.sha512",
+    "C:\\Users\\sebas\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.24\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.24.nupkg.sha512",
+    "C:\\Users\\sebas\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.24\\microsoft.aspnetcore.app.runtime.win-x64.8.0.24.nupkg.sha512"
+  ],
   "logs": []
 }

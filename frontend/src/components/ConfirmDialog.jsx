@@ -33,13 +33,13 @@ export default function ConfirmDialog({
     },
     info: {
       icon: (
-        <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-          <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="w-12 h-12 bg-[#DCFCE7] rounded-full flex items-center justify-center mx-auto">
+          <svg className="w-6 h-6 text-[#1272D6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
       ),
-      btn: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+      btn: 'bg-[#1272D6] hover:bg-[#0D5BAD] text-white',
     },
   };
 

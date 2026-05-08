@@ -113,7 +113,7 @@ export default function PaymentMethodsManagement({ user }) {
 
   const getTypeBadge = (type) => {
     const badges = {
-      cash: <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">💵 Efectivo</span>,
+      cash: <span className="px-2 py-1 text-xs font-semibold bg-[#DCFCE7] text-[#065F46] rounded-full">💵 Efectivo</span>,
       card: <span className="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">💳 Tarjeta</span>,
       transfer: <span className="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded-full">🏦 Transferencia</span>
     };
@@ -144,7 +144,7 @@ export default function PaymentMethodsManagement({ user }) {
         </div>
         <button
           onClick={openCreateModal}
-          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition flex items-center space-x-2"
+          className="px-4 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition flex items-center space-x-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -157,7 +157,7 @@ export default function PaymentMethodsManagement({ user }) {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1272D6] mx-auto"></div>
             <p className="text-gray-600 mt-4">Cargando métodos de pago...</p>
           </div>
         ) : paymentMethods.length === 0 ? (
@@ -196,7 +196,7 @@ export default function PaymentMethodsManagement({ user }) {
                       <span
                         className={`px-2 py-1 text-xs font-semibold rounded-full ${
                           method.status === 'active'
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-[#DCFCE7] text-[#065F46]'
                             : 'bg-gray-100 text-gray-800'
                         }`}
                       >
@@ -207,7 +207,7 @@ export default function PaymentMethodsManagement({ user }) {
                       <div className="flex items-center space-x-3">
                         <button
                           onClick={() => openEditModal(method)}
-                          className="text-emerald-600 hover:text-emerald-900 font-medium"
+                          className="text-[#1272D6] hover:text-[#0A4A8F] font-medium"
                           title="Editar"
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,7 +252,7 @@ export default function PaymentMethodsManagement({ user }) {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Ej: Efectivo, Tarjeta de Débito, etc."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                   />
                 </div>
 
@@ -263,7 +263,7 @@ export default function PaymentMethodsManagement({ user }) {
                   <select
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                     required
                   >
                     <option value="cash">💵 Efectivo</option>
@@ -279,7 +279,7 @@ export default function PaymentMethodsManagement({ user }) {
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                   >
                     <option value="active">Activo</option>
                     <option value="inactive">Inactivo</option>
@@ -296,7 +296,7 @@ export default function PaymentMethodsManagement({ user }) {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition"
+                    className="flex-1 px-4 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition"
                   >
                     {editingMethod ? 'Actualizar' : 'Crear'}
                   </button>

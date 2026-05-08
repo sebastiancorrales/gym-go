@@ -86,7 +86,7 @@ export default function Register({ onRegisterSuccess, onBackToLogin }) {
   };
 
   // ── Shared styles ──────────────────────────────────────────────────────────
-  const inputCls = 'w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-gray-900 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition placeholder-gray-400';
+  const inputCls = 'w-full px-4 py-3 border border-gray-200 rounded-xl bg-white text-gray-900 text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent transition placeholder-gray-400';
   const labelCls = 'block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5';
 
   const selectedCountry = COUNTRIES.find(c => c.code === gymData.countryCode) || COUNTRIES[0];
@@ -96,12 +96,12 @@ export default function Register({ onRegisterSuccess, onBackToLogin }) {
 
       {/* ── Left panel ── */}
       <div className="hidden lg:flex lg:w-5/12 bg-gray-900 flex-col justify-between p-12 relative overflow-hidden flex-shrink-0">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-emerald-500/15 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-cyan-500/15 rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none" />
+        <div className="absolute top-0 left-0 w-96 h-96 bg-[#EBF3FF]0/15 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-[rgba(18,114,214,0.15)] rounded-full blur-3xl translate-x-1/2 translate-y-1/2 pointer-events-none" />
 
         {/* Brand */}
         <div className="relative z-10 flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
+          <div className="w-10 h-10 bg-[#1272D6] rounded-xl flex items-center justify-center shadow-lg">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
@@ -113,7 +113,7 @@ export default function Register({ onRegisterSuccess, onBackToLogin }) {
         <div className="relative z-10 space-y-6">
           <h2 className="text-4xl font-bold text-white leading-tight">
             Empieza a<br />gestionar tu<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+            <span className="text-transparent bg-clip-text bg-[#1272D6]">
               gimnasio hoy
             </span>
           </h2>
@@ -129,7 +129,7 @@ export default function Register({ onRegisterSuccess, onBackToLogin }) {
             ].map(s => (
               <div key={s.n} className={`flex items-start gap-3 transition-opacity ${step === s.n ? 'opacity-100' : 'opacity-40'}`}>
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5
-                  ${step >= s.n ? 'bg-emerald-500 text-white' : 'bg-white/10 text-gray-400'}`}>
+                  ${step >= s.n ? 'bg-[#EBF3FF]0 text-white' : 'bg-white/10 text-gray-400'}`}>
                   {step > s.n ? (
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -154,7 +154,7 @@ export default function Register({ onRegisterSuccess, onBackToLogin }) {
 
           {/* Mobile brand */}
           <div className="flex items-center space-x-3 mb-8 lg:hidden">
-            <div className="w-9 h-9 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-xl flex items-center justify-center">
+            <div className="w-9 h-9 bg-[#1272D6] rounded-xl flex items-center justify-center">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
@@ -164,7 +164,7 @@ export default function Register({ onRegisterSuccess, onBackToLogin }) {
 
           {/* Heading */}
           <div className="mb-7">
-            <p className="text-xs font-semibold text-emerald-500 uppercase tracking-widest mb-1">
+            <p className="text-xs font-semibold text-[#1272D6] uppercase tracking-widest mb-1">
               Paso {step} de 2
             </p>
             <h1 className="text-2xl font-bold text-gray-900">
@@ -251,7 +251,7 @@ export default function Register({ onRegisterSuccess, onBackToLogin }) {
               </div>
 
               {/* Currency preview */}
-              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 text-sm text-emerald-700">
+              <div className="flex items-center gap-2 bg-[#EBF3FF] border border-[#C5DEFA] rounded-xl px-4 py-3 text-sm text-[#0D5BAD]">
                 <span className="text-lg">{selectedCountry.flag}</span>
                 <span>Los precios se mostrarán en <strong>{selectedCountry.currency}</strong> ({selectedCountry.locale})</span>
               </div>

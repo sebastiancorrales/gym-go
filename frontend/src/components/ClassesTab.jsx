@@ -11,7 +11,7 @@ const Svg = ({ path, className = 'w-4 h-4' }) => (
 
 const STATUS_MAP = {
   scheduled:  { label: 'Programada', cls: 'bg-blue-100 text-blue-800' },
-  ongoing:    { label: 'En curso',   cls: 'bg-emerald-100 text-emerald-800' },
+  ongoing:    { label: 'En curso',   cls: 'bg-[#DCFCE7] text-[#0A4A8F]' },
   completed:  { label: 'Completada', cls: 'bg-gray-100 text-gray-600' },
   cancelled:  { label: 'Cancelada',  cls: 'bg-red-100 text-red-700' },
 };
@@ -116,7 +116,7 @@ export default function ClassesTab() {
         </div>
         <button
           onClick={() => setShowForm(s => !s)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white font-semibold rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition shadow-lg shadow-emerald-500/20"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1272D6] text-white font-semibold rounded-xl hover:bg-[#0D5BAD] transition shadow-sm"
         >
           <Svg path="M12 4v16m8-8H4" />
           {showForm ? 'Cancelar' : 'Nueva Clase'}
@@ -133,7 +133,7 @@ export default function ClassesTab() {
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Nombre *</label>
               <input type="text" required value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                 placeholder="ej. Yoga, Spinning, CrossFit" />
             </div>
 
@@ -142,7 +142,7 @@ export default function ClassesTab() {
               {staff.length > 0 ? (
                 <select required value={formData.instructor_id}
                   onChange={e => setFormData({ ...formData, instructor_id: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white">
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent bg-white">
                   <option value="">Seleccionar instructor...</option>
                   {staff.map(s => (
                     <option key={s.id} value={s.id}>{s.first_name} {s.last_name} — {s.role}</option>
@@ -152,7 +152,7 @@ export default function ClassesTab() {
                 <input type="text" required value={formData.instructor_id}
                   onChange={e => setFormData({ ...formData, instructor_id: e.target.value })}
                   placeholder="UUID del instructor"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
               )}
             </div>
 
@@ -160,7 +160,7 @@ export default function ClassesTab() {
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Descripcion</label>
               <textarea value={formData.description} rows={2}
                 onChange={e => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent resize-none"
                 placeholder="Descripcion opcional de la clase" />
             </div>
 
@@ -168,7 +168,7 @@ export default function ClassesTab() {
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Horario *</label>
               <input type="datetime-local" required value={formData.schedule}
                 onChange={e => setFormData({ ...formData, schedule: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -176,14 +176,14 @@ export default function ClassesTab() {
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Capacidad *</label>
                 <input type="number" required min="1" value={formData.capacity}
                   onChange={e => setFormData({ ...formData, capacity: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                   placeholder="20" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Duracion (min) *</label>
                 <input type="number" required min="1" value={formData.duration}
                   onChange={e => setFormData({ ...formData, duration: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                   placeholder="60" />
               </div>
             </div>
@@ -194,7 +194,7 @@ export default function ClassesTab() {
                 Cancelar
               </button>
               <button type="submit"
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl text-sm font-semibold hover:from-emerald-600 hover:to-cyan-600 transition shadow-sm shadow-emerald-500/20">
+                className="flex-1 px-4 py-2.5 bg-[#1272D6] text-white rounded-xl text-sm font-semibold hover:bg-[#0D5BAD] transition shadow-sm">
                 Crear Clase
               </button>
             </div>
@@ -239,7 +239,7 @@ export default function ClassesTab() {
                       {cls.status === 'scheduled' && (
                         <>
                           <button onClick={() => doAction(cls, 'start')}
-                            className="px-2 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                            className="px-2 py-1 text-xs font-medium text-[#1272D6] hover:bg-[#EBF3FF] rounded-lg transition"
                             title="Iniciar clase">
                             Iniciar
                           </button>

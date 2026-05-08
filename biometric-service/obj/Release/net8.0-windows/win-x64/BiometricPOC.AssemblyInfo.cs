@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BiometricPOC")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+93869cf1bbc4f3bd02fc48945677e5861f8e57f9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1f1d977f692d751abee12d09d8ebccc542b0111f")]
 [assembly: System.Reflection.AssemblyProductAttribute("BiometricPOC")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BiometricPOC")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

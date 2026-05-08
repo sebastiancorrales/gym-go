@@ -16,6 +16,7 @@
   <ItemGroup>
     <None Include="lib\*.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <Link>%(Filename)%(Extension)</Link>
     </None>
   </ItemGroup>
 </Project>

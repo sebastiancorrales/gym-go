@@ -13,6 +13,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	_ "time/tzdata" // embeds IANA timezone database — required on Windows
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

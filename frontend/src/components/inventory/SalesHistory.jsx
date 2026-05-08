@@ -96,7 +96,7 @@ export default function SalesHistory() {
 
   const getStatusBadge = (status) => {
     const badges = {
-      completed: <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">Completada</span>,
+      completed: <span className="px-2 py-1 text-xs font-semibold bg-[#DCFCE7] text-[#065F46] rounded-full">Completada</span>,
       voided: <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">Anulada</span>,
       pending: <span className="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full">Pendiente</span>
     };
@@ -133,7 +133,7 @@ export default function SalesHistory() {
               type="date"
               value={dateRange.start_date}
               onChange={(e) => setDateRange({ ...dateRange, start_date: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
             />
           </div>
           <div className="flex-1 min-w-[200px]">
@@ -144,13 +144,13 @@ export default function SalesHistory() {
               type="date"
               value={dateRange.end_date}
               onChange={(e) => setDateRange({ ...dateRange, end_date: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
             />
           </div>
           <div className="flex gap-2">
             <button
               type="submit"
-              className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition"
+              className="px-4 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition"
             >
               Filtrar
             </button>
@@ -172,7 +172,7 @@ export default function SalesHistory() {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1272D6] mx-auto"></div>
             <p className="text-gray-600 mt-4">Cargando ventas...</p>
           </div>
         ) : sales.length === 0 ? (
@@ -209,7 +209,7 @@ export default function SalesHistory() {
                       {sale.date || '—'}{sale.hour ? <span className="text-xs text-gray-400 ml-1">{sale.hour}</span> : null}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`text-sm font-semibold ${sale.type === 'void' ? 'text-red-600' : 'text-green-600'}`}>
+                      <span className={`text-sm font-semibold ${sale.type === 'void' ? 'text-red-600' : 'text-[#059669]'}`}>
                         {sale.type === 'void' ? '-' : ''}{fmt(Math.abs(sale.total))}
                       </span>
                     </td>
@@ -225,7 +225,7 @@ export default function SalesHistory() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <button
                         onClick={() => viewSaleDetail(sale.id)}
-                        className="text-emerald-600 hover:text-emerald-900 font-medium"
+                        className="text-[#1272D6] hover:text-[#0A4A8F] font-medium"
                       >
                         Ver Detalle
                       </button>
@@ -306,7 +306,7 @@ export default function SalesHistory() {
               )}
               <div className="flex justify-between text-lg font-bold pt-2 border-t">
                 <span>Total:</span>
-                <span className={selectedSale.type === 'void' ? 'text-red-600' : 'text-green-600'}>
+                <span className={selectedSale.type === 'void' ? 'text-red-600' : 'text-[#059669]'}>
                   {selectedSale.type === 'void' ? '-' : ''}{fmt(Math.abs(selectedSale.total))}
                 </span>
               </div>

@@ -119,7 +119,7 @@ export default function GymSettings() {
   if (loading) {
     return (
       <div className="p-8 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1272D6] mx-auto" />
         <p className="text-gray-600 mt-4">Cargando configuracion...</p>
       </div>
     );
@@ -151,31 +151,31 @@ export default function GymSettings() {
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Nombre del Gimnasio *</label>
               <input type="text" required value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Razon Social</label>
               <input type="text" value={formData.legal_name}
                 onChange={e => setFormData({ ...formData, legal_name: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">NIT / RUT</label>
               <input type="text" value={formData.tax_id}
                 onChange={e => setFormData({ ...formData, tax_id: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Email</label>
               <input type="email" value={formData.email}
                 onChange={e => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Telefono</label>
               <input type="tel" value={formData.phone}
                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
           </div>
         </div>
@@ -188,19 +188,19 @@ export default function GymSettings() {
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Direccion</label>
               <input type="text" value={formData.address}
                 onChange={e => setFormData({ ...formData, address: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Ciudad</label>
               <input type="text" value={formData.city}
                 onChange={e => setFormData({ ...formData, city: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Departamento / Estado</label>
               <input type="text" value={formData.state}
                 onChange={e => setFormData({ ...formData, state: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
           </div>
         </div>
@@ -213,13 +213,13 @@ export default function GymSettings() {
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Pais y Moneda</label>
               <select value={selectedCountry.code}
                 onChange={e => handleCountryChange(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent">
                 {COUNTRIES.map(c => (
                   <option key={c.code} value={c.code}>{c.flag} {c.name} — {c.currency}</option>
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 text-sm text-emerald-700">
+            <div className="flex items-center gap-2 bg-[#EBF3FF] border border-[#C5DEFA] rounded-xl px-4 py-3 text-sm text-[#0D5BAD]">
               <span className="text-lg">{selectedCountry.flag}</span>
               <span>Moneda: <strong>{formData.currency}</strong> | Formato: <strong>{formData.locale}</strong> | Zona: <strong>{formData.timezone}</strong></span>
             </div>
@@ -236,44 +236,44 @@ export default function GymSettings() {
               <input type="text" value={formData.smtp_host}
                 onChange={e => setFormData({ ...formData, smtp_host: e.target.value })}
                 placeholder="smtp.gmail.com"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Puerto</label>
               <input type="number" value={formData.smtp_port}
                 onChange={e => setFormData({ ...formData, smtp_port: parseInt(e.target.value) || 587 })}
                 placeholder="587"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Usuario</label>
               <input type="text" value={formData.smtp_username}
                 onChange={e => setFormData({ ...formData, smtp_username: e.target.value })}
                 placeholder="tu@email.com"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Contrasena</label>
               <input type="password" value={formData.smtp_password}
                 onChange={e => setFormData({ ...formData, smtp_password: e.target.value })}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Email remitente</label>
               <input type="email" value={formData.smtp_from}
                 onChange={e => setFormData({ ...formData, smtp_from: e.target.value })}
                 placeholder="noreply@tugimnasio.com"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             </div>
           </div>
           <div className="flex items-center gap-3 mt-4">
             <input type="email" value={testEmail}
               onChange={e => setTestEmail(e.target.value)}
               placeholder="Email de prueba"
-              className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+              className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             <button type="button" onClick={handleTestEmail} disabled={smtpTesting || !testEmail}
-              className="px-4 py-2.5 text-sm font-semibold text-emerald-600 border border-emerald-200 rounded-xl hover:bg-emerald-50 transition disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap">
+              className="px-4 py-2.5 text-sm font-semibold text-[#1272D6] border border-[#A7F3D0] rounded-xl hover:bg-[#EBF3FF] transition disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap">
               {smtpTesting ? 'Enviando...' : 'Probar conexion'}
             </button>
           </div>
@@ -282,7 +282,7 @@ export default function GymSettings() {
         {/* Submit */}
         <div className="flex justify-end">
           <button type="submit" disabled={saving}
-            className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white font-semibold rounded-xl transition shadow-lg shadow-emerald-500/20 disabled:opacity-50">
+            className="px-8 py-3 bg-[#1272D6] hover:bg-[#0D5BAD] text-white font-semibold rounded-xl transition shadow-sm disabled:opacity-50">
             {saving ? 'Guardando...' : 'Guardar Cambios'}
           </button>
         </div>

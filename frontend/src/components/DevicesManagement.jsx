@@ -113,7 +113,7 @@ export default function DevicesManagement() {
         </div>
         <button
           onClick={openCreate}
-          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-lg hover:from-emerald-600 hover:to-cyan-600 transition font-medium"
+          className="px-4 py-2 bg-[#1272D6] text-white rounded-lg hover:bg-[#0D5BAD] transition font-medium"
         >
           + Nuevo Dispositivo
         </button>
@@ -122,7 +122,7 @@ export default function DevicesManagement() {
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto" />
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1272D6] mx-auto" />
             <p className="text-gray-600 mt-4">Cargando dispositivos...</p>
           </div>
         ) : devices.length === 0 ? (
@@ -155,7 +155,7 @@ export default function DevicesManagement() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{device.baud_rate || DEFAULT_BAUD}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${device.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${device.is_active ? 'bg-[#DCFCE7] text-[#065F46]' : 'bg-gray-100 text-gray-600'}`}>
                       {device.is_active ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
@@ -163,7 +163,7 @@ export default function DevicesManagement() {
                     <button
                       onClick={() => handleTrigger(device)}
                       disabled={!device.is_active || !device.com_port || triggering[device.id]}
-                      className="text-emerald-600 hover:text-emerald-900 font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="text-[#1272D6] hover:text-[#0A4A8F] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {triggering[device.id] ? 'Abriendo...' : 'Abrir'}
                     </button>
@@ -192,7 +192,7 @@ export default function DevicesManagement() {
               onChange={e => setForm({ ...form, name: e.target.value })}
               required
               placeholder="Ej: Torniquete Principal"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
             />
           </div>
           <div>
@@ -202,7 +202,7 @@ export default function DevicesManagement() {
               value={form.location}
               onChange={e => setForm({ ...form, location: e.target.value })}
               placeholder="Ej: Entrada principal"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -213,7 +213,7 @@ export default function DevicesManagement() {
                 value={form.com_port}
                 onChange={e => setForm({ ...form, com_port: e.target.value })}
                 placeholder="Ej: COM5"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent font-mono"
               />
             </div>
             <div>
@@ -221,7 +221,7 @@ export default function DevicesManagement() {
               <select
                 value={form.baud_rate}
                 onChange={e => setForm({ ...form, baud_rate: Number(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
               >
                 {[9600, 19200, 38400, 57600, 115200].map(b => (
                   <option key={b} value={b}>{b}</option>
@@ -236,14 +236,14 @@ export default function DevicesManagement() {
               value={form.notes}
               onChange={e => setForm({ ...form, notes: e.target.value })}
               placeholder="Descripción opcional"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
             />
           </div>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition">
               Cancelar
             </button>
-            <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl hover:from-emerald-600 hover:to-cyan-600 transition disabled:opacity-50">
+            <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-[#1272D6] text-white rounded-xl  transition disabled:opacity-50">
               {saving ? 'Guardando...' : 'Guardar'}
             </button>
           </div>

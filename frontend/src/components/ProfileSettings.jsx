@@ -98,7 +98,7 @@ export default function ProfileSettings({ user }) {
       {/* Profile avatar */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <div className="w-16 h-16 bg-[#1272D6] rounded-full flex items-center justify-center shadow-sm">
             <span className="text-white text-xl font-bold">
               {user?.first_name?.[0]}{user?.last_name?.[0]}
             </span>
@@ -106,7 +106,7 @@ export default function ProfileSettings({ user }) {
           <div>
             <h3 className="text-lg font-bold text-gray-900">{user?.first_name} {user?.last_name}</h3>
             <p className="text-sm text-gray-500">{user?.email}</p>
-            <span className="inline-block mt-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full">
+            <span className="inline-block mt-1 px-2.5 py-0.5 bg-[#EBF3FF] text-[#0D5BAD] text-xs font-semibold rounded-full">
               {user?.role}
             </span>
           </div>
@@ -121,30 +121,30 @@ export default function ProfileSettings({ user }) {
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Nombre *</label>
             <input type="text" required value={profile.first_name}
               onChange={e => setProfile({ ...profile, first_name: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Apellido *</label>
             <input type="text" required value={profile.last_name}
               onChange={e => setProfile({ ...profile, last_name: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Email *</label>
             <input type="email" required value={profile.email}
               onChange={e => setProfile({ ...profile, email: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Telefono</label>
             <input type="tel" value={profile.phone}
               onChange={e => setProfile({ ...profile, phone: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
           </div>
         </div>
         <div className="flex justify-end pt-2">
           <button type="submit" disabled={savingProfile}
-            className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white font-semibold rounded-xl transition shadow-lg shadow-emerald-500/20 disabled:opacity-50">
+            className="px-8 py-3 bg-[#1272D6] hover:bg-[#0D5BAD] text-white font-semibold rounded-xl transition shadow-sm disabled:opacity-50">
             {savingProfile ? 'Guardando...' : 'Guardar Perfil'}
           </button>
         </div>
@@ -159,7 +159,7 @@ export default function ProfileSettings({ user }) {
             <div className="relative">
               <input type={showCurrent ? 'text' : 'password'} required value={passwords.current_password}
                 onChange={e => setPasswords({ ...passwords, current_password: e.target.value })}
-                className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
               <EyeIcon show={showCurrent} onClick={() => setShowCurrent(!showCurrent)} />
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function ProfileSettings({ user }) {
             <div className="relative">
               <input type={showNew ? 'text' : 'password'} required value={passwords.new_password}
                 onChange={e => setPasswords({ ...passwords, new_password: e.target.value })}
-                className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+                className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
               <EyeIcon show={showNew} onClick={() => setShowNew(!showNew)} />
             </div>
             {passwords.new_password && passwords.new_password.length < 6 && (
@@ -179,7 +179,7 @@ export default function ProfileSettings({ user }) {
             <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Confirmar Contraseña *</label>
             <input type="password" required value={passwords.confirm_password}
               onChange={e => setPasswords({ ...passwords, confirm_password: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
             {passwords.confirm_password && passwords.new_password !== passwords.confirm_password && (
               <p className="text-xs text-red-500 mt-1">Las contraseñas no coinciden</p>
             )}
@@ -187,7 +187,7 @@ export default function ProfileSettings({ user }) {
         </div>
         <div className="flex justify-end pt-2">
           <button type="submit" disabled={savingPassword}
-            className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white font-semibold rounded-xl transition shadow-lg shadow-emerald-500/20 disabled:opacity-50">
+            className="px-8 py-3 bg-[#1272D6] hover:bg-[#0D5BAD] text-white font-semibold rounded-xl transition shadow-sm disabled:opacity-50">
             {savingPassword ? 'Cambiando...' : 'Cambiar Contraseña'}
           </button>
         </div>
