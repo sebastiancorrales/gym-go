@@ -378,12 +378,17 @@ export default function CheckIn() {
               <h2 className="text-3xl font-bold text-white">{result.user.first_name} {result.user.last_name}</h2>
               <p className="text-white/50 text-sm mt-1">{result.user.document_type} {result.user.document_number}</p>
             </div>
-            {result.subscription && (
+            {result.user.role && result.user.role !== 'MEMBER' ? (
+              <div className="bg-[rgba(18,114,214,0.12)] border border-[rgba(18,114,214,0.35)] rounded-2xl px-5 py-3">
+                <p className="text-[#1272D6] text-xs mb-0.5 uppercase tracking-widest">Acceso de Personal</p>
+                <p className="text-white font-semibold">{result.user.role}</p>
+              </div>
+            ) : result.subscription ? (
               <div className="bg-[rgba(16,185,129,0.10)] border border-[rgba(16,185,129,0.30)] rounded-2xl px-5 py-3">
                 <p className="text-[#10B981] text-xs mb-0.5">Plan activo hasta</p>
                 <p className="text-white font-semibold">{formatDate(result.subscription.end_date)}</p>
               </div>
-            )}
+            ) : null}
             <p className="text-4xl">🎉</p>
             <p className="text-white/40 text-xs">Cerrando en {countdown}s</p>
           </div>

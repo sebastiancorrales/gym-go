@@ -83,14 +83,14 @@ const NAV_GROUPS = [
     items: [
       { id: 'products',      label: 'Productos', icon: 'products' },
       { id: 'sales',         label: 'Ventas',    icon: 'sales' },
-      { id: 'sales-history', label: 'Historial', icon: 'history' },
+      { id: 'sales-history', label: 'Historial De Ventas', icon: 'history' },
       { id: 'reports',       label: 'Reportes',  icon: 'reports' },
     ],
   },
   {
     label: 'CONTABILIDAD',
     items: [
-      { id: 'accounting-reports', label: 'Reportes', icon: 'accounting' },
+      { id: 'accounting-reports', label: 'Reportes Contables', icon: 'accounting' },
     ],
   },
   {

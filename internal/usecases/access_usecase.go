@@ -34,9 +34,19 @@ func NewAccessUseCase(
 // RecordEntry records a gym entry
 func (uc *AccessUseCase) RecordEntry(userID, gymID uuid.UUID, method entities.AccessLogMethod) (*entities.AccessLog, error) {
 	// Verify user exists
-	_, err := uc.userRepo.FindByID(userID)
+	user, err := uc.userRepo.FindByID(userID)
 	if err != nil {
 		return nil, errors.New("user not found")
+	}
+
+	// Staff/admin roles bypass subscription check
+	if user.Role != entities.RoleMember {
+		accessLog := entities.NewAccessLog(gymID, userID, entities.AccessLogTypeEntry, method)
+		accessLog.Grant()
+		if err := uc.accessLogRepo.Create(accessLog); err != nil {
+			return nil, err
+		}
+		return accessLog, nil
 	}
 
 	// Check if user has active subscription (direct or via group membership)
