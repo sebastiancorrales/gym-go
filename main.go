@@ -4,6 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -63,6 +64,37 @@ func adjustDatabasePath(cfg *config.Config) {
 // the database from under a job that is mid-write.
 var backgroundJobs sync.WaitGroup
 
+// maxLogSize caps the log file before it is rotated to .1 on the next start.
+const maxLogSize = 5 << 20 // 5 MB
+
+// setupLogging tees the log to a file next to the database, keeping stdout.
+//
+// The installer builds with -H windowsgui, which means the process has no console
+// and everything written to stdout is discarded. That took away exactly the
+// information needed to diagnose the installed app: whether WAL actually engaged,
+// which queries are slow, and the SQL errors behind a failed request.
+//
+// Failing to open the log file is not fatal — running without a log is better than
+// not running.
+func setupLogging(dbPath string) {
+	logPath := filepath.Join(filepath.Dir(dbPath), "gym-go.log")
+
+	// Rotate on start if the previous run left a big file.
+	if fi, err := os.Stat(logPath); err == nil && fi.Size() > maxLogSize {
+		_ = os.Remove(logPath + ".1")
+		_ = os.Rename(logPath, logPath+".1")
+	}
+
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		log.Printf("⚠️ No se pudo abrir el log %s: %v (se sigue solo por consola)", logPath, err)
+		return
+	}
+
+	log.SetOutput(io.MultiWriter(os.Stdout, f))
+	log.Printf("📝 Log en %s", logPath)
+}
+
 func main() {
 	log.Println("🚀 Starting Gym-Go API Server...")
 
@@ -76,6 +108,10 @@ func main() {
 
 	// Adjust database path for production installation
 	adjustDatabasePath(cfg)
+
+	// From here on the log also goes to a file, so the installed build (which has
+	// no console) leaves a trace.
+	setupLogging(cfg.Database.DatabasePath)
 
 	// Claim the port BEFORE touching the database. This is the single-instance
 	// guard: migrations, seeding and the date backfill all write to the database,

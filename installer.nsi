@@ -71,12 +71,10 @@ Section "Gym-Go (requerido)" SecCore
   SetOutPath "$INSTDIR\biometric"
   File /r "build\biometric\*.*"
   
-  ; ================================
-  ; Migrations
-  ; ================================
-  SetOutPath "$INSTDIR\migrations"
-  File "migrations\*.sql"
-  
+  ; Los .sql de migraciones NO se instalan: ningun codigo Go los lee. El esquema
+  ; lo genera AutoMigrate a partir de las entidades. Se conservan como referencia
+  ; historica en docs\historical-schema\.
+
   ; ================================
   ; Scripts de ejecucion
   ; ================================

@@ -56,7 +56,7 @@ for %%f in (DPFPShrNET.dll DPFPEngNET.dll DPFPVerNET.dll DPFPDevNET.dll DPFPCtlX
         if not exist "build\biometric\%%f" copy "biometric-service\lib\%%f" "build\biometric\%%f" >nul
     )
 )
-echo   OK - BiometricService.exe (self-contained)
+echo   OK - BiometricPOC.exe (self-contained)
 echo.
 
 REM 4. Crear instalador
@@ -78,8 +78,7 @@ echo Instalador: Gym-Go-Installer.exe
 echo.
 echo Contenido:
 echo   - gym-go.exe (backend + frontend embebido)
-echo   - BiometricService.exe (servicio biometrico)
-echo   - biometric.hta (captura de huella)
+echo   - BiometricPOC.exe (servicio biometrico)
 echo   - Migraciones SQL
 echo.
 pause

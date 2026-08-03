@@ -14,19 +14,36 @@ if (-not (Test-Path $nsisPath)) {
     exit 1
 }
 
-# Verificar herramientas
+# Verificar herramientas imprescindibles
 $tools = @(
-    @{ Name = "Go"; Cmd = "go version" },
-    @{ Name = "Node.js"; Cmd = "node --version" },
-    @{ Name = ".NET SDK"; Cmd = "dotnet --version" }
+    @{ Name = "Go"; Cmd = "go" },
+    @{ Name = "Node.js"; Cmd = "node" }
 )
 foreach ($tool in $tools) {
-    try {
-        Invoke-Expression $tool.Cmd | Out-Null
-    } catch {
+    if (-not (Get-Command $tool.Cmd -ErrorAction SilentlyContinue)) {
         Write-Host "ERROR: $($tool.Name) no esta instalado" -ForegroundColor Red
         exit 1
     }
+}
+
+# El servicio biometrico es OPCIONAL para construir el instalador. Necesita dos
+# cosas que no viven en el repositorio:
+#   - el SDK de .NET 8
+#   - biometric-service\lib\DPUruNet.dll (el SDK de DigitalPersona; *.dll esta en
+#     .gitignore, asi que quien clone el repo no la tiene)
+# Sin el servicio la app instalada funciona con check-in manual; solo se pierde el
+# check-in por huella. Antes la ausencia de cualquiera de las dos cosas abortaba
+# todo el build.
+$dpDll = "biometric-service\lib\DPUruNet.dll"
+$buildBiometric = $true
+$biometricSkipReason = ""
+
+if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+    $buildBiometric = $false
+    $biometricSkipReason = "el SDK de .NET 8 no esta instalado"
+} elseif (-not (Test-Path $dpDll)) {
+    $buildBiometric = $false
+    $biometricSkipReason = "falta $dpDll (SDK de DigitalPersona, no se versiona)"
 }
 
 # 1. Build del Backend (Go) - sin consola visible
@@ -53,7 +70,7 @@ Pop-Location
 Write-Host "  OK - frontend/dist/" -ForegroundColor Green
 Write-Host ""
 
-# 3. Publish del Servicio Biometrico (C# self-contained)
+# 3. Publish del Servicio Biometrico (C# self-contained) - OPCIONAL
 Write-Host "[3/4] Publicando servicio biometrico (.NET)..." -ForegroundColor Green
 
 # Limpiar build anterior
@@ -62,33 +79,42 @@ if (Test-Path "build\biometric") {
 }
 New-Item -ItemType Directory -Path "build\biometric" -Force | Out-Null
 
-# Publish self-contained para Windows x64 (no requiere .NET instalado en destino)
-dotnet publish biometric-service/BiometricService.csproj `
-    -c Release `
-    -r win-x64 `
-    --self-contained `
-    -p:PublishSingleFile=false `
-    -p:IncludeNativeLibrariesForSelfExtract=true `
-    -o build/biometric
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "ERROR: Fallo la publicacion del servicio biometrico" -ForegroundColor Red
-    exit 1
-}
-
-# Copiar DLLs del SDK de DigitalPersona (por si no se copiaron automaticamente)
-$dpDlls = @(
-    "DPFPShrNET.dll", "DPFPEngNET.dll", "DPFPVerNET.dll",
-    "DPFPDevNET.dll", "DPFPCtlXTypeLibNET.dll", "DPFPCtlXWrapperNET.dll"
-)
-foreach ($dll in $dpDlls) {
-    $src = "biometric-service\lib\$dll"
-    $dst = "build\biometric\$dll"
-    if ((Test-Path $src) -and (-not (Test-Path $dst))) {
-        Copy-Item $src $dst
+if (-not $buildBiometric) {
+    Write-Host "  OMITIDO: $biometricSkipReason" -ForegroundColor Yellow
+    Write-Host "  El instalador se creara SIN el servicio biometrico." -ForegroundColor Yellow
+    Write-Host "  La app funcionara con check-in manual; no habra check-in por huella." -ForegroundColor Yellow
+    # NSIS necesita que el directorio no este vacio para su 'File /r'.
+    "El servicio biometrico no se incluyo en este build: $biometricSkipReason" |
+        Out-File -FilePath "build\biometric\LEEME.txt" -Encoding utf8
+} else {
+    # Publish self-contained para Windows x64 (no requiere .NET instalado en destino)
+    # El proyecto es BiometricPOC.csproj; el nombre BiometricService.csproj que habia
+    # aqui no existe y hacia fallar este paso siempre.
+    dotnet publish biometric-service/BiometricPOC.csproj `
+        -c Release `
+        -r win-x64 `
+        --self-contained `
+        -p:PublishSingleFile=false `
+        -p:IncludeNativeLibrariesForSelfExtract=true `
+        -o build/biometric
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "ERROR: Fallo la publicacion del servicio biometrico" -ForegroundColor Red
+        exit 1
     }
-}
 
-Write-Host "  OK - BiometricService.exe (self-contained)" -ForegroundColor Green
+    # DLL del SDK de DigitalPersona, por si el publish no la copio. La lista anterior
+    # (DPFPShrNET, DPFPEngNET, ...) pertenecia a un prototipo abandonado; la
+    # dependencia real del csproj es DPUruNet.dll.
+    if (-not (Test-Path "build\biometric\DPUruNet.dll")) {
+        Copy-Item $dpDll "build\biometric\DPUruNet.dll"
+    }
+
+    if (-not (Test-Path "build\biometric\BiometricPOC.exe")) {
+        Write-Host "ERROR: no se genero BiometricPOC.exe" -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "  OK - BiometricPOC.exe (self-contained)" -ForegroundColor Green
+}
 Write-Host ""
 
 # 4. Crear el instalador con NSIS
@@ -114,8 +140,7 @@ if (Test-Path "Gym-Go-Installer.exe") {
     Write-Host ""
     Write-Host "  Contenido:" -ForegroundColor White
     Write-Host "    - gym-go.exe (backend + frontend embebido)" -ForegroundColor White
-    Write-Host "    - BiometricService.exe (servicio biometrico, $([math]::Round($bioSize, 1)) MB self-contained)" -ForegroundColor White
-    Write-Host "    - biometric.hta (captura de huella)" -ForegroundColor White
+    Write-Host "    - BiometricPOC.exe (servicio biometrico, $([math]::Round($bioSize, 1)) MB self-contained)" -ForegroundColor White
     Write-Host "    - Migraciones SQL" -ForegroundColor White
     Write-Host ""
     Write-Host "  Para instalar: .\Gym-Go-Installer.exe" -ForegroundColor Cyan
@@ -124,8 +149,7 @@ if (Test-Path "Gym-Go-Installer.exe") {
     Write-Host "    C:\Program Files\Gym-Go\" -ForegroundColor Gray
     Write-Host "      gym-go.exe" -ForegroundColor Gray
     Write-Host "      biometric\" -ForegroundColor Gray
-    Write-Host "        BiometricService.exe + DLLs" -ForegroundColor Gray
-    Write-Host "        scripts\biometric.hta" -ForegroundColor Gray
+    Write-Host "        BiometricPOC.exe + DLLs" -ForegroundColor Gray
     Write-Host "      scripts\" -ForegroundColor Gray
     Write-Host "        launch-gym.vbs (inicio sin consolas)" -ForegroundColor Gray
     Write-Host "        stop-gym.vbs (detener)" -ForegroundColor Gray
