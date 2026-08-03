@@ -341,9 +341,6 @@ export default function Dashboard({ user, onLogout }) {
                   <button
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
-                    // Empieza a descargar el chunk del tab mientras el usuario
-                    // mueve el ratón hacia él, así el clic ya lo encuentra listo.
-                    onMouseEnter={() => TAB_LOADERS[item.id]?.()}
                     title={collapsed ? item.label : undefined}
                     className="w-full flex items-center rounded-lg transition-all mb-0.5 relative"
                     style={{
@@ -360,7 +357,12 @@ export default function Dashboard({ user, onLogout }) {
                       textAlign: 'left',
                       whiteSpace: 'nowrap',
                     }}
-                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
+                    onMouseEnter={e => {
+                      if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
+                      // Empieza a descargar el chunk del tab mientras el ratón se
+                      // acerca, así el clic ya lo encuentra listo.
+                      TAB_LOADERS[item.id]?.();
+                    }}
                     onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
                   >
                     {active && !collapsed && (
