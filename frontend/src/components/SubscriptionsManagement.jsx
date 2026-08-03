@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import PlanSelectorGrid from './PlanSelectorGrid';
-import * as XLSX from 'xlsx';
 import api from '../utils/api';
 import Modal from './Modal';
 import SkeletonTable from './SkeletonTable';
@@ -9,6 +8,9 @@ import Toast from './Toast';
 import { fmt } from '../utils/currency';
 import SubscriptionReceipt from './SubscriptionReceipt';
 import MemberProfile from './MemberProfile';
+import Pagination from './Pagination';
+
+const SUBS_PAGE_SIZE = 25;
 
 // ── Icons ──
 const Svg = ({ path, className = 'w-5 h-5' }) => (
@@ -88,6 +90,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
 
   // Report state
   const [activeTab, setActiveTab] = useState('list');
+  const [page, setPage] = useState(1);
   const [reportFrom, setReportFrom] = useState('');
   const [reportTo, setReportTo] = useState('');
   const [reportData, setReportData] = useState([]);
@@ -154,6 +157,9 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     api.get('/gym').then(r => r.ok ? r.json() : null).then(d => { if (d?.name) setGymName(d.name); });
   }, []);
 
+  // Volver a la página 1 cuando cambia lo que se está mirando.
+  useEffect(() => { setPage(1); }, [searchQuery, filterStatus, filterFrom, filterTo]);
+
   const fetchUsers = async () => {
     try {
       const response = await api.get('/users');
@@ -218,7 +224,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     });
   })();
 
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
     if (!filteredReportData.length) return;
     const rows = filteredReportData.map(sub => {
       const memberName = sub.members?.length
@@ -238,6 +244,8 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
         'Fecha Registro': sub.date ? (sub.hour ? `${sub.date} ${sub.hour}` : sub.date) : '',
       };
     });
+    // xlsx se carga solo al exportar; ver utils/exportReport.js
+    const XLSX = await import('xlsx');
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Suscripciones');
@@ -431,6 +439,10 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     });
   })();
 
+  // Se pagina solo el render; la búsqueda sigue recorriendo todo el listado,
+  // incluidos los beneficiarios de los planes grupales.
+  const pageSubs = filteredSubs.slice((page - 1) * SUBS_PAGE_SIZE, page * SUBS_PAGE_SIZE);
+
   if (profileUserId) {
     return <MemberProfile userId={profileUserId} onBack={() => setProfileUserId(null)} />;
   }
@@ -531,7 +543,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                   />
                 </td>
               </tr>
-            ) : filteredSubs.map((sub) => {
+            ) : pageSubs.map((sub) => {
                 const daysLeft = sub.end_date
                   ? Math.max(0, Math.ceil((new Date(sub.end_date) - new Date()) / (1000 * 60 * 60 * 24)))
                   : null;
@@ -657,6 +669,15 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
             })}
           </tbody>
         </table>
+        {!loading && (
+          <Pagination
+            total={filteredSubs.length}
+            page={page}
+            pageSize={SUBS_PAGE_SIZE}
+            onChange={setPage}
+            itemLabel="suscripciones"
+          />
+        )}
       </div>
       </>}
 

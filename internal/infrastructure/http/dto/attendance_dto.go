@@ -4,7 +4,7 @@ import "time"
 
 // CheckInRequest representa la solicitud para hacer check-in
 type CheckInRequest struct {
-	MemberID string  `json:"member_id" validate:"required"`
+	MemberID string  `json:"member_id" binding:"required"`
 	ClassID  *string `json:"class_id,omitempty"`
 }
 

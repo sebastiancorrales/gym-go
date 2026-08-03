@@ -222,6 +222,12 @@ func (s *BiometricService) GetUserFingerprints(ctx context.Context, userID strin
 	return s.fingerprintRepo.GetActiveByUserID(ctx, userID)
 }
 
+// GetFingerprintCounts returns the number of active fingerprints per user, so a
+// list screen can render its enrollment column with a single request.
+func (s *BiometricService) GetFingerprintCounts(ctx context.Context) (map[string]int, error) {
+	return s.fingerprintRepo.CountActiveByUser(ctx)
+}
+
 // DeleteFingerprint removes a fingerprint registration
 func (s *BiometricService) DeleteFingerprint(ctx context.Context, fingerprintID int) error {
 	return s.fingerprintRepo.Delete(ctx, fingerprintID)

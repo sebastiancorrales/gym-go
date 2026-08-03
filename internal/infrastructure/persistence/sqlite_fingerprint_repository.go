@@ -64,6 +64,29 @@ func (r *SQLiteFingerprintRepository) GetAllTemplates(ctx context.Context) ([]*e
 	return fingerprints, err
 }
 
+func (r *SQLiteFingerprintRepository) CountActiveByUser(ctx context.Context) (map[string]int, error) {
+	var rows []struct {
+		UserID string
+		Total  int
+	}
+
+	err := r.db.WithContext(ctx).
+		Model(&entities.Fingerprint{}).
+		Select("user_id, COUNT(*) AS total").
+		Where("is_active = ?", true).
+		Group("user_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]int, len(rows))
+	for _, row := range rows {
+		counts[row.UserID] = row.Total
+	}
+	return counts, nil
+}
+
 func (r *SQLiteFingerprintRepository) LogVerification(ctx context.Context, verification *entities.FingerprintVerification) error {
 	verification.VerifiedAt = time.Now().UTC().Round(0)
 	return r.db.WithContext(ctx).Create(verification).Error

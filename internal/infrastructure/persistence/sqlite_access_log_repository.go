@@ -54,7 +54,9 @@ func (r *SQLiteAccessLogRepository) FindByDateRange(gymID uuid.UUID, from, to ti
 	var logs []*entities.AccessLog
 	err := r.db.Where("gym_id = ? AND access_time >= ? AND access_time <= ?", gymID, from, to).
 		Order("access_time DESC").
+		Limit(maxAccessLogRows).
 		Find(&logs).Error
+	warnIfCapped("FindByDateRange(access_logs)", len(logs), maxAccessLogRows)
 	return logs, err
 }
 

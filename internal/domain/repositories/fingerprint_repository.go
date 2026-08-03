@@ -29,6 +29,12 @@ type FingerprintRepository interface {
 	// GetAllTemplates retrieves all active fingerprint templates for verification
 	GetAllTemplates(ctx context.Context) ([]*entities.Fingerprint, error)
 
+	// CountActiveByUser returns how many active fingerprints each user has, keyed
+	// by user ID. Users with none are absent from the map. This exists so a list
+	// screen can resolve the whole column in one query instead of one request per
+	// row, and it deliberately does not read the template blobs.
+	CountActiveByUser(ctx context.Context) (map[string]int, error)
+
 	// LogVerification logs a fingerprint verification attempt
 	LogVerification(ctx context.Context, verification *entities.FingerprintVerification) error
 }

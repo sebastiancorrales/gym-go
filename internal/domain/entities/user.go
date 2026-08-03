@@ -28,15 +28,23 @@ const (
 )
 
 // User represents a user in the system
+//
+// Índices: cubren las consultas de sqlite_user_repository.go.
+//   - idx_users_email        → FindByEmail, en CADA login. Único: la unicidad se
+//     validaba solo en código, así que dos altas simultáneas podían duplicar.
+//   - idx_users_gym_created  → FindByGymID, que ordena por created_at
+//   - idx_users_gym_doc      → FindByDocumentAndGym (búsqueda del kiosco).
+//     NO es único: hay filas con document_number vacío y un UNIQUE fallaría.
 type User struct {
-	ID                     uuid.UUID  `json:"id"`
-	GymID                  uuid.UUID  `json:"gym_id"`
-	Email                  string     `json:"email"`
+	ID    uuid.UUID `json:"id"`
+	GymID uuid.UUID `json:"gym_id" gorm:"index:idx_users_gym_created,priority:1;index:idx_users_gym_doc,priority:1"`
+	Email string    `json:"email" gorm:"uniqueIndex:idx_users_email"`
+
 	PasswordHash           string     `json:"-"` // Never expose in JSON
 	FirstName              string     `json:"first_name"`
 	LastName               string     `json:"last_name"`
 	DocumentType           string     `json:"document_type"`
-	DocumentNumber         string     `json:"document_number"`
+	DocumentNumber         string     `json:"document_number" gorm:"index:idx_users_gym_doc,priority:2"`
 	Phone                  string     `json:"phone"`
 	DateOfBirth            *time.Time `json:"date_of_birth,omitempty"`
 	Gender                 string     `json:"gender,omitempty"`
@@ -56,7 +64,7 @@ type User struct {
 	LastLogin              *time.Time `json:"last_login,omitempty"`
 	FailedLoginAttempts    int        `json:"-"`
 	LockedUntil            *time.Time `json:"-"`
-	CreatedAt              time.Time  `json:"created_at"`
+	CreatedAt              time.Time  `json:"created_at" gorm:"index:idx_users_gym_created,priority:2"`
 	UpdatedAt              time.Time  `json:"updated_at"`
 	DeletedAt              *time.Time `json:"deleted_at,omitempty"`
 }

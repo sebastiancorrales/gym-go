@@ -26,6 +26,33 @@ func (r *SQLiteSubscriptionMemberRepository) FindBySubscriptionID(subscriptionID
 	return members, err
 }
 
+// FindBySubscriptionIDs resolves the members of many subscriptions in one query,
+// batched to keep the bound-parameter count bounded.
+func (r *SQLiteSubscriptionMemberRepository) FindBySubscriptionIDs(subscriptionIDs []uuid.UUID) ([]*entities.SubscriptionMember, error) {
+	if len(subscriptionIDs) == 0 {
+		return nil, nil
+	}
+
+	const batchSize = 500
+	members := make([]*entities.SubscriptionMember, 0, len(subscriptionIDs))
+
+	for start := 0; start < len(subscriptionIDs); start += batchSize {
+		end := start + batchSize
+		if end > len(subscriptionIDs) {
+			end = len(subscriptionIDs)
+		}
+
+		var batch []*entities.SubscriptionMember
+		if err := r.db.Where("subscription_id IN ?", subscriptionIDs[start:end]).
+			Find(&batch).Error; err != nil {
+			return nil, err
+		}
+		members = append(members, batch...)
+	}
+
+	return members, nil
+}
+
 // FindActiveSubscriptionByUserID finds an active subscription where the user
 // is a secondary member of a group plan (via subscription_members table).
 func (r *SQLiteSubscriptionMemberRepository) FindActiveSubscriptionByUserID(userID uuid.UUID) (*entities.Subscription, error) {

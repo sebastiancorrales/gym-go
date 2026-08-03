@@ -6,12 +6,19 @@ import (
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 )
 
-// CreateProductRequest representa la solicitud para crear un producto
+// CreateProductRequest representa la solicitud para crear un producto.
+//
+// Nota sobre `unit_price`: con `required` el precio 0 se rechaza, así que no se
+// pueden dar de alta productos gratuitos por la caja. Es intencional para un POS;
+// `stock` en cambio sí admite 0 (producto agotado).
+//
+// Estos tags eran `validate:` — un tag que Gin no interpreta y que nadie había
+// registrado —, así que hasta ahora este endpoint aceptaba cuerpos vacíos.
 type CreateProductRequest struct {
-	Name        string  `json:"name" validate:"required"`
+	Name        string  `json:"name" binding:"required"`
 	Description string  `json:"description"`
-	UnitPrice   float64 `json:"unit_price" validate:"required,min=0"`
-	Stock       int     `json:"stock" validate:"min=0"`
+	UnitPrice   float64 `json:"unit_price" binding:"required,min=0"`
+	Stock       int     `json:"stock" binding:"min=0"`
 	Status      string  `json:"status,omitempty"`
 }
 
@@ -19,8 +26,8 @@ type CreateProductRequest struct {
 type UpdateProductRequest struct {
 	Name        string  `json:"name,omitempty"`
 	Description string  `json:"description,omitempty"`
-	UnitPrice   float64 `json:"unit_price,omitempty" validate:"min=0"`
-	Stock       int     `json:"stock,omitempty" validate:"min=0"`
+	UnitPrice   float64 `json:"unit_price,omitempty" binding:"min=0"`
+	Stock       int     `json:"stock,omitempty" binding:"min=0"`
 	Status      string  `json:"status,omitempty"`
 }
 
@@ -36,9 +43,17 @@ type ProductResponse struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// UpdateStockRequest representa la solicitud para actualizar el stock
+// UpdateStockRequest representa la solicitud para fijar el stock de un producto.
+//
+// El valor es ABSOLUTO, no un incremento: el modal de inventario se precarga con
+// el stock actual y el operario escribe la cantidad que hay de verdad. Antes el
+// backend lo interpretaba como delta y leía un campo `quantity` que el frontend
+// nunca enviaba, así que el ajuste no hacía nada y aun así respondía 200.
+//
+// Es un puntero para poder distinguir "stock: 0" (agotado, válido) de no enviar
+// el campo.
 type UpdateStockRequest struct {
-	Quantity int `json:"quantity" validate:"required"`
+	Stock *int `json:"stock" binding:"required,min=0"`
 }
 
 // ProductSearchRequest representa la solicitud para buscar productos

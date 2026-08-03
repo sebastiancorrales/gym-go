@@ -2,13 +2,17 @@ package email
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"mime/multipart"
 	"mime/quotedprintable"
+	"net"
 	"net/smtp"
 	"net/textproto"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // Config holds SMTP configuration
@@ -55,15 +59,81 @@ func (s *Sender) SendWithAttachments(to []string, subject, htmlBody string, atta
 		return fmt.Errorf("SMTP not configured")
 	}
 
-	addr := fmt.Sprintf("%s:%d", s.config.Host, s.config.Port)
-	auth := smtp.PlainAuth("", s.config.Username, s.config.Password, s.config.Host)
-
 	msg, err := s.buildMessage(to, subject, htmlBody, attachments)
 	if err != nil {
 		return fmt.Errorf("building email message: %w", err)
 	}
 
-	return smtp.SendMail(addr, auth, s.config.From, to, msg)
+	return s.send(to, msg)
+}
+
+// Timeouts for the SMTP conversation. smtp.SendMail has none at all: a server
+// that accepts the TCP connection and then stops answering used to block the
+// caller forever, and the daily-close job sends inside a loop that also writes to
+// the database between messages.
+const (
+	smtpDialTimeout   = 10 * time.Second
+	smtpTotalDeadline = 90 * time.Second
+)
+
+// send performs the SMTP exchange with explicit deadlines. It mirrors what
+// smtp.SendMail does (STARTTLS when offered, then AUTH) but over a connection we
+// control, so a hung server fails instead of hanging.
+func (s *Sender) send(to []string, msg []byte) error {
+	// JoinHostPort, not Sprintf: an IPv6 host needs the brackets.
+	addr := net.JoinHostPort(s.config.Host, strconv.Itoa(s.config.Port))
+
+	conn, err := net.DialTimeout("tcp", addr, smtpDialTimeout)
+	if err != nil {
+		return fmt.Errorf("smtp dial %s: %w", addr, err)
+	}
+	// Covers the whole conversation, attachments included.
+	if err := conn.SetDeadline(time.Now().Add(smtpTotalDeadline)); err != nil {
+		conn.Close()
+		return fmt.Errorf("smtp set deadline: %w", err)
+	}
+
+	client, err := smtp.NewClient(conn, s.config.Host)
+	if err != nil {
+		conn.Close()
+		return fmt.Errorf("smtp handshake: %w", err)
+	}
+	defer client.Close()
+
+	if ok, _ := client.Extension("STARTTLS"); ok {
+		if err := client.StartTLS(&tls.Config{ServerName: s.config.Host}); err != nil {
+			return fmt.Errorf("smtp starttls: %w", err)
+		}
+	}
+
+	if ok, _ := client.Extension("AUTH"); ok {
+		auth := smtp.PlainAuth("", s.config.Username, s.config.Password, s.config.Host)
+		if err := client.Auth(auth); err != nil {
+			return fmt.Errorf("smtp auth: %w", err)
+		}
+	}
+
+	if err := client.Mail(s.config.From); err != nil {
+		return fmt.Errorf("smtp mail from: %w", err)
+	}
+	for _, recipient := range to {
+		if err := client.Rcpt(recipient); err != nil {
+			return fmt.Errorf("smtp rcpt to %s: %w", recipient, err)
+		}
+	}
+
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("smtp data: %w", err)
+	}
+	if _, err := w.Write(msg); err != nil {
+		return fmt.Errorf("smtp write body: %w", err)
+	}
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("smtp close body: %w", err)
+	}
+
+	return client.Quit()
 }
 
 func (s *Sender) buildMessage(to []string, subject, htmlBody string, attachments []Attachment) ([]byte, error) {

@@ -24,17 +24,21 @@ const (
 )
 
 // Sale represents a sale transaction
+//
+// Índices: los reportes y el cierre diario filtran por la columna `date` (string
+// local), no por sale_date. `user_id` es el VENDEDOR, y es como se resuelve el gym
+// (Sale no tiene gym_id).
 type Sale struct {
 	ID              uuid.UUID  `json:"id" db:"id"`
 	SaleDate        time.Time  `json:"sale_date" db:"sale_date"`
 	Total           float64    `json:"total" db:"total"`
 	TotalDiscount   float64    `json:"total_discount" db:"total_discount"`
-	UserID          uuid.UUID  `json:"user_id" db:"user_id"`
+	UserID          uuid.UUID  `json:"user_id" db:"user_id" gorm:"index:idx_sales_user_date,priority:1"`
 	Type            SaleType   `json:"type" db:"type"`
 	Status          SaleStatus `json:"status" db:"status"`
 	PaymentMethodID uuid.UUID  `json:"payment_method_id" db:"payment_method_id"`
 	VoidedSaleID    *uuid.UUID `json:"voided_sale_id,omitempty" db:"voided_sale_id"` // If this is a void, references the original sale
-	Date            string     `json:"date" db:"date"`
+	Date            string     `json:"date" db:"date" gorm:"index:idx_sales_date;index:idx_sales_user_date,priority:2"`
 	Hour            string     `json:"hour" db:"hour"`
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`

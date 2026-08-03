@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import api from '../utils/api';
+import { todayStr, addDays } from '../utils/dateUtils';
 
 export default function NotificationBell({ onUserClick }) {
   const [notifications, setNotifications] = useState([]);
@@ -12,7 +13,8 @@ export default function NotificationBell({ onUserClick }) {
 
   useEffect(() => {
     loadExpiring();
-    const interval = setInterval(loadExpiring, 5 * 60 * 1000);
+    // These are 7-day expiry warnings; refreshing every 15 minutes is plenty.
+    const interval = setInterval(loadExpiring, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -26,21 +28,20 @@ export default function NotificationBell({ onUserClick }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  // Filtered by the server. Asking for /subscriptions and narrowing in the browser
+  // was not just wasteful (500 rows, ~837 KB, every refresh) — it was wrong: the
+  // endpoint caps the result at the 500 most recently created subscriptions, so an
+  // older subscription about to expire never produced a warning at all.
   const loadExpiring = async () => {
     try {
-      const res = await api.get('/subscriptions');
+      const from = todayStr();
+      const to = addDays(from, 7);
+      const res = await api.get(`/subscriptions?status=ACTIVE&end_from=${from}&end_to=${to}`);
       if (!res.ok) return;
       const all = await res.json();
       const now = new Date();
-      const in7 = new Date();
-      in7.setDate(in7.getDate() + 7);
 
       const expiring = (all || [])
-        .filter(s => {
-          if (s.status !== 'ACTIVE') return false;
-          const end = new Date(s.end_date);
-          return end >= now && end <= in7;
-        })
         .map(s => {
           const daysLeft = Math.ceil((new Date(s.end_date) - now) / 86400000);
           const name = s.user
@@ -55,6 +56,9 @@ export default function NotificationBell({ onUserClick }) {
             endDate: new Date(s.end_date).toLocaleDateString('es-CO'),
           };
         })
+        // end_from is the start of today, so a subscription that expired a few
+        // hours ago also comes back. Those are not "about to expire".
+        .filter(s => s.daysLeft >= 0)
         .sort((a, b) => a.daysLeft - b.daysLeft);
 
       setNotifications(expiring);

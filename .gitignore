@@ -27,6 +27,17 @@ go.work.sum
 # env file
 .env
 
+# SQLite sidecars. With WAL the database is three files that must stay
+# consistent with each other, so these must never be committed or copied
+# separately — see "restaurar un backup" en DEPLOYMENT.md.
+*.db-wal
+*.db-shm
+*.db-journal
+
+# Local database backups
+*.db.bak
+backups/
+
 # Editor/IDE
 # .idea/
 # .vscode/

@@ -3,8 +3,11 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -12,6 +15,7 @@ import (
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
 	"github.com/sebastiancorrales/gym-go/pkg/security"
+	"gorm.io/gorm"
 )
 
 type UserHandler struct {
@@ -158,23 +162,50 @@ func (h *UserHandler) List(c *gin.Context) {
 		return
 	}
 
-	users, err := h.userUseCase.ListUsers(0, 0)
+	// Filtered in SQL. This used to call ListUsers(0, 0) — which, with limit 0,
+	// emits a SELECT with no LIMIT over every user of every gym — and then discard
+	// the non-matching rows in Go.
+	users, err := h.userUseCase.ListUsersByGym(gymID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list users"})
 		return
 	}
 
-	// Filter users by gym_id
-	filteredUsers := []*entities.User{}
-	for _, user := range users {
-		if user.GymID == gymID {
-			filteredUsers = append(filteredUsers, user)
-		}
+	c.JSON(http.StatusOK, gin.H{
+		"data": users,
+	})
+}
+
+// GetByDocument looks a member up by their document number within the caller's gym.
+// GET /api/v1/users/by-document?document=123456
+//
+// This exists for the check-in kiosk, which used to download the whole user list
+// on every entry just to run a .find() on it in the browser.
+func (h *UserHandler) GetByDocument(c *gin.Context) {
+	gymID, err := uuid.Parse(c.GetString("gym_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid gym ID"})
+		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"data": filteredUsers,
-	})
+	document := strings.TrimSpace(c.Query("document"))
+	if document == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "El parámetro 'document' es obligatorio"})
+		return
+	}
+
+	user, err := h.userUseCase.FindByDocumentAndGym(document, gymID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Usuario no encontrado"})
+			return
+		}
+		log.Printf("⚠️ GetByDocument(%q): %v", document, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al buscar usuario"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": user})
 }
 
 func (h *UserHandler) GetByID(c *gin.Context) {
@@ -186,7 +217,10 @@ func (h *UserHandler) GetByID(c *gin.Context) {
 
 	user, err := h.userUseCase.GetUserByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		// 404 sólo si el usuario realmente no existe. Antes cualquier fallo de base
+		// de datos también salía como 404, y el bug se percibía como "los datos
+		// desaparecieron" en lugar de como un problema de base de datos.
+		RespondError(c, err, "Usuario no encontrado")
 		return
 	}
 
@@ -227,7 +261,10 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 	user, err := h.userUseCase.GetUserByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		// 404 sólo si el usuario realmente no existe. Antes cualquier fallo de base
+		// de datos también salía como 404, y el bug se percibía como "los datos
+		// desaparecieron" en lugar de como un problema de base de datos.
+		RespondError(c, err, "Usuario no encontrado")
 		return
 	}
 
@@ -329,7 +366,10 @@ func (h *UserHandler) GetProfile(c *gin.Context) {
 
 	user, err := h.userUseCase.GetUserByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		// 404 sólo si el usuario realmente no existe. Antes cualquier fallo de base
+		// de datos también salía como 404, y el bug se percibía como "los datos
+		// desaparecieron" en lugar de como un problema de base de datos.
+		RespondError(c, err, "Usuario no encontrado")
 		return
 	}
 

@@ -34,7 +34,6 @@ func Migrate(db *gorm.DB) error {
 		&entities.SubscriptionMember{},
 		&entities.SubscriptionAuditLog{},
 		&entities.NotificationRecipient{},
-		&entities.Device{},
 	)
 
 	if err != nil {
@@ -53,48 +52,129 @@ func Migrate(db *gorm.DB) error {
 
 // backfillDateHour populates the new date/hour columns from existing timestamps
 // using each gym's configured timezone.
+//
+// This runs on every startup, so it opens with a cheap guard: in steady state
+// nothing is missing and it returns after two COUNT queries. When there is work
+// to do, all the row updates go inside a single transaction — one row per
+// autocommit transaction meant N lock acquisitions and N fsyncs.
 func backfillDateHour(db *gorm.DB) error {
+	var pending int64
+	if err := db.Model(&entities.Subscription{}).
+		Where("date IS NULL OR date = ''").Count(&pending).Error; err != nil {
+		return err
+	}
+	if pending == 0 {
+		if err := db.Model(&entities.Sale{}).
+			Where("date IS NULL OR date = ''").Count(&pending).Error; err != nil {
+			return err
+		}
+	}
+	if pending == 0 {
+		return nil // nothing to backfill — the common case
+	}
+
+	log.Printf("🔄 backfillDateHour: %d filas sin date/hour, rellenando...", pending)
+
 	var gyms []entities.Gym
 	if err := db.Find(&gyms).Error; err != nil {
 		return err
 	}
 
-	for _, gym := range gyms {
-		loc := timeutil.LoadLocationOrUTC(gym.Timezone)
+	return db.Transaction(func(tx *gorm.DB) error {
+		for _, gym := range gyms {
+			loc := timeutil.LoadLocationOrUTC(gym.Timezone)
 
-		// ── Subscriptions ──────────────────────────────────────────────────────
-		var subs []entities.Subscription
-		db.Where("gym_id = ? AND (date IS NULL OR date = '')", gym.ID).Find(&subs)
-		for i := range subs {
-			localTime := subs[i].CreatedAt.In(loc)
-			db.Model(&subs[i]).Updates(map[string]interface{}{
-				"date": localTime.Format("2006-01-02"),
-				"hour": localTime.Format("15:04"),
-			})
+			// ── Subscriptions ──────────────────────────────────────────────────
+			var subs []entities.Subscription
+			if err := tx.Where("gym_id = ? AND (date IS NULL OR date = '')", gym.ID).
+				Find(&subs).Error; err != nil {
+				return err
+			}
+			for i := range subs {
+				localTime := subs[i].CreatedAt.In(loc)
+				if err := tx.Model(&subs[i]).Updates(map[string]interface{}{
+					"date": localTime.Format("2006-01-02"),
+					"hour": localTime.Format("15:04"),
+				}).Error; err != nil {
+					return err
+				}
+			}
+
+			// ── Sales (join through user → gym) ────────────────────────────────
+			var users []entities.User
+			if err := tx.Where("gym_id = ?", gym.ID).Find(&users).Error; err != nil {
+				return err
+			}
+			userIDs := make([]uuid.UUID, len(users))
+			for i, u := range users {
+				userIDs[i] = u.ID
+			}
+			if len(userIDs) == 0 {
+				continue
+			}
+			var sales []entities.Sale
+			if err := tx.Where("user_id IN ? AND (date IS NULL OR date = '')", userIDs).
+				Find(&sales).Error; err != nil {
+				return err
+			}
+			for i := range sales {
+				localTime := sales[i].SaleDate.In(loc)
+				if err := tx.Model(&sales[i]).Updates(map[string]interface{}{
+					"date": localTime.Format("2006-01-02"),
+					"hour": localTime.Format("15:04"),
+				}).Error; err != nil {
+					return err
+				}
+			}
 		}
 
-		// ── Sales (join through user → gym) ────────────────────────────────────
-		var users []entities.User
-		db.Where("gym_id = ?", gym.ID).Find(&users)
-		userIDs := make([]uuid.UUID, len(users))
-		for i, u := range users {
-			userIDs[i] = u.ID
+		if err := backfillOrphanSales(tx, gyms); err != nil {
+			return err
 		}
-		if len(userIDs) == 0 {
-			continue
-		}
-		var sales []entities.Sale
-		db.Where("user_id IN ? AND (date IS NULL OR date = '')", userIDs).Find(&sales)
-		for i := range sales {
-			localTime := sales[i].SaleDate.In(loc)
-			db.Model(&sales[i]).Updates(map[string]interface{}{
-				"date": localTime.Format("2006-01-02"),
-				"hour": localTime.Format("15:04"),
-			})
+
+		log.Println("✅ backfillDateHour completed")
+		return nil
+	})
+}
+
+// backfillOrphanSales handles sales the per-gym pass above cannot reach. Sale has
+// no gym_id, so the gym is resolved through the seller's user_id — and a sale
+// whose seller no longer exists in users matches no gym at all. Those rows keep
+// an empty `date`, which silently excludes them from every date-range report and
+// from the daily close, and makes this backfill re-run on every startup without
+// ever converging.
+//
+// With a single gym its timezone is the right answer. With several, the gym is
+// genuinely ambiguous: log it and leave the rows alone rather than guess.
+func backfillOrphanSales(tx *gorm.DB, gyms []entities.Gym) error {
+	var orphans []entities.Sale
+	if err := tx.Where("date IS NULL OR date = ''").Find(&orphans).Error; err != nil {
+		return err
+	}
+	if len(orphans) == 0 {
+		return nil
+	}
+
+	if len(gyms) != 1 {
+		log.Printf("⚠️  backfillDateHour: %d ventas sin date cuyo vendedor ya no existe. "+
+			"Hay %d gimnasios, así que la zona horaria es ambigua: se dejan sin rellenar "+
+			"y seguirán fuera de los reportes por fecha.", len(orphans), len(gyms))
+		return nil
+	}
+
+	loc := timeutil.LoadLocationOrUTC(gyms[0].Timezone)
+	for i := range orphans {
+		localTime := orphans[i].SaleDate.In(loc)
+		if err := tx.Model(&orphans[i]).Updates(map[string]interface{}{
+			"date": localTime.Format("2006-01-02"),
+			"hour": localTime.Format("15:04"),
+		}).Error; err != nil {
+			return err
 		}
 	}
 
-	log.Println("✅ backfillDateHour completed")
+	log.Printf("✅ backfillDateHour: %d ventas huérfanas (vendedor inexistente) rellenadas "+
+		"con la zona horaria de %q", len(orphans), gyms[0].Name)
 	return nil
 }
 

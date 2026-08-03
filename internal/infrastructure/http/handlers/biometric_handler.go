@@ -300,6 +300,29 @@ func (h *BiometricHandler) GetUserFingerprints(c *gin.Context) {
 	})
 }
 
+// GetFingerprintSummary returns the number of active fingerprints per user.
+// GET /api/v1/biometric/summary
+//
+// The users list needs to show, for every row, whether that member is enrolled.
+// Asking /biometric/user/:id once per row meant one request per member (758 in
+// the current database, of which only ~37 had any fingerprint at all). This
+// resolves the whole column in a single request and a single grouped query.
+func (h *BiometricHandler) GetFingerprintSummary(c *gin.Context) {
+	counts, err := h.biometricService.GetFingerprintCounts(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.APIResponse{
+			Success: false,
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.APIResponse{
+		Success: true,
+		Data:    counts,
+	})
+}
+
 // DeleteFingerprint removes a fingerprint registration
 // DELETE /api/v1/biometric/:fingerprint_id
 func (h *BiometricHandler) DeleteFingerprint(c *gin.Context) {

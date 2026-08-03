@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -16,6 +17,7 @@ type SubscriptionUseCase struct {
 	planRepo         repositories.PlanRepository
 	userRepo         repositories.UserRepository
 	auditRepo        repositories.SubscriptionAuditLogRepository
+	uow              repositories.UnitOfWork
 }
 
 func NewSubscriptionUseCase(
@@ -24,6 +26,7 @@ func NewSubscriptionUseCase(
 	planRepo repositories.PlanRepository,
 	userRepo repositories.UserRepository,
 	auditRepo repositories.SubscriptionAuditLogRepository,
+	uow repositories.UnitOfWork,
 ) *SubscriptionUseCase {
 	return &SubscriptionUseCase{
 		subscriptionRepo: subscriptionRepo,
@@ -31,6 +34,7 @@ func NewSubscriptionUseCase(
 		planRepo:         planRepo,
 		userRepo:         userRepo,
 		auditRepo:        auditRepo,
+		uow:              uow,
 	}
 }
 
@@ -75,35 +79,57 @@ func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUI
 	subscription.Hour = localNow.Format("15:04")
 	subscription.Activate()
 
-	if err := uc.subscriptionRepo.Create(subscription); err != nil {
+	// Members are built before the transaction so a retry reuses the same IDs.
+	members := buildGroupMembers(subscription.ID, userID, additionalMemberIDs)
+
+	// The subscription and its beneficiaries are one atomic unit. Previously each
+	// was a separate autocommit insert AND the errors from creating members were
+	// discarded, so a failure left a group subscription with no beneficiaries while
+	// the API still answered 201 Created.
+	if err := uc.uow.Do(context.Background(), func(r repositories.Repos) error {
+		if err := r.Subscriptions.Create(subscription); err != nil {
+			return err
+		}
+		for _, m := range members {
+			if err := r.Members.Create(m); err != nil {
+				return fmt.Errorf("registrando miembro %s del grupo: %w", m.UserID, err)
+			}
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
-	// Register group members if plan supports multiple members
-	if len(additionalMemberIDs) > 0 {
-		// Primary member entry
-		primary := &entities.SubscriptionMember{
-			ID:             uuid.New(),
-			SubscriptionID: subscription.ID,
-			UserID:         userID,
-			IsPrimary:      true,
-			CreatedAt:      time.Now().UTC().Round(0),
-		}
-		uc.memberRepo.Create(primary)
+	return subscription, nil
+}
 
-		for _, memberID := range additionalMemberIDs {
-			m := &entities.SubscriptionMember{
-				ID:             uuid.New(),
-				SubscriptionID: subscription.ID,
-				UserID:         memberID,
-				IsPrimary:      false,
-				CreatedAt:      time.Now().UTC().Round(0),
-			}
-			uc.memberRepo.Create(m)
-		}
+// buildGroupMembers returns the subscription_members rows for a group plan: the
+// holder plus each beneficiary. Individual plans get no rows, which is how the
+// rest of the system distinguishes them.
+func buildGroupMembers(subscriptionID, holderID uuid.UUID, additionalMemberIDs []uuid.UUID) []*entities.SubscriptionMember {
+	if len(additionalMemberIDs) == 0 {
+		return nil
 	}
 
-	return subscription, nil
+	now := time.Now().UTC().Round(0)
+	members := make([]*entities.SubscriptionMember, 0, len(additionalMemberIDs)+1)
+	members = append(members, &entities.SubscriptionMember{
+		ID:             uuid.New(),
+		SubscriptionID: subscriptionID,
+		UserID:         holderID,
+		IsPrimary:      true,
+		CreatedAt:      now,
+	})
+	for _, memberID := range additionalMemberIDs {
+		members = append(members, &entities.SubscriptionMember{
+			ID:             uuid.New(),
+			SubscriptionID: subscriptionID,
+			UserID:         memberID,
+			IsPrimary:      false,
+			CreatedAt:      now,
+		})
+	}
+	return members
 }
 
 func (uc *SubscriptionUseCase) GetActiveSubscription(userID uuid.UUID) (*entities.Subscription, error) {
@@ -180,30 +206,21 @@ func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID 
 	newSub.Date = localNow.Format("2006-01-02")
 	newSub.Hour = localNow.Format("15:04")
 	newSub.Activate()
-	if err := uc.subscriptionRepo.Create(newSub); err != nil {
-		return nil, err
-	}
 
-	// Register group members if plan requires them
-	if len(additionalMemberIDs) > 0 {
-		primary := &entities.SubscriptionMember{
-			ID:             uuid.New(),
-			SubscriptionID: newSub.ID,
-			UserID:         current.UserID,
-			IsPrimary:      true,
-			CreatedAt:      time.Now().UTC().Round(0),
+	members := buildGroupMembers(newSub.ID, current.UserID, additionalMemberIDs)
+
+	if err := uc.uow.Do(context.Background(), func(r repositories.Repos) error {
+		if err := r.Subscriptions.Create(newSub); err != nil {
+			return err
 		}
-		uc.memberRepo.Create(primary)
-		for _, memberID := range additionalMemberIDs {
-			m := &entities.SubscriptionMember{
-				ID:             uuid.New(),
-				SubscriptionID: newSub.ID,
-				UserID:         memberID,
-				IsPrimary:      false,
-				CreatedAt:      time.Now().UTC().Round(0),
+		for _, m := range members {
+			if err := r.Members.Create(m); err != nil {
+				return fmt.Errorf("registrando miembro %s del grupo: %w", m.UserID, err)
 			}
-			uc.memberRepo.Create(m)
 		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	return newSub, nil
@@ -214,10 +231,9 @@ func (uc *SubscriptionUseCase) FreezeSubscription(id uuid.UUID, days int, reason
 	if err != nil {
 		return err
 	}
-	until := time.Now().AddDate(0, 0, days)
-	sub.Freeze(until, reason)
-	// Extend end date by freeze duration
-	sub.EndDate = sub.EndDate.AddDate(0, 0, days)
+	// Freeze owns the end-date extension now; doing it here as well was what
+	// double-counted the freeze.
+	sub.Freeze(days, reason)
 	return uc.subscriptionRepo.Update(sub)
 }
 
@@ -234,6 +250,36 @@ func (uc *SubscriptionUseCase) AutoExpireSubscriptions() (int64, error) {
 	return uc.subscriptionRepo.MarkExpiredSubscriptions()
 }
 
+// AutoUnfreezeSubscriptions reactivates subscriptions whose freeze period is over.
+//
+// Without this a freeze was permanent: nothing ever cleared the FROZEN status, and
+// a frozen subscription fails the active check, so the member was refused entry
+// from the day the freeze ended until someone noticed and unfroze it by hand.
+func (uc *SubscriptionUseCase) AutoUnfreezeSubscriptions() (int, error) {
+	subs, err := uc.subscriptionRepo.FindExpiredFreezes()
+	if err != nil {
+		return 0, err
+	}
+
+	reactivated := 0
+	var firstErr error
+	for _, sub := range subs {
+		if !sub.FreezeExpired() {
+			continue
+		}
+		sub.Unfreeze()
+		if err := uc.subscriptionRepo.Update(sub); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		reactivated++
+	}
+
+	return reactivated, firstErr
+}
+
 func (uc *SubscriptionUseCase) GetActiveCount(gymID uuid.UUID) (int64, error) {
 	return uc.subscriptionRepo.CountActiveByGymID(gymID)
 }
@@ -248,6 +294,21 @@ func (uc *SubscriptionUseCase) GetSubscriptionsByUser(userID uuid.UUID) ([]*enti
 
 func (uc *SubscriptionUseCase) GetSubscriptionMembers(subscriptionID uuid.UUID) ([]*entities.SubscriptionMember, error) {
 	return uc.memberRepo.FindBySubscriptionID(subscriptionID)
+}
+
+// GetMembersBySubscriptionIDs resolves the members of many subscriptions in one
+// query, grouped by subscription ID.
+func (uc *SubscriptionUseCase) GetMembersBySubscriptionIDs(subscriptionIDs []uuid.UUID) (map[uuid.UUID][]*entities.SubscriptionMember, error) {
+	members, err := uc.memberRepo.FindBySubscriptionIDs(subscriptionIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	bySub := make(map[uuid.UUID][]*entities.SubscriptionMember)
+	for _, m := range members {
+		bySub[m.SubscriptionID] = append(bySub[m.SubscriptionID], m)
+	}
+	return bySub, nil
 }
 
 // GetSubscriptionsAsMember returns subscriptions where the user is a group member (beneficiary).
@@ -283,10 +344,15 @@ func (uc *SubscriptionUseCase) UpdateDates(subID uuid.UUID, newStart, newEnd tim
 		sub.Status = entities.SubscriptionStatusActive
 	}
 
-	if err := uc.subscriptionRepo.Update(sub); err != nil {
-		return err
-	}
-	return uc.auditRepo.Create(log)
+	// Atomic: the dates and the audit entry that explains them go together. Before,
+	// a failure writing the log left the dates already changed with no record of
+	// who changed them.
+	return uc.uow.Do(context.Background(), func(r repositories.Repos) error {
+		if err := r.Subscriptions.Update(sub); err != nil {
+			return err
+		}
+		return r.Audit.Create(log)
+	})
 }
 
 // GetAuditLog returns the edit history of a subscription.

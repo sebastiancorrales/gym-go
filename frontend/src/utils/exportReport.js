@@ -1,6 +1,35 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+// jspdf y xlsx pesan ~180 KB comprimidos entre los dos y solo los necesita quien
+// pulsa "Exportar". Importarlos de forma estatica los metia en el chunk inicial, de
+// modo que los descargaba el 100% de los usuarios para que los usara una minoria.
+// Se cargan aqui bajo demanda; por eso estas funciones son async.
+async function loadPDF() {
+  const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ]);
+  return { jsPDF, autoTable };
+}
+
+async function loadXLSX() {
+  return import('xlsx');
+}
+
+/**
+ * Envuelve una funcion de exportacion para que sus fallos no queden como rejections
+ * silenciosas. Las 11 llamadas son handlers de onClick que ignoran el retorno, y
+ * ahora que estas funciones son async un error al cargar el chunk o al generar el
+ * archivo se perderia sin que el usuario se enterara.
+ */
+function reportingErrors(name, fn) {
+  return async (...args) => {
+    try {
+      return await fn(...args);
+    } catch (error) {
+      console.error(`Error al exportar (${name}):`, error);
+      alert(`No se pudo generar el archivo de ${name}. Intenta de nuevo.`);
+    }
+  };
+}
 
 const fmt = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(v ?? 0);
 const fmtDate = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
@@ -10,7 +39,8 @@ const pmLabel = m => PM_LABEL[m?.toUpperCase?.()] ?? m ?? 'Otro';
 /**
  * Exporta el reporte consolidado (Cuadre de Caja) en PDF
  */
-export function exportConsolidadoPDF(data, dateRange, gymName = 'Gimnasio') {
+async function exportConsolidadoPDFImpl(data, dateRange, gymName = 'Gimnasio') {
+  const { jsPDF, autoTable } = await loadPDF();
   const doc   = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W     = doc.internal.pageSize.getWidth();
   const GRAY  = [100, 100, 100];
@@ -224,7 +254,8 @@ export function exportConsolidadoPDF(data, dateRange, gymName = 'Gimnasio') {
  * @param {Array<Array>} rows - Table rows (arrays of values)
  * @param {string} filename - Output filename without extension
  */
-export function exportPDF(title, headers, rows, filename) {
+async function exportPDFImpl(title, headers, rows, filename) {
+  const { jsPDF, autoTable } = await loadPDF();
   const doc = new jsPDF();
   doc.setFontSize(16);
   doc.text(title, 14, 20);
@@ -251,7 +282,8 @@ export function exportPDF(title, headers, rows, filename) {
  * @param {Array<Array>} rows - Table rows (arrays of values)
  * @param {string} filename - Output filename without extension
  */
-export function exportExcel(title, headers, rows, filename) {
+async function exportExcelImpl(title, headers, rows, filename) {
+  const XLSX = await loadXLSX();
   const wsData = [headers, ...rows];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
@@ -266,3 +298,7 @@ export function exportExcel(title, headers, rows, filename) {
   XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 31));
   XLSX.writeFile(wb, `${filename}.xlsx`);
 }
+
+export const exportConsolidadoPDF = reportingErrors('cuadre de caja', exportConsolidadoPDFImpl);
+export const exportPDF = reportingErrors('PDF', exportPDFImpl);
+export const exportExcel = reportingErrors('Excel', exportExcelImpl);

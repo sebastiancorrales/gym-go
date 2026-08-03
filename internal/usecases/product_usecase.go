@@ -99,8 +99,13 @@ func (uc *ProductUseCase) DeleteProduct(ctx context.Context, id uuid.UUID) error
 	return uc.productRepo.Delete(ctx, id)
 }
 
-// UpdateProductStock updates the stock of a product
-func (uc *ProductUseCase) UpdateProductStock(ctx context.Context, productID uuid.UUID, quantity int) error {
+// SetProductStock sets a product's stock to an absolute value, for manual
+// inventory corrections.
+func (uc *ProductUseCase) SetProductStock(ctx context.Context, productID uuid.UUID, stock int) error {
+	if stock < 0 {
+		return errors.ErrInvalidQuantity
+	}
+
 	product, err := uc.productRepo.GetByID(ctx, productID)
 	if err != nil {
 		return err
@@ -109,8 +114,21 @@ func (uc *ProductUseCase) UpdateProductStock(ctx context.Context, productID uuid
 		return errors.ErrNotFound
 	}
 
-	newStock := product.Stock + quantity
-	if newStock < 0 {
+	return uc.productRepo.SetStock(ctx, productID, stock)
+}
+
+// AdjustProductStock adds `quantity` to a product's stock (negative to subtract),
+// refusing to leave it negative.
+func (uc *ProductUseCase) AdjustProductStock(ctx context.Context, productID uuid.UUID, quantity int) error {
+	product, err := uc.productRepo.GetByID(ctx, productID)
+	if err != nil {
+		return err
+	}
+	if product == nil {
+		return errors.ErrNotFound
+	}
+
+	if product.Stock+quantity < 0 {
 		return errors.ErrInsufficientStock
 	}
 

@@ -1,27 +1,46 @@
-import { useState, useEffect } from 'react';
-import {
-  AreaChart, Area, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from 'recharts';
-import api from '../utils/api';
-import UsersManagement from './UsersManagement';
-import StaffManagement from './StaffManagement';
-import PlansManagement from './PlansManagement';
-import SubscriptionsManagement from './SubscriptionsManagement';
-import AccessManagement from './AccessManagement';
-import ProductsManagement from './inventory/ProductsManagement';
-import SalesTab from './inventory/SalesTab';
-import SalesHistory from './inventory/SalesHistory';
-import ReportsTab from './inventory/ReportsTab';
-import AccountingReports from './AccountingReports';
-import PaymentMethodsManagement from './inventory/PaymentMethodsManagement';
-import GymSettings from './GymSettings';
-import DevicesManagement from './DevicesManagement';
-import ProfileSettings from './ProfileSettings';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import api, { clearCache } from '../utils/api';
 import NotificationBell from './NotificationBell';
-import { SkeletonKpi } from './SkeletonTable';
+import SkeletonTable, { SkeletonKpi } from './SkeletonTable';
 import { fmt } from '../utils/currency';
-import { todayStr } from '../utils/dateUtils';
+import { todayStr, addDays } from '../utils/dateUtils';
+
+// Los 14 tabs se cargan bajo demanda: importarlos de forma estatica metia toda la
+// aplicacion en el chunk inicial, incluidas pantallas que la mayoria no abre.
+// El prefetch al pasar el raton sobre el menu hace que el primer clic tampoco se note.
+const UsersManagement = lazy(() => import('./UsersManagement'));
+const StaffManagement = lazy(() => import('./StaffManagement'));
+const PlansManagement = lazy(() => import('./PlansManagement'));
+const SubscriptionsManagement = lazy(() => import('./SubscriptionsManagement'));
+const AccessManagement = lazy(() => import('./AccessManagement'));
+const ProductsManagement = lazy(() => import('./inventory/ProductsManagement'));
+const SalesTab = lazy(() => import('./inventory/SalesTab'));
+const SalesHistory = lazy(() => import('./inventory/SalesHistory'));
+const ReportsTab = lazy(() => import('./inventory/ReportsTab'));
+const AccountingReports = lazy(() => import('./AccountingReports'));
+const PaymentMethodsManagement = lazy(() => import('./inventory/PaymentMethodsManagement'));
+const GymSettings = lazy(() => import('./GymSettings'));
+const DevicesManagement = lazy(() => import('./DevicesManagement'));
+const ProfileSettings = lazy(() => import('./ProfileSettings'));
+const DashboardCharts = lazy(() => import('./dashboard/DashboardCharts'));
+
+const TAB_LOADERS = {
+  users: () => import('./UsersManagement'),
+  staff: () => import('./StaffManagement'),
+  plans: () => import('./PlansManagement'),
+  subscriptions: () => import('./SubscriptionsManagement'),
+  access: () => import('./AccessManagement'),
+  products: () => import('./inventory/ProductsManagement'),
+  sales: () => import('./inventory/SalesTab'),
+  'sales-history': () => import('./inventory/SalesHistory'),
+  reports: () => import('./inventory/ReportsTab'),
+  'accounting-reports': () => import('./AccountingReports'),
+  'payment-methods': () => import('./inventory/PaymentMethodsManagement'),
+  'gym-settings': () => import('./GymSettings'),
+  devices: () => import('./DevicesManagement'),
+  profile: () => import('./ProfileSettings'),
+};
+
 
 // ── Icons ────────────────────────────────────────────────────────────────────
 const Icon = ({ path, className = 'w-5 h-5' }) => (
@@ -151,35 +170,59 @@ export default function Dashboard({ user, onLogout }) {
 
   useEffect(() => { fetchStats(); }, []);
 
+  const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+  // The last 7 local dates as 'YYYY-MM-DD', oldest first. Subscriptions and sales
+  // carry a `date` string in the gym's timezone, so the charts can group by string
+  // equality instead of building a Date per row (this used to be ~8600 Date
+  // constructions plus toDateString() calls on every dashboard mount).
+  const lastSevenDays = () => {
+    const today = todayStr();
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(today, i - 6);
+      return { date, label: DAY_NAMES[new Date(`${date}T12:00:00`).getDay()] };
+    });
+  };
+
   const fetchStats = async () => {
     setLoading(true);
     try {
       const today = todayStr();
-      const [allSubsRes, accessRes, usersRes, subsStatsRes, salesReportRes] = await Promise.all([
-        api.get('/subscriptions'),
+      const week = lastSevenDays();
+
+      // Only the last 7 days of subscriptions: that is all the KPIs and the chart
+      // need. Asking for /subscriptions unfiltered returned 500 rows with user,
+      // plan and members embedded — ~837 KB and ~1500 queries on the server — of
+      // which the dashboard used a handful.
+      const [weekSubsRes, accessRes, subsStatsRes, salesReportRes, accessTodayRes] = await Promise.all([
+        api.get(`/subscriptions?created_from=${week[0].date}&created_to=${today}`),
         api.get('/access/stats'),
-        api.get('/users'),
         api.get('/subscriptions/stats'),
         api.get(`/sales/report?start_date=${today}&end_date=${today}`),
+        api.get('/access/today'),
+      ]);
+
+      const [weekSubs, access, subsStats, salesReport, accessToday] = await Promise.all([
+        weekSubsRes.ok ? weekSubsRes.json() : null,
+        accessRes.ok ? accessRes.json() : null,
+        subsStatsRes.ok ? subsStatsRes.json() : null,
+        salesReportRes.ok ? salesReportRes.json() : null,
+        accessTodayRes.ok ? accessTodayRes.json() : null,
       ]);
 
       const newStats = { activeSubscriptions: 0, todayRevenue: 0, todayAccess: 0, totalMembers: 0, todaySales: 0 };
 
-      if (subsStatsRes.ok) {
-        const d = await subsStatsRes.json();
-        newStats.activeSubscriptions = d?.data?.active_count || 0;
-      }
-      if (salesReportRes.ok) {
-        const d = await salesReportRes.json();
-        newStats.todaySales = d?.net_sales || 0;
-      }
-      if (allSubsRes.ok) {
-        const all = await allSubsRes.json();
-        const todayDate = new Date().toDateString();
-        const todayList = (all || []).filter(s =>
-          s.status !== 'CANCELLED' && new Date(s.created_at).toDateString() === todayDate
-        );
+      newStats.activeSubscriptions = subsStats?.data?.active_count || 0;
+      newStats.totalMembers = subsStats?.data?.total_members || 0;
+      newStats.todaySales = salesReport?.net_sales || 0;
+      newStats.todayAccess = access?.data?.today_count || 0;
+
+      if (weekSubs) {
+        const valid = (weekSubs || []).filter(s => s.status !== 'CANCELLED');
+
+        const todayList = valid.filter(s => s.date === today);
         newStats.todayRevenue = todayList.reduce((sum, s) => sum + (s.total_paid || 0), 0);
+
         const byMethod = {};
         for (const s of todayList) {
           const m = s.payment_method || 'SIN ESPECIFICAR';
@@ -188,46 +231,41 @@ export default function Dashboard({ user, onLogout }) {
           byMethod[m].total += s.total_paid || 0;
         }
         setTodaySubs({ list: todayList, byMethod });
-        const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (6 - i)); return d; });
-        const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-        setRevenueChart(days.map(d => ({
-          dia: dayNames[d.getDay()],
-          ingresos: (all || []).filter(s => s.status !== 'CANCELLED' && new Date(s.created_at).toDateString() === d.toDateString()).reduce((sum, s) => sum + (s.total_paid || 0), 0),
+
+        // One pass over the week instead of one pass per day.
+        const revenueByDate = {};
+        for (const s of valid) {
+          revenueByDate[s.date] = (revenueByDate[s.date] || 0) + (s.total_paid || 0);
+        }
+        setRevenueChart(week.map(({ date, label }) => ({
+          dia: label,
+          ingresos: revenueByDate[date] || 0,
         })));
       }
-      if (accessRes.ok) {
-        const d = await accessRes.json();
-        newStats.todayAccess = d?.data?.today_count || 0;
+
+      const entries = Array.isArray(accessToday?.data)
+        ? accessToday.data
+        : Array.isArray(accessToday) ? accessToday : [];
+
+      // /access/today only covers today, so the other six days can only ever be
+      // zero here. Kept as-is to preserve the current chart; feeding it a real
+      // 7-day series needs /access/history with a date range.
+      const accessByDate = {};
+      for (const e of entries) {
+        const ts = e.timestamp || e.created_at;
+        if (ts) accessByDate[String(ts).slice(0, 10)] = (accessByDate[String(ts).slice(0, 10)] || 0) + 1;
       }
-      try {
-        const accessTodayRes = await api.get('/access/today');
-        if (accessTodayRes.ok) {
-          const accessTodayData = await accessTodayRes.json();
-          const entries = accessTodayData?.data || accessTodayData || [];
-          const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-          const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (6 - i)); return d; });
-          setAccessChart(days.map(d => ({
-            dia: dayNames[d.getDay()],
-            accesos: Array.isArray(entries)
-              ? entries.filter(e => new Date(e.timestamp || e.created_at).toDateString() === d.toDateString()).length
-              : (d.toDateString() === new Date().toDateString() ? newStats.todayAccess : 0),
-          })));
-          if (Array.isArray(entries)) {
-            const sorted = [...entries].sort((a, b) => new Date(b.timestamp || b.created_at) - new Date(a.timestamp || a.created_at));
-            setRecentAccess(sorted.slice(0, 8));
-          }
-        }
-      } catch {
-        const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-        setAccessChart(Array.from({ length: 7 }, (_, i) => {
-          const d = new Date(); d.setDate(d.getDate() - (6 - i));
-          return { dia: dayNames[d.getDay()], accesos: i === 6 ? newStats.todayAccess : 0 };
-        }));
+      setAccessChart(week.map(({ date, label }, i) => ({
+        dia: label,
+        accesos: accessByDate[date] ?? (i === 6 ? newStats.todayAccess : 0),
+      })));
+
+      if (entries.length > 0) {
+        const sorted = [...entries].sort((a, b) =>
+          new Date(b.timestamp || b.created_at) - new Date(a.timestamp || a.created_at));
+        setRecentAccess(sorted.slice(0, 8));
       }
-      if (usersRes.ok) {
-        const d = await usersRes.json();
-        newStats.totalMembers = (d?.data || []).filter(u => u.role === 'MEMBER').length;
-      }
+
       setStats(newStats);
     } catch (err) {
       console.error('Error fetching stats:', err);
@@ -238,6 +276,10 @@ export default function Dashboard({ user, onLogout }) {
 
   const handleLogout = async () => {
     try { await api.post('/auth/logout', {}); } catch {}
+    // Cerrar sesión no recarga la página (App vuelve a renderizar Login), así que
+    // sin esto los listados que quedaron en caché seguirían en memoria y los vería
+    // la siguiente persona que entre.
+    clearCache();
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
@@ -299,6 +341,9 @@ export default function Dashboard({ user, onLogout }) {
                   <button
                     key={item.id}
                     onClick={() => setActiveTab(item.id)}
+                    // Empieza a descargar el chunk del tab mientras el usuario
+                    // mueve el ratón hacia él, así el clic ya lo encuentra listo.
+                    onMouseEnter={() => TAB_LOADERS[item.id]?.()}
                     title={collapsed ? item.label : undefined}
                     className="w-full flex items-center rounded-lg transition-all mb-0.5 relative"
                     style={{
@@ -400,6 +445,13 @@ export default function Dashboard({ user, onLogout }) {
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto">
+          {/*
+            Un solo Suspense para todo el area de contenido, por fuera de la cadena
+            de tabs. Poner uno por tab haria que al suspender se desmontase el
+            arbol; y el fallback usa el mismo skeleton de las tablas para que no
+            haya salto de layout al aparecer la vista.
+          */}
+          <Suspense fallback={<div className="p-7"><SkeletonTable cols={6} rows={8} /></div>}>
 
           {activeTab === 'dashboard' && (
             <div className="p-7 w-full">
@@ -496,56 +548,10 @@ export default function Dashboard({ user, onLogout }) {
                 </div>
               )}
 
-              {/* Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-                <div className="bg-white rounded-[12px] border border-[#E2E8EF] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <div className="text-[14px] font-bold text-[#0F1C35]">Ingresos — últimos 7 días</div>
-                      <div className="text-[12px] text-[#94A3B8] mt-0.5">Comparando vs semana anterior</div>
-                    </div>
-                  </div>
-                  <ResponsiveContainer width="100%" height={160}>
-                    <AreaChart data={revenueChart} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor="#1272D6" stopOpacity={0.18} />
-                          <stop offset="95%" stopColor="#1272D6" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#F0F4F9" />
-                      <XAxis dataKey="dia" tick={{ fontSize: 10.5, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        formatter={v => [fmt(v), 'Ingresos']}
-                        contentStyle={{ borderRadius: 8, border: '1px solid #E2E8EF', boxShadow: '0 4px 12px rgba(0,0,0,.08)', fontSize: 12 }}
-                      />
-                      <Area type="monotone" dataKey="ingresos" stroke="#1272D6" strokeWidth={2.2} fill="url(#revenueGrad)" dot={{ r: 3.5, fill: 'white', stroke: '#1272D6', strokeWidth: 2 }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="bg-white rounded-[12px] border border-[#E2E8EF] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <div className="text-[14px] font-bold text-[#0F1C35]">Accesos — últimos 7 días</div>
-                      <div className="text-[12px] text-[#94A3B8] mt-0.5">Entradas registradas al gimnasio</div>
-                    </div>
-                  </div>
-                  <ResponsiveContainer width="100%" height={160}>
-                    <BarChart data={accessChart} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#F0F4F9" />
-                      <XAxis dataKey="dia" tick={{ fontSize: 10.5, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 11, fill: '#94A3B8' }} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        formatter={v => [v, 'Accesos']}
-                        contentStyle={{ borderRadius: 8, border: '1px solid #E2E8EF', boxShadow: '0 4px 12px rgba(0,0,0,.08)', fontSize: 12 }}
-                      />
-                      <Bar dataKey="accesos" fill="#6D28D9" radius={[4, 4, 0, 0]} opacity={0.85} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+              {/* Charts (recharts se carga aparte, fuera del chunk inicial) */}
+              <Suspense fallback={<div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6"><SkeletonKpi /><SkeletonKpi /></div>}>
+                <DashboardCharts revenueChart={revenueChart} accessChart={accessChart} />
+              </Suspense>
 
               {/* Quick actions */}
               <div className="bg-white rounded-[12px] border border-[#E2E8EF] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6 mb-6">
@@ -637,6 +643,8 @@ export default function Dashboard({ user, onLogout }) {
           {activeTab === 'devices'             && <div className="p-7"><DevicesManagement /></div>}
           {activeTab === 'gym-settings'        && <div className="p-7"><GymSettings /></div>}
           {activeTab === 'profile'             && <div className="p-7"><ProfileSettings user={user} /></div>}
+
+          </Suspense>
         </main>
       </div>
     </div>

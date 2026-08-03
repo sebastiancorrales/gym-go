@@ -15,6 +15,14 @@ type ProductRepository interface {
 	Update(ctx context.Context, product *entities.Product) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	UpdateStock(ctx context.Context, productID uuid.UUID, quantity int) error
+	// SetStock sets the stock to an absolute value (manual inventory correction).
+	SetStock(ctx context.Context, productID uuid.UUID, stock int) error
+	// DecrementStock subtracts qty atomically, failing with ErrInsufficientStock
+	// if there is not enough. Prefer this over read-then-UpdateStock, which is a
+	// race that can drive stock negative.
+	DecrementStock(ctx context.Context, productID uuid.UUID, qty int) error
+	// IncrementStock returns qty to stock (voided sales).
+	IncrementStock(ctx context.Context, productID uuid.UUID, qty int) error
 	Search(ctx context.Context, searchTerm string) ([]entities.Product, error)
 }
 
@@ -34,6 +42,9 @@ type SaleDetailRepository interface {
 	Create(ctx context.Context, detail *entities.SaleDetail) error
 	CreateBatch(ctx context.Context, saleID uuid.UUID, details []entities.SaleDetail) error
 	GetBySaleID(ctx context.Context, saleID uuid.UUID) ([]entities.SaleDetail, error)
+	// GetBySaleIDs resolves the line items of many sales in one query, grouped by
+	// sale ID. Use it instead of calling GetBySaleID per sale in a report.
+	GetBySaleIDs(ctx context.Context, saleIDs []uuid.UUID) (map[uuid.UUID][]entities.SaleDetail, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*entities.SaleDetail, error)
 }
 

@@ -38,6 +38,23 @@ func (uc *PlanUseCase) GetPlanByID(id uuid.UUID) (*entities.Plan, error) {
 	return uc.planRepo.FindByID(id)
 }
 
+// GetPlansByGymAsMap returns every plan of the gym keyed by ID, for use as a
+// lookup map when assembling listings. Deliberately not filtered by status:
+// existing subscriptions may reference a plan that was later deactivated, and
+// their plan name still has to render.
+func (uc *PlanUseCase) GetPlansByGymAsMap(gymID uuid.UUID) (map[uuid.UUID]*entities.Plan, error) {
+	plans, err := uc.planRepo.FindByGymID(gymID)
+	if err != nil {
+		return nil, err
+	}
+
+	byID := make(map[uuid.UUID]*entities.Plan, len(plans))
+	for _, p := range plans {
+		byID[p.ID] = p
+	}
+	return byID, nil
+}
+
 func (uc *PlanUseCase) ListActivePlansByGym(gymID uuid.UUID) ([]*entities.Plan, error) {
 	return uc.planRepo.FindActiveByGymID(gymID)
 }

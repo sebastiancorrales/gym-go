@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
+	apperrors "github.com/sebastiancorrales/gym-go/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -47,7 +48,8 @@ func (r *SQLiteProductRepository) GetAll(ctx context.Context, status *entities.P
 		query = query.Where("status = ?", *status)
 	}
 
-	err := query.Order("created_at DESC").Find(&products).Error
+	err := query.Order("created_at DESC").Limit(maxProductRows).Find(&products).Error
+	warnIfCapped("GetAll(products)", len(products), maxProductRows)
 	return products, err
 }
 
@@ -61,13 +63,60 @@ func (r *SQLiteProductRepository) Delete(ctx context.Context, id uuid.UUID) erro
 	return r.db.WithContext(ctx).Delete(&entities.Product{}, id).Error
 }
 
-// UpdateStock updates the stock of a product
+// UpdateStock adds `quantity` to the stock of a product (negative to subtract).
+//
+// This used to chain two UpdateColumn calls, and UpdateColumn executes
+// immediately — so every stock movement was two UPDATE statements, each its own
+// transaction. It is one statement now.
 func (r *SQLiteProductRepository) UpdateStock(ctx context.Context, productID uuid.UUID, quantity int) error {
 	return r.db.WithContext(ctx).Model(&entities.Product{}).
 		Where("id = ?", productID).
-		UpdateColumn("stock", gorm.Expr("stock + ?", quantity)).
-		UpdateColumn("updated_at", time.Now()).
+		Updates(map[string]interface{}{
+			"stock":      gorm.Expr("stock + ?", quantity),
+			"updated_at": time.Now().UTC().Round(0),
+		}).
 		Error
+}
+
+// SetStock sets the stock to an absolute value.
+func (r *SQLiteProductRepository) SetStock(ctx context.Context, productID uuid.UUID, stock int) error {
+	return r.db.WithContext(ctx).Model(&entities.Product{}).
+		Where("id = ?", productID).
+		Updates(map[string]interface{}{
+			"stock":      stock,
+			"updated_at": time.Now().UTC().Round(0),
+		}).
+		Error
+}
+
+// DecrementStock subtracts qty from a product's stock in a single conditional
+// UPDATE, returning ErrInsufficientStock when there is not enough.
+//
+// The guard is in the WHERE clause on purpose. Reading the stock and then writing
+// it is a race: two tills selling the last unit at the same time both saw stock
+// available and both decremented, leaving it negative. Here the database decides,
+// and "no rows affected" means someone else got there first.
+func (r *SQLiteProductRepository) DecrementStock(ctx context.Context, productID uuid.UUID, qty int) error {
+	res := r.db.WithContext(ctx).Model(&entities.Product{}).
+		Where("id = ? AND stock >= ?", productID, qty).
+		Updates(map[string]interface{}{
+			"stock":      gorm.Expr("stock - ?", qty),
+			"updated_at": time.Now().UTC().Round(0),
+		})
+
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return apperrors.ErrInsufficientStock
+	}
+	return nil
+}
+
+// IncrementStock adds qty back to a product's stock, for voided sales. No guard:
+// restoring stock can never break the invariant.
+func (r *SQLiteProductRepository) IncrementStock(ctx context.Context, productID uuid.UUID, qty int) error {
+	return r.UpdateStock(ctx, productID, qty)
 }
 
 // Search searches for products by name or description

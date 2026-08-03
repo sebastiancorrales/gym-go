@@ -3,6 +3,7 @@ package usecases
 import (
 	"context"
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 	"time"
@@ -213,6 +214,46 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 		return "Otro"
 	}
 
+	// Lookup maps built up front. This aggregation used to resolve every product,
+	// user and plan with its own query inside the loops — roughly 4000 queries for
+	// a month-long range — and it runs at 23:00, exactly when the front desk is
+	// closing the till. Payment methods already had a cache; this extends the same
+	// idea to everything else, bringing the whole report down to a handful of
+	// queries.
+	saleIDs := make([]uuid.UUID, 0, len(sales))
+	for _, s := range sales {
+		saleIDs = append(saleIDs, s.ID)
+	}
+	detailsBySale, err := uc.saleDetailRepo.GetBySaleIDs(ctx, saleIDs)
+	if err != nil {
+		return nil, fmt.Errorf("loading sale details: %w", err)
+	}
+
+	productNames := make(map[uuid.UUID]string)
+	if products, err := uc.productRepo.GetAll(ctx, nil); err == nil {
+		for _, p := range products {
+			productNames[p.ID] = p.Name
+		}
+	}
+
+	planNames := make(map[uuid.UUID]string)
+	if plans, err := uc.planRepo.FindByGymID(gymID); err == nil {
+		for _, p := range plans {
+			planNames[p.ID] = p.Name
+		}
+	}
+
+	subUserIDs := make([]uuid.UUID, 0, len(subs))
+	for _, sub := range subs {
+		subUserIDs = append(subUserIDs, sub.UserID)
+	}
+	memberNames := make(map[uuid.UUID]string)
+	if users, err := uc.userRepo.FindByIDs(subUserIDs); err == nil {
+		for _, u := range users {
+			memberNames[u.ID] = u.FirstName + " " + u.LastName
+		}
+	}
+
 	// Separate aggregation for subs vs sales per payment method
 	pmMap := make(map[string]*email.PaymentMethodSummary)
 	productMap := make(map[string]*email.ProductSummary)
@@ -245,20 +286,18 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 		pm.Count++
 
 		itemCount := 0
-		if details, err := uc.saleDetailRepo.GetBySaleID(ctx, s.ID); err == nil {
-			for _, d := range details {
-				itemCount += d.Quantity
-				productName := d.ProductID.String()
-				if prod, pErr := uc.productRepo.GetByID(ctx, d.ProductID); pErr == nil && prod != nil {
-					productName = prod.Name
-				}
-				key := strings.ToLower(strings.TrimSpace(productName))
-				if _, ok := productMap[key]; !ok {
-					productMap[key] = &email.ProductSummary{Name: productName}
-				}
-				productMap[key].Qty += d.Quantity
-				productMap[key].Revenue += d.Subtotal
+		for _, d := range detailsBySale[s.ID] {
+			itemCount += d.Quantity
+			productName, ok := productNames[d.ProductID]
+			if !ok {
+				productName = d.ProductID.String()
 			}
+			key := strings.ToLower(strings.TrimSpace(productName))
+			if _, ok := productMap[key]; !ok {
+				productMap[key] = &email.ProductSummary{Name: productName}
+			}
+			productMap[key].Qty += d.Quantity
+			productMap[key].Revenue += d.Subtotal
 		}
 
 		report.SaleItems = append(report.SaleItems, email.SaleLineItem{
@@ -284,13 +323,13 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 		pm.Total += sub.TotalPaid
 		pm.Count++
 
-		memberName := sub.UserID.String()
-		if user, err := uc.userRepo.FindByID(sub.UserID); err == nil {
-			memberName = user.FirstName + " " + user.LastName
+		memberName, ok := memberNames[sub.UserID]
+		if !ok {
+			memberName = sub.UserID.String()
 		}
-		planName := sub.PlanID.String()
-		if plan, err := uc.planRepo.FindByID(sub.PlanID); err == nil && plan != nil {
-			planName = plan.Name
+		planName, ok := planNames[sub.PlanID]
+		if !ok {
+			planName = sub.PlanID.String()
 		}
 
 		// Aggregate by plan
@@ -370,6 +409,9 @@ func (uc *NotificationUseCase) SendExpiringReminders(gymID uuid.UUID) (sent, err
 	now := time.Now()
 	in7 := now.AddDate(0, 0, 7)
 
+	// Subscriptions whose reminder went out, flagged in a single write at the end.
+	notified := make([]uuid.UUID, 0, len(subs))
+
 	for _, sub := range subs {
 		if sub.Status != entities.SubscriptionStatusActive || sub.RenewalReminderSent {
 			continue
@@ -410,10 +452,19 @@ func (uc *NotificationUseCase) SendExpiringReminders(gymID uuid.UUID) (sent, err
 			continue
 		}
 
-		sub.RenewalReminderSent = true
-		sub.UpdatedAt = time.Now()
-		_ = uc.subscriptionRepo.Update(sub) // best-effort; don't abort on failure
+		notified = append(notified, sub.ID)
 		sent++
+	}
+
+	// One UPDATE for everything notified, after the sending is done. Writing once
+	// per email interleaved database writes with network I/O of unbounded duration,
+	// spreading a burst of writes across the whole run.
+	if len(notified) > 0 {
+		if err := uc.subscriptionRepo.MarkRemindersSent(notified); err != nil {
+			// The emails did go out; failing here only risks sending again later.
+			log.Printf("⚠️ SendExpiringReminders: marcando %d recordatorios como enviados: %v",
+				len(notified), err)
+		}
 	}
 
 	return sent, errors, nil

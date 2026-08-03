@@ -10,16 +10,16 @@ import (
 
 // SaleDetailRequest representa un detalle de venta en una solicitud
 type SaleDetailRequest struct {
-	ProductID string  `json:"product_id" validate:"required"`
-	Quantity  int     `json:"quantity" validate:"required,min=1"`
+	ProductID string  `json:"product_id" binding:"required"`
+	Quantity  int     `json:"quantity" binding:"required,min=1"`
 	UnitPrice float64 `json:"unit_price,omitempty"`
-	Discount  float64 `json:"discount,omitempty" validate:"min=0"`
+	Discount  float64 `json:"discount,omitempty" binding:"min=0"`
 }
 
 // CreateSaleRequest representa la solicitud para crear una venta
 type CreateSaleRequest struct {
-	PaymentMethodID string              `json:"payment_method_id" validate:"required"`
-	Details         []SaleDetailRequest `json:"details" validate:"required,min=1"`
+	PaymentMethodID string              `json:"payment_method_id" binding:"required"`
+	Details         []SaleDetailRequest `json:"details" binding:"required,min=1"`
 }
 
 // VoidSaleRequest representa la solicitud para anular una venta
@@ -60,8 +60,8 @@ type SaleResponse struct {
 
 // SaleReportRequest representa la solicitud para un reporte de ventas
 type SaleReportRequest struct {
-	StartDate string  `json:"start_date" validate:"required"`
-	EndDate   string  `json:"end_date" validate:"required"`
+	StartDate string  `json:"start_date" binding:"required"`
+	EndDate   string  `json:"end_date" binding:"required"`
 	UserID    *string `json:"user_id,omitempty"`
 }
 

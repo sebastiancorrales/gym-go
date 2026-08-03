@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -143,32 +144,86 @@ func (h *SubscriptionHandler) List(c *gin.Context) {
 		return
 	}
 
+	response, err := h.buildSubscriptionResponses(gymID, subscriptions)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list subscriptions"})
+		return
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// buildSubscriptionResponses attaches the user, plan and group members to each
+// subscription using lookup maps.
+//
+// This used to resolve them row by row: for a 500-row page that meant 500
+// GetUserByID + 500 GetPlanByID + 500 GetSubscriptionMembers plus one more query
+// per group member — over 1500 queries in a single request. Beyond being slow, a
+// read that long holds its snapshot open and competes with every write happening
+// at the front desk. It is now 4 queries, and the JSON produced is identical.
+func (h *SubscriptionHandler) buildSubscriptionResponses(
+	gymID uuid.UUID,
+	subscriptions []*entities.Subscription,
+) ([]*SubscriptionResponse, error) {
 	response := make([]*SubscriptionResponse, 0, len(subscriptions))
+	if len(subscriptions) == 0 {
+		return response, nil
+	}
+
+	subIDs := make([]uuid.UUID, 0, len(subscriptions))
 	for _, sub := range subscriptions {
-		subResp := &SubscriptionResponse{Subscription: sub}
+		subIDs = append(subIDs, sub.ID)
+	}
 
-		if user, err := h.userUseCase.GetUserByID(sub.UserID); err == nil {
-			subResp.User = user
+	membersBySub, err := h.subscriptionUseCase.GetMembersBySubscriptionIDs(subIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Every user referenced by a subscription holder or by a group member.
+	userIDSet := make(map[uuid.UUID]struct{}, len(subscriptions))
+	for _, sub := range subscriptions {
+		userIDSet[sub.UserID] = struct{}{}
+	}
+	for _, members := range membersBySub {
+		for _, m := range members {
+			userIDSet[m.UserID] = struct{}{}
 		}
-		if plan, err := h.planUseCase.GetPlanByID(sub.PlanID); err == nil {
-			subResp.Plan = plan
+	}
+	userIDs := make([]uuid.UUID, 0, len(userIDSet))
+	for id := range userIDSet {
+		userIDs = append(userIDs, id)
+	}
+
+	usersByID, err := h.userUseCase.GetUsersByIDs(userIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	plansByID, err := h.planUseCase.GetPlansByGymAsMap(gymID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sub := range subscriptions {
+		subResp := &SubscriptionResponse{
+			Subscription: sub,
+			User:         usersByID[sub.UserID],
+			Plan:         plansByID[sub.PlanID],
 		}
 
-		// Load group members if any
-		if members, err := h.subscriptionUseCase.GetSubscriptionMembers(sub.ID); err == nil && len(members) > 0 {
-			for _, m := range members {
-				info := MemberInfo{UserID: m.UserID, IsPrimary: m.IsPrimary}
-				if u, err := h.userUseCase.GetUserByID(m.UserID); err == nil {
-					info.User = u
-				}
-				subResp.Members = append(subResp.Members, info)
-			}
+		for _, m := range membersBySub[sub.ID] {
+			subResp.Members = append(subResp.Members, MemberInfo{
+				UserID:    m.UserID,
+				IsPrimary: m.IsPrimary,
+				User:      usersByID[m.UserID],
+			})
 		}
 
 		response = append(response, subResp)
 	}
 
-	c.JSON(http.StatusOK, response)
+	return response, nil
 }
 
 func (h *SubscriptionHandler) Cancel(c *gin.Context) {
@@ -340,25 +395,10 @@ func (h *SubscriptionHandler) Report(c *gin.Context) {
 		return
 	}
 
-	response := make([]*SubscriptionResponse, 0, len(subscriptions))
-	for _, sub := range subscriptions {
-		subResp := &SubscriptionResponse{Subscription: sub}
-		if user, err := h.userUseCase.GetUserByID(sub.UserID); err == nil {
-			subResp.User = user
-		}
-		if plan, err := h.planUseCase.GetPlanByID(sub.PlanID); err == nil {
-			subResp.Plan = plan
-		}
-		if members, err := h.subscriptionUseCase.GetSubscriptionMembers(sub.ID); err == nil && len(members) > 0 {
-			for _, m := range members {
-				info := MemberInfo{UserID: m.UserID, IsPrimary: m.IsPrimary}
-				if u, err := h.userUseCase.GetUserByID(m.UserID); err == nil {
-					info.User = u
-				}
-				subResp.Members = append(subResp.Members, info)
-			}
-		}
-		response = append(response, subResp)
+	response, err := h.buildSubscriptionResponses(gymID, subscriptions)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al generar reporte"})
+		return
 	}
 
 	c.JSON(http.StatusOK, response)
@@ -378,9 +418,18 @@ func (h *SubscriptionHandler) GetStats(c *gin.Context) {
 		return
 	}
 
+	// Served from here so the dashboard does not have to download the whole user
+	// list (300+ KB) just to count members. A failure is not fatal: the rest of
+	// the stats are still useful.
+	memberCount, err := h.userUseCase.CountMembers(gymID)
+	if err != nil {
+		log.Printf("⚠️ GetStats: counting members for gym %s: %v", gymID, err)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"data": gin.H{
-			"active_count": activeCount,
+			"active_count":  activeCount,
+			"total_members": memberCount,
 		},
 	})
 }

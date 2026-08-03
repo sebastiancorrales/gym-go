@@ -16,6 +16,7 @@ type SaleUseCase struct {
 	saleDetailRepo    repositories.SaleDetailRepository
 	productRepo       repositories.ProductRepository
 	paymentMethodRepo repositories.PaymentMethodRepository
+	uow               repositories.UnitOfWork
 }
 
 // NewSaleUseCase creates a new SaleUseCase
@@ -24,12 +25,14 @@ func NewSaleUseCase(
 	saleDetailRepo repositories.SaleDetailRepository,
 	productRepo repositories.ProductRepository,
 	paymentMethodRepo repositories.PaymentMethodRepository,
+	uow repositories.UnitOfWork,
 ) *SaleUseCase {
 	return &SaleUseCase{
 		saleRepo:          saleRepo,
 		saleDetailRepo:    saleDetailRepo,
 		productRepo:       productRepo,
 		paymentMethodRepo: paymentMethodRepo,
+		uow:               uow,
 	}
 }
 
@@ -116,43 +119,48 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 	// Calculate totals
 	sale.CalculateTotal()
 
-	// Create sale
-	if err := uc.saleRepo.Create(ctx, sale); err != nil {
-		return err
+	// Total quantity per product, computed before the transaction so a retry does
+	// not accumulate: everything inside uow.Do must be idempotent.
+	qtyByProduct := make(map[uuid.UUID]int, len(productMap))
+	for _, detail := range sale.Details {
+		qtyByProduct[detail.ProductID] += detail.Quantity
 	}
 
-	// Create sale details
-	if err := uc.saleDetailRepo.CreateBatch(ctx, sale.ID, sale.Details); err != nil {
-		return err
-	}
+	// Sale, line items and stock movements are one atomic unit. They used to be
+	// separate autocommit statements: a failure partway through left the sale
+	// recorded with the stock only partially deducted, and the API still answered
+	// as if everything had worked.
+	return uc.uow.Do(ctx, func(r repositories.Repos) error {
+		if err := r.Sales.Create(ctx, sale); err != nil {
+			return err
+		}
 
-	// Update inventory for normal sales
-	if sale.IsNormal() {
-		for productID, product := range productMap {
-			// Calculate total quantity for this product
-			totalQty := 0
-			for _, detail := range sale.Details {
-				if detail.ProductID == productID {
-					totalQty += detail.Quantity
-				}
-			}
+		if err := r.SaleDetails.CreateBatch(ctx, sale.ID, sale.Details); err != nil {
+			return err
+		}
 
-			// Decrease stock
-			if err := product.DecreaseStock(totalQty); err != nil {
-				return err
-			}
-			if err := uc.productRepo.UpdateStock(ctx, productID, -totalQty); err != nil {
+		if !sale.IsNormal() {
+			return nil
+		}
+
+		for productID, totalQty := range qtyByProduct {
+			// Conditional UPDATE: the database enforces stock >= totalQty, which
+			// closes the gap between the availability check above and this write.
+			if err := r.Products.DecrementStock(ctx, productID, totalQty); err != nil {
 				return err
 			}
 		}
-	}
 
-	return nil
+		return nil
+	})
 }
 
 // VoidSale voids an existing sale and creates a void transaction
 // This function restores inventory and maintains traceability
-func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uuid.UUID) (*entities.Sale, error) {
+//
+// loc is the gym's timezone, needed to stamp the local date/hour columns that all
+// the date-range reports filter on.
+func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uuid.UUID, loc *time.Location) (*entities.Sale, error) {
 	// Get original sale
 	originalSale, err := uc.saleRepo.GetByID(ctx, saleID)
 	if err != nil {
@@ -173,15 +181,17 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 		return nil, err
 	}
 
-	// Update original sale status
-	originalSale.Status = entities.SaleStatusVoided
-	originalSale.UpdatedAt = time.Now().UTC().Round(0)
-	if err := uc.saleRepo.Update(ctx, originalSale); err != nil {
-		return nil, err
+	if loc == nil {
+		loc = time.UTC
 	}
-
-	// Create void sale
 	now := time.Now().UTC().Round(0)
+	localNow := now.In(loc)
+
+	// Everything below is built before the transaction so that a retry replays
+	// identical values instead of generating new IDs or timestamps.
+	originalSale.Status = entities.SaleStatusVoided
+	originalSale.UpdatedAt = now
+
 	voidSale := &entities.Sale{
 		ID:              uuid.New(),
 		SaleDate:        now,
@@ -192,17 +202,17 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 		Status:          entities.SaleStatusCompleted,
 		PaymentMethodID: originalSale.PaymentMethodID,
 		VoidedSaleID:    &originalSale.ID,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		// Without these the void was invisible to every date-range report and to
+		// the daily close, so an annulled sale never subtracted from the takings.
+		Date:      localNow.Format("2006-01-02"),
+		Hour:      localNow.Format("15:04"),
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
-	// Create void sale record
-	if err := uc.saleRepo.Create(ctx, voidSale); err != nil {
-		return nil, err
-	}
-
-	// Create void sale details (negative quantities)
+	// Void details mirror the originals with negative amounts.
 	voidDetails := make([]entities.SaleDetail, len(details))
+	qtyByProduct := make(map[uuid.UUID]int, len(details))
 	for i, detail := range details {
 		voidDetails[i] = entities.SaleDetail{
 			SaleID:     voidSale.ID,
@@ -212,34 +222,29 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 			TotalPrice: -detail.TotalPrice,
 			Discount:   -detail.Discount,
 			Subtotal:   -detail.Subtotal,
-			CreatedAt:  time.Now(),
+			CreatedAt:  now,
 		}
+		qtyByProduct[detail.ProductID] += detail.Quantity
 	}
 
-	if err := uc.saleDetailRepo.CreateBatch(ctx, voidSale.ID, voidDetails); err != nil {
-		return nil, err
-	}
-
-	// Restore inventory - Restore ONLY ONCE per product
-	restoredProducts := make(map[uuid.UUID]bool)
-	for _, detail := range details {
-		// Skip if already restored (in case of duplicate details)
-		if restoredProducts[detail.ProductID] {
-			continue
+	if err := uc.uow.Do(ctx, func(r repositories.Repos) error {
+		if err := r.Sales.Update(ctx, originalSale); err != nil {
+			return err
 		}
-
-		// Calculate total quantity for this product across all details
-		totalQty := 0
-		for _, d := range details {
-			if d.ProductID == detail.ProductID {
-				totalQty += d.Quantity
+		if err := r.Sales.Create(ctx, voidSale); err != nil {
+			return err
+		}
+		if err := r.SaleDetails.CreateBatch(ctx, voidSale.ID, voidDetails); err != nil {
+			return err
+		}
+		for productID, totalQty := range qtyByProduct {
+			if err := r.Products.IncrementStock(ctx, productID, totalQty); err != nil {
+				return err
 			}
 		}
-
-		if err := uc.productRepo.UpdateStock(ctx, detail.ProductID, totalQty); err != nil {
-			return nil, err
-		}
-		restoredProducts[detail.ProductID] = true
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 
 	return voidSale, nil

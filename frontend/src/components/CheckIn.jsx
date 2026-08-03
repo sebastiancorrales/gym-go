@@ -136,6 +136,25 @@ export default function CheckIn() {
     return () => clearInterval(id);
   }, []);
 
+  // Subscriptions of a single member, via their profile. Do NOT replace this with
+  // GET /subscriptions + .find(): that downloaded 500 subscriptions (~837 KB) on
+  // every single check-in, and the endpoint's 500-row cap meant an older member's
+  // subscription could be missing from the response entirely.
+  //
+  // IMPORTANT: nothing in this kiosk may be served from a cache. A member who was
+  // just enrolled at the front desk has to be able to walk in immediately, so every
+  // request here must hit the server.
+  const fetchUserSubscriptions = async (userId) => {
+    try {
+      const res = await api.get(`/users/${userId}/profile`, { noCache: true });
+      if (!res.ok) return [];
+      const body = await res.json();
+      return body.subscriptions || [];
+    } catch {
+      return [];
+    }
+  };
+
   // ── Auto-scan loop ──────────────────────────────────────────────────────────
   // Keeps /verify running in the background while fingerprint mode is active.
   // Each call blocks ~30s on the C# side waiting for a finger placement.
@@ -161,10 +180,7 @@ export default function CheckIn() {
             if (!alive) break;
 
             if (ciRes.ok) {
-              const subsRes = await api.get('/subscriptions');
-              const sub = subsRes.ok
-                ? (await subsRes.json() || []).find(s => s.user_id === user.id && s.status === 'ACTIVE')
-                : null;
+              const sub = (await fetchUserSubscriptions(user.id)).find(s => s.status === 'ACTIVE');
               beep();
               triggerRelay();
               setResult({ success: true, user, subscription: sub, message: '¡Bienvenido!', byFingerprint: true });
@@ -207,31 +223,31 @@ export default function CheckIn() {
     setLoading(true); setResult(null); setError(null);
 
     try {
-      const usersRes = await api.get('/users');
-      if (!usersRes.ok) throw new Error('Error al buscar usuario');
-      const usersData = await usersRes.json();
-      const user = (usersData.data || usersData || []).find(u => u.document_number === documentNumber.trim());
+      const doc = documentNumber.trim();
+      const userRes = await api.get(
+        `/users/by-document?document=${encodeURIComponent(doc)}`,
+        { noCache: true },
+      );
 
-      if (!user) {
+      if (userRes.status === 404) {
         setError({ message: 'Usuario no encontrado', detail: 'La identificación ingresada no está registrada' });
         setDocumentNumber('');
         return;
       }
+      if (!userRes.ok) throw new Error('Error al buscar usuario');
+      const user = (await userRes.json()).data;
 
       const ciRes = await api.post('/access/checkin', { user_id: user.id, method: 'MANUAL' });
       const ciData = await ciRes.json();
-
-      const subsRes = await api.get('/subscriptions');
-      const subsAll = subsRes.ok ? await subsRes.json() : [];
+      const userSubs = await fetchUserSubscriptions(user.id);
 
       if (ciRes.ok) {
-        const sub = (subsAll || []).find(s => s.user_id === user.id && s.status === 'ACTIVE');
+        const sub = userSubs.find(s => s.status === 'ACTIVE');
         beep();
         triggerRelay();
         setResult({ success: true, user, subscription: sub, message: '¡Bienvenido!' });
       } else {
-        const userSubs = (subsAll || []).filter(s => s.user_id === user.id);
-        const expired = userSubs.sort((a, b) => new Date(b.end_date) - new Date(a.end_date))[0] || null;
+        const expired = [...userSubs].sort((a, b) => new Date(b.end_date) - new Date(a.end_date))[0] || null;
         setResult({ success: false, user, message: 'Acceso Denegado', reason: ciData.reason || 'Sin suscripción activa', expiredSubscription: expired });
       }
     } catch {

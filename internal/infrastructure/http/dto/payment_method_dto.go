@@ -8,8 +8,8 @@ import (
 
 // CreatePaymentMethodRequest representa la solicitud para crear un método de pago
 type CreatePaymentMethodRequest struct {
-	Name   string `json:"name" validate:"required"`
-	Type   string `json:"type" validate:"required"`
+	Name   string `json:"name" binding:"required"`
+	Type   string `json:"type" binding:"required"`
 	Status string `json:"status,omitempty"`
 }
 

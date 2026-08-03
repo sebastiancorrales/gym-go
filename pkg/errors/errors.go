@@ -22,6 +22,14 @@ var (
 	ErrProductNotActive       = errors.New("el producto no está activo")
 	ErrSaleCannotBeVoided     = errors.New("la venta no puede ser anulada")
 	ErrPaymentMethodNotActive = errors.New("método de pago no activo")
+
+	// ErrDatabaseBusy señala contención de locks en SQLite: es un fallo
+	// transitorio y reintentable, no un error de negocio. La capa HTTP lo
+	// traduce a 503 + Retry-After para que el cliente pueda reintentar.
+	ErrDatabaseBusy = errors.New("base de datos ocupada, reintenta en un momento")
+
+	// ErrDuplicate señala una violación de restricción de unicidad.
+	ErrDuplicate = errors.New("registro duplicado")
 )
 
 // AppError representa un error de aplicación con contexto

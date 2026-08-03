@@ -22,7 +22,7 @@ type Product struct {
 	Description string        `json:"description" db:"description"`
 	UnitPrice   float64       `json:"unit_price" db:"unit_price"`
 	Stock       int           `json:"stock" db:"stock"`
-	Status      ProductStatus `json:"status" db:"status"`
+	Status      ProductStatus `json:"status" db:"status" gorm:"index:idx_products_status"`
 	CreatedAt   time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at" db:"updated_at"`
 }

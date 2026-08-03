@@ -9,7 +9,6 @@ import (
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/dto"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
-	"github.com/sebastiancorrales/gym-go/pkg/errors"
 )
 
 // localDateStr formats time in the given location as "YYYY-MM-DD"
@@ -85,29 +84,7 @@ func (h *SaleHandler) CreateSale(c *gin.Context) {
 	sale.Hour = localHourStr(now, saleLoc)
 
 	if err := h.saleUseCase.CreateSale(c.Request.Context(), sale); err != nil {
-		statusCode := http.StatusInternalServerError
-		message := "Error al crear venta"
-
-		switch err {
-		case errors.ErrInsufficientStock:
-			statusCode = http.StatusBadRequest
-			message = "Stock insuficiente"
-		case errors.ErrProductNotActive:
-			statusCode = http.StatusBadRequest
-			message = "Producto no disponible"
-		case errors.ErrPaymentMethodNotActive:
-			statusCode = http.StatusBadRequest
-			message = "Método de pago no disponible"
-		case errors.ErrInvalidInput:
-			statusCode = http.StatusBadRequest
-			message = "Datos inválidos"
-		}
-
-		c.JSON(statusCode, dto.ErrorResponse{
-			Error:   http.StatusText(statusCode),
-			Message: message,
-			Details: map[string]string{"detail": err.Error()},
-		})
+		RespondError(c, err, "Error al crear venta")
 		return
 	}
 
@@ -135,11 +112,10 @@ func (h *SaleHandler) GetSale(c *gin.Context) {
 
 	sale, err := h.saleUseCase.GetSaleByID(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, dto.ErrorResponse{
-			Error:   "Not Found",
-			Message: "Venta no encontrada",
-			Details: map[string]string{"detail": err.Error()},
-		})
+		// Antes cualquier error salía como 404 "Venta no encontrada", incluido un
+		// bloqueo de base de datos. RespondError sólo devuelve 404 cuando la venta
+		// realmente no existe.
+		RespondError(c, err, "Venta no encontrada")
 		return
 	}
 
@@ -208,25 +184,9 @@ func (h *SaleHandler) VoidSale(c *gin.Context) {
 		return
 	}
 
-	voidSale, err := h.saleUseCase.VoidSale(c.Request.Context(), id, userID)
+	voidSale, err := h.saleUseCase.VoidSale(c.Request.Context(), id, userID, middleware.GetGymLocation(c))
 	if err != nil {
-		statusCode := http.StatusInternalServerError
-		message := "Error al anular venta"
-
-		switch err {
-		case errors.ErrNotFound:
-			statusCode = http.StatusNotFound
-			message = "Venta no encontrada"
-		case errors.ErrSaleCannotBeVoided:
-			statusCode = http.StatusBadRequest
-			message = "La venta no puede ser anulada"
-		}
-
-		c.JSON(statusCode, dto.ErrorResponse{
-			Error:   http.StatusText(statusCode),
-			Message: message,
-			Details: map[string]string{"detail": err.Error()},
-		})
+		RespondError(c, err, "Error al anular venta")
 		return
 	}
 

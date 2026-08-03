@@ -19,7 +19,7 @@ const (
 // Plan represents a subscription plan
 type Plan struct {
 	ID            uuid.UUID   `json:"id"`
-	GymID         uuid.UUID   `json:"gym_id"`
+	GymID         uuid.UUID   `json:"gym_id" gorm:"index:idx_plans_gym_status,priority:1"`
 	Name          string      `json:"name"`
 	Description   string      `json:"description,omitempty"`
 	DurationDays  int         `json:"duration_days"`
@@ -31,7 +31,7 @@ type Plan struct {
 	IsFeatured    bool        `json:"is_featured"`
 	MaxMembers    int         `json:"max_members"`
 	BillingMode   BillingMode `json:"billing_mode"`
-	Status        string      `json:"status"`
+	Status        string      `json:"status" gorm:"index:idx_plans_gym_status,priority:2"`
 	CreatedAt     time.Time   `json:"created_at"`
 	UpdatedAt     time.Time   `json:"updated_at"`
 }

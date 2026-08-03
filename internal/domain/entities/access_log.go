@@ -34,10 +34,13 @@ const (
 )
 
 // AccessLog represents an access control log
+//
+// Tabla append-only sin retención: crece con cada entrada al gimnasio, así que
+// estos índices importan más cada mes. FindByDateRange no tiene LIMIT.
 type AccessLog struct {
 	ID             uuid.UUID       `json:"id"`
-	GymID          uuid.UUID       `json:"gym_id"`
-	UserID         uuid.UUID       `json:"user_id"`
+	GymID          uuid.UUID       `json:"gym_id" gorm:"index:idx_access_gym_time,priority:1"`
+	UserID         uuid.UUID       `json:"user_id" gorm:"index:idx_access_user_time,priority:1"`
 	DeviceID       *uuid.UUID      `json:"device_id,omitempty"`
 	AccessType     AccessLogType   `json:"access_type"`
 	AccessMethod   AccessLogMethod `json:"access_method"`
@@ -48,7 +51,7 @@ type AccessLog struct {
 	PhotoURL       string          `json:"photo_url,omitempty"`
 	VerifiedBy     *uuid.UUID      `json:"verified_by,omitempty"`
 	Notes          string          `json:"notes,omitempty"`
-	AccessTime     time.Time       `json:"access_time"`
+	AccessTime     time.Time       `json:"access_time" gorm:"index:idx_access_gym_time,priority:2;index:idx_access_user_time,priority:2"`
 	CreatedAt      time.Time       `json:"created_at"`
 }
 

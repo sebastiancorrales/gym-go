@@ -74,6 +74,47 @@ func (r *SQLiteSubscriptionRepository) MarkExpiredSubscriptions() (int64, error)
 	return result.RowsAffected, result.Error
 }
 
+// MarkRemindersSent flags the given subscriptions as already reminded, in batches
+// to keep the bound-parameter count bounded.
+func (r *SQLiteSubscriptionRepository) MarkRemindersSent(ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	const batchSize = 500
+	now := time.Now().UTC().Round(0)
+
+	for start := 0; start < len(ids); start += batchSize {
+		end := start + batchSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+
+		if err := r.db.Model(&entities.Subscription{}).
+			Where("id IN ?", ids[start:end]).
+			Updates(map[string]interface{}{
+				"renewal_reminder_sent": true,
+				"updated_at":            now,
+			}).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// FindExpiredFreezes returns frozen subscriptions whose freeze period has already
+// elapsed. Rows are returned rather than updated in bulk because reactivating
+// involves reclaiming unused freeze days, which is business logic on the entity.
+func (r *SQLiteSubscriptionRepository) FindExpiredFreezes() ([]*entities.Subscription, error) {
+	var subs []*entities.Subscription
+	err := r.db.
+		Where("status = ? AND frozen_until IS NOT NULL AND frozen_until <= ?",
+			entities.SubscriptionStatusFrozen, time.Now()).
+		Find(&subs).Error
+	return subs, err
+}
+
 func (r *SQLiteSubscriptionRepository) FindByGymIDWithFilters(gymID uuid.UUID, filter repositories.SubscriptionFilter, limit, offset int) ([]*entities.Subscription, error) {
 	var subscriptions []*entities.Subscription
 	q := r.db.Where("gym_id = ?", gymID)

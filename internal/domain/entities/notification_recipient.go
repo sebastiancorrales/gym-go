@@ -27,11 +27,11 @@ const (
 // for DAILY_CLOSE), and each one can be independently enabled or disabled.
 type NotificationRecipient struct {
 	ID               uuid.UUID        `json:"id"`
-	GymID            uuid.UUID        `json:"gym_id"`
-	NotificationType NotificationType `json:"notification_type"`
+	GymID            uuid.UUID        `json:"gym_id" gorm:"index:idx_notif_recipients,priority:1"`
+	NotificationType NotificationType `json:"notification_type" gorm:"index:idx_notif_recipients,priority:2"`
 	Name             string           `json:"name"`
 	Email            string           `json:"email"`
-	Active           bool             `json:"active"`
+	Active           bool             `json:"active" gorm:"index:idx_notif_recipients,priority:3"`
 	CreatedAt        time.Time        `json:"created_at"`
 	UpdatedAt        time.Time        `json:"updated_at"`
 }

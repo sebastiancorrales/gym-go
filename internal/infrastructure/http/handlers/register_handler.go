@@ -15,13 +15,20 @@ type RegisterHandler struct {
 	gymRepo    repositories.GymRepository
 	userRepo   repositories.UserRepository
 	jwtManager *security.JWTManager
+	uow        repositories.UnitOfWork
 }
 
-func NewRegisterHandler(gymRepo repositories.GymRepository, userRepo repositories.UserRepository, jwtManager *security.JWTManager) *RegisterHandler {
+func NewRegisterHandler(
+	gymRepo repositories.GymRepository,
+	userRepo repositories.UserRepository,
+	jwtManager *security.JWTManager,
+	uow repositories.UnitOfWork,
+) *RegisterHandler {
 	return &RegisterHandler{
 		gymRepo:    gymRepo,
 		userRepo:   userRepo,
 		jwtManager: jwtManager,
+		uow:        uow,
 	}
 }
 
@@ -85,11 +92,6 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 		UpdatedAt: time.Now(),
 	}
 
-	if err := h.gymRepo.Create(gym); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al crear el gimnasio"})
-		return
-	}
-
 	// Create Admin User
 	admin := entities.NewUser(
 		gym.ID,
@@ -109,10 +111,16 @@ func (h *RegisterHandler) Register(c *gin.Context) {
 	admin.PasswordHash = hashedPassword
 	admin.EmailVerified = true // Auto-verify on registration
 
-	if err := h.userRepo.Create(admin); err != nil {
-		// Rollback: delete gym if user creation fails
-		h.gymRepo.Delete(gym.ID)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al crear el usuario administrador"})
+	// Gym and its admin in one transaction. This replaces a hand-written rollback
+	// (delete the gym if the user insert failed) which itself could fail, leaving
+	// an orphan gym with no way to log into it.
+	if err := h.uow.Do(c.Request.Context(), func(r repositories.Repos) error {
+		if err := r.Gyms.Create(gym); err != nil {
+			return err
+		}
+		return r.Users.Create(admin)
+	}); err != nil {
+		RespondError(c, err, "Error al crear el gimnasio y su administrador")
 		return
 	}
 

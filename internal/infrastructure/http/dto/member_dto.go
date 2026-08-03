@@ -4,11 +4,11 @@ import "time"
 
 // CreateMemberRequest representa la solicitud para crear un miembro
 type CreateMemberRequest struct {
-	FirstName   string    `json:"first_name" validate:"required"`
-	LastName    string    `json:"last_name" validate:"required"`
-	Email       string    `json:"email" validate:"required,email"`
-	Phone       string    `json:"phone" validate:"required"`
-	DateOfBirth time.Time `json:"date_of_birth" validate:"required"`
+	FirstName   string    `json:"first_name" binding:"required"`
+	LastName    string    `json:"last_name" binding:"required"`
+	Email       string    `json:"email" binding:"required,email"`
+	Phone       string    `json:"phone" binding:"required"`
+	DateOfBirth time.Time `json:"date_of_birth" binding:"required"`
 }
 
 // UpdateMemberRequest representa la solicitud para actualizar un miembro
@@ -35,7 +35,7 @@ type MemberResponse struct {
 
 // AssignMembershipRequest representa la solicitud para asignar una membresía
 type AssignMembershipRequest struct {
-	MembershipID string `json:"membership_id" validate:"required"`
+	MembershipID string `json:"membership_id" binding:"required"`
 }
 
 

@@ -3,7 +3,10 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
+
+	"gorm.io/gorm/logger"
 )
 
 // Config holds application configuration
@@ -61,9 +64,15 @@ func LoadConfig() *Config {
 		},
 		Database: DatabaseConfig{
 			DatabasePath: getEnv("DATABASE_PATH", "gym-go.db"),
-			MaxIdleConns: getIntEnv("DB_MAX_IDLE_CONNS", 10),
-			MaxOpenConns: getIntEnv("DB_MAX_OPEN_CONNS", 100),
-			MaxLifetime:  getDurationEnv("DB_MAX_LIFETIME", time.Hour),
+			// A SQLite file has one effective writer: a big pool only multiplies
+			// lock collisions. 8 covers the operators, the check-in kiosk, the
+			// biometric service and the background jobs.
+			MaxIdleConns: getIntEnv("DB_MAX_IDLE_CONNS", 8),
+			MaxOpenConns: getIntEnv("DB_MAX_OPEN_CONNS", 8),
+			// Recycling a handle to a local file buys nothing and forces the
+			// per-connection PRAGMAs to be re-applied.
+			MaxLifetime: getDurationEnv("DB_MAX_LIFETIME", 0),
+			LogLevel:    getLogLevelEnv("DB_LOG_LEVEL", logger.Warn),
 		},
 		JWT: JWTConfig{
 			AccessSecret:      getEnv("JWT_ACCESS_SECRET", "your-super-secret-access-key-change-in-production"),
@@ -103,6 +112,23 @@ func getIntEnv(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+// getLogLevelEnv reads a GORM log level by name: silent, error, warn or info.
+// "info" logs every SQL statement — useful to count the queries a request makes.
+func getLogLevelEnv(key string, defaultValue logger.LogLevel) logger.LogLevel {
+	switch strings.ToLower(os.Getenv(key)) {
+	case "silent":
+		return logger.Silent
+	case "error":
+		return logger.Error
+	case "warn":
+		return logger.Warn
+	case "info":
+		return logger.Info
+	default:
+		return defaultValue
+	}
 }
 
 // getDurationEnv gets duration environment variable or returns default

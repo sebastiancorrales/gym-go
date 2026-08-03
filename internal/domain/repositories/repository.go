@@ -18,6 +18,10 @@ type UserRepository interface {
 	Delete(id uuid.UUID) error
 	List(limit, offset int) ([]*entities.User, error)
 	Count() (int64, error)
+	CountByGymIDAndRole(gymID uuid.UUID, role entities.UserRole) (int64, error)
+	// FindByIDs resolves many users in one query. Use it instead of calling
+	// FindByID inside a loop.
+	FindByIDs(ids []uuid.UUID) ([]*entities.User, error)
 }
 
 // GymRepository defines gym repository interface
@@ -68,12 +72,20 @@ type SubscriptionRepository interface {
 	Delete(id uuid.UUID) error
 	CountActiveByGymID(gymID uuid.UUID) (int64, error)
 	MarkExpiredSubscriptions() (int64, error)
+	// FindExpiredFreezes returns frozen subscriptions whose freeze period is over
+	// and that should go back to active.
+	FindExpiredFreezes() ([]*entities.Subscription, error)
+	// MarkRemindersSent flags many subscriptions as notified in one statement.
+	MarkRemindersSent(ids []uuid.UUID) error
 }
 
 // SubscriptionMemberRepository defines group membership repository interface
 type SubscriptionMemberRepository interface {
 	Create(member *entities.SubscriptionMember) error
 	FindBySubscriptionID(subscriptionID uuid.UUID) ([]*entities.SubscriptionMember, error)
+	// FindBySubscriptionIDs resolves the members of many subscriptions in one
+	// query, for listings that would otherwise call FindBySubscriptionID per row.
+	FindBySubscriptionIDs(subscriptionIDs []uuid.UUID) ([]*entities.SubscriptionMember, error)
 	FindActiveSubscriptionByUserID(userID uuid.UUID) (*entities.Subscription, error)
 	FindSubscriptionsByMemberUserID(userID uuid.UUID) ([]*entities.Subscription, error)
 	DeleteBySubscriptionID(subscriptionID uuid.UUID) error

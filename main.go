@@ -1,16 +1,19 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 	_ "time/tzdata" // embeds IANA timezone database — required on Windows
@@ -18,13 +21,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/config"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/email"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/handlers"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
-	"github.com/sebastiancorrales/gym-go/internal/infrastructure/email"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/persistence"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/persistence/migrations"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
 	"github.com/sebastiancorrales/gym-go/pkg/security"
+	"gorm.io/gorm"
 )
 
 //go:embed all:frontend/dist
@@ -55,8 +59,17 @@ func adjustDatabasePath(cfg *config.Config) {
 	}
 }
 
+// backgroundJobs waits for the background schedulers so shutdown does not close
+// the database from under a job that is mid-write.
+var backgroundJobs sync.WaitGroup
+
 func main() {
 	log.Println("🚀 Starting Gym-Go API Server...")
+
+	// Root context cancelled on Ctrl+C / SIGTERM. Every background scheduler
+	// derives from it, so they all stop before the database is closed.
+	rootCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
 
 	// Load configuration
 	cfg := config.LoadConfig()
@@ -64,28 +77,56 @@ func main() {
 	// Adjust database path for production installation
 	adjustDatabasePath(cfg)
 
-	// Initialize database
-	dbConfig := &config.DatabaseConfig{
-		DatabasePath: cfg.Database.DatabasePath,
-		MaxIdleConns: cfg.Database.MaxIdleConns,
-		MaxOpenConns: cfg.Database.MaxOpenConns,
-		MaxLifetime:  cfg.Database.MaxLifetime,
-	}
-
-	database, err := config.NewDatabase(dbConfig)
+	// Claim the port BEFORE touching the database. This is the single-instance
+	// guard: migrations, seeding and the date backfill all write to the database,
+	// and until this listener existed a second gym-go.exe would perform every one
+	// of those writes before discovering the port was taken — two processes writing
+	// the same SQLite file is a guaranteed source of "database is locked".
+	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
+	listener, err := net.Listen("tcp", serverAddr)
 	if err != nil {
-		log.Fatalf("❌ Failed to connect to database: %v", err)
+		log.Fatalf("❌ No se pudo tomar %s: %v\n"+
+			"   ¿Hay otra instancia de Gym-Go corriendo? Ciérrala (scripts\\stop-gym.vbs) e intenta de nuevo.",
+			serverAddr, err)
 	}
-	defer database.Close()
+	defer listener.Close()
 
-	// Run migrations
-	if err := migrations.Migrate(database.DB); err != nil {
+	// Run migrations on a short-lived, single-connection handle with no statement
+	// cache: the sqlite migrator recreates tables for some column changes and
+	// GORM's prepared-statement cache does not invalidate itself on DDL.
+	migrationDB, err := config.NewDatabase(&config.DatabaseConfig{
+		DatabasePath: cfg.Database.DatabasePath,
+		LogLevel:     cfg.Database.LogLevel,
+		ForMigration: true,
+	})
+	if err != nil {
+		log.Fatalf("❌ Failed to open database for migration: %v", err)
+	}
+
+	if err := migrations.Migrate(migrationDB.DB); err != nil {
+		migrationDB.Close()
 		log.Fatalf("❌ Failed to run migrations: %v", err)
 	}
 
 	// Seed database (optional)
-	if err := migrations.Seed(database.DB); err != nil {
+	if err := migrations.Seed(migrationDB.DB); err != nil {
 		log.Printf("⚠️ Warning: Failed to seed database: %v", err)
+	}
+
+	if err := migrationDB.Close(); err != nil {
+		log.Printf("⚠️ Warning: closing migration handle: %v", err)
+	}
+
+	// Initialize the application database handle
+	database, err := config.NewDatabase(&config.DatabaseConfig{
+		DatabasePath: cfg.Database.DatabasePath,
+		MaxIdleConns: cfg.Database.MaxIdleConns,
+		MaxOpenConns: cfg.Database.MaxOpenConns,
+		MaxLifetime:  cfg.Database.MaxLifetime,
+		LogLevel:     cfg.Database.LogLevel,
+	})
+	if err != nil {
+		log.Fatalf("❌ Failed to connect to database: %v", err)
 	}
 
 	// Initialize JWT manager
@@ -117,15 +158,20 @@ func main() {
 	notifRecipientRepo := persistence.NewSQLiteNotificationRecipientRepository(database.DB)
 	deviceRepo := persistence.NewSQLiteDeviceRepository(database.DB)
 
+	// Unit of work for the flows that must be atomic (sales, voids, group
+	// subscriptions, date edits, gym registration). It rebuilds the repositories
+	// on top of a transaction and retries on lock contention.
+	uow := persistence.NewUnitOfWork(database.DB)
+
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(userRepo)
 	planUseCase := usecases.NewPlanUseCase(planRepo)
-	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, subscriptionMemberRepo, planRepo, userRepo, subscriptionAuditRepo)
+	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, subscriptionMemberRepo, planRepo, userRepo, subscriptionAuditRepo, uow)
 	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
 	biometricService := usecases.NewBiometricService(fingerprintRepo, userRepo)
 	productUseCase := usecases.NewProductUseCase(productRepo)
 	paymentMethodUseCase := usecases.NewPaymentMethodUseCase(paymentMethodRepo)
-	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo)
+	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo, uow)
 	classUseCase := usecases.NewClassUseCase(classRepo, instructorRepo)
 	attendanceUseCase := usecases.NewAttendanceUseCase(attendanceRepo, memberRepo, classRepo)
 
@@ -151,7 +197,7 @@ func main() {
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(userRepo, gymRepo, jwtManager)
-	registerHandler := handlers.NewRegisterHandler(gymRepo, userRepo, jwtManager)
+	registerHandler := handlers.NewRegisterHandler(gymRepo, userRepo, jwtManager, uow)
 	userHandler := handlers.NewUserHandler(userUseCase, subscriptionUseCase, planUseCase)
 	planHandler := handlers.NewPlanHandler(planUseCase)
 	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionUseCase, userUseCase, planUseCase)
@@ -170,6 +216,10 @@ func main() {
 	// Setup Gin router
 	if cfg.Server.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
+		// El detalle técnico del error sigue yendo al log, pero deja de viajar al
+		// navegador: cosas como "database is locked (5) (SQLITE_BUSY)" no ayudan al
+		// usuario y exponen el motor.
+		handlers.SetExposeErrorDetail(false)
 	}
 
 	router := gin.New()
@@ -291,6 +341,7 @@ func main() {
 		{
 			users.GET("", userHandler.List)
 			users.POST("", userHandler.Create)
+			users.GET("/by-document", userHandler.GetByDocument)
 			users.GET("/:id", userHandler.GetByID)
 			users.PUT("/:id", userHandler.Update)
 			users.DELETE("/:id", userHandler.Delete)
@@ -344,6 +395,7 @@ func main() {
 				biometric.POST("/enroll", biometricHandler.EnrollFingerprint)
 				biometric.POST("/enroll-device", biometricHandler.EnrollFingerprintViaDevice)
 				biometric.POST("/verify", biometricHandler.VerifyFingerprint)
+				biometric.GET("/summary", biometricHandler.GetFingerprintSummary)
 				biometric.GET("/user/:user_id", biometricHandler.GetUserFingerprints)
 				biometric.DELETE("/:fingerprint_id", biometricHandler.DeleteFingerprint)
 			}
@@ -470,22 +522,28 @@ func main() {
 		})
 	}
 
-	// Auto-expire subscriptions every hour
-	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
-		defer ticker.Stop()
-		for range ticker.C {
-			if n, err := subscriptionUseCase.AutoExpireSubscriptions(); err != nil {
-				log.Printf("⚠️ Auto-expire error: %v", err)
-			} else if n > 0 {
-				log.Printf("⏰ Auto-expired %d subscriptions", n)
-			}
+	// Subscription housekeeping, hourly at minute 17.
+	//
+	// The offset is deliberate: on the hour it collided with the backup and the
+	// daily close, and the expiry pass takes a write lock over the subscriptions
+	// table. Minute 17 keeps the background jobs out of each other's way.
+	go runHourlyAt(rootCtx, 17, func() {
+		if n, err := subscriptionUseCase.AutoExpireSubscriptions(); err != nil {
+			log.Printf("⚠️ Auto-expire error: %v", err)
+		} else if n > 0 {
+			log.Printf("⏰ Auto-expired %d subscriptions", n)
 		}
-	}()
+
+		if n, err := subscriptionUseCase.AutoUnfreezeSubscriptions(); err != nil {
+			log.Printf("⚠️ Auto-unfreeze error: %v", err)
+		} else if n > 0 {
+			log.Printf("🔓 Reactivadas %d suscripciones cuyo congelamiento terminó", n)
+		}
+	})
 
 	// Backup scheduler: copies the DB every day at 02:00 local time, keeps 7 days.
-	go scheduleDailyClose(2, 0, func() {
-		if err := backupDatabase(cfg.Database.DatabasePath, 7); err != nil {
+	runDailyAt(rootCtx, 2, 0, func() {
+		if err := backupDatabase(database.DB, cfg.Database.DatabasePath, 7); err != nil {
 			log.Printf("⚠️ Backup failed: %v", err)
 		} else {
 			log.Printf("✅ Database backup completed")
@@ -494,7 +552,7 @@ func main() {
 
 	// Daily-close scheduler: sends the end-of-day report at 23:00 local time.
 	// Iterates over every registered gym and sends to each gym's DAILY_CLOSE recipients.
-	go scheduleDailyClose(23, 0, func() {
+	runDailyAt(rootCtx, 23, 0, func() {
 		gyms, err := gymRepo.List(100, 0)
 		if err != nil {
 			log.Printf("⚠️ Daily-close: failed to list gyms: %v", err)
@@ -516,8 +574,15 @@ func main() {
 		}
 	})
 
-	// Start server
-	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
+	// Start server on the listener claimed at startup. ReadTimeout/WriteTimeout
+	// come from the config and were being ignored: router.Run builds its own
+	// http.Server with no timeouts at all.
+	srv := &http.Server{
+		Handler:      router,
+		ReadTimeout:  cfg.Server.ReadTimeout,
+		WriteTimeout: cfg.Server.WriteTimeout,
+	}
+
 	go func() {
 		log.Printf("✅ Server running on http://%s:%s", cfg.Server.Host, cfg.Server.Port)
 		log.Printf("🌐 Frontend: http://%s:%s/", cfg.Server.Host, cfg.Server.Port)
@@ -525,24 +590,37 @@ func main() {
 		log.Printf("🔐 Auth endpoint: http://%s:%s/api/v1/auth/login", cfg.Server.Host, cfg.Server.Port)
 		log.Println("📝 Environment:", cfg.Server.Environment)
 
-		if err := router.Run(serverAddr); err != nil {
+		if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("❌ Failed to start server: %v", err)
 		}
 	}()
 
-	// Graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
+	// Graceful shutdown on Ctrl+C / SIGTERM.
+	<-rootCtx.Done()
 	log.Println("🛑 Shutting down server...")
+
+	// Order matters: drain in-flight requests, then wait for the background jobs,
+	// and only then close the database. Closing it first would pull the connection
+	// out from under a request or a job that is mid-transaction.
+	shutCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutCtx); err != nil {
+		log.Printf("⚠️ Shutdown: %v", err)
+	}
+
+	backgroundJobs.Wait()
+
+	if err := database.Close(); err != nil {
+		log.Printf("⚠️ Closing database: %v", err)
+	}
+
 	log.Println("✅ Server stopped gracefully")
 }
 
-// backupDatabase crea una copia limpia del archivo SQLite en una carpeta
+// backupDatabase crea una copia consistente del archivo SQLite en una carpeta
 // "backups/" junto al archivo original, con el nombre gym-go_YYYY-MM-DD.db.
 // Mantiene solo los últimos `keepDays` backups, eliminando los más antiguos.
-func backupDatabase(dbPath string, keepDays int) error {
+func backupDatabase(db *gorm.DB, dbPath string, keepDays int) error {
 	backupDir := filepath.Join(filepath.Dir(dbPath), "backups")
 	if err := os.MkdirAll(backupDir, 0755); err != nil {
 		return fmt.Errorf("creating backup dir: %w", err)
@@ -550,14 +628,28 @@ func backupDatabase(dbPath string, keepDays int) error {
 
 	dest := filepath.Join(backupDir, "gym-go_"+time.Now().Format("2006-01-02")+".db")
 
-	// Read source and write to destination (simple file copy — safe for SQLite
-	// because GORM keeps WAL checkpointed and the file is consistent at page boundaries).
-	src, err := os.ReadFile(dbPath)
-	if err != nil {
-		return fmt.Errorf("reading db: %w", err)
+	// VACUUM INTO produces a transactionally consistent, compacted copy while
+	// holding only a read lock.
+	//
+	// The previous implementation read the file with os.ReadFile and wrote it back
+	// out. That is not a valid SQLite backup: the read spans several syscalls, so a
+	// COMMIT landing in the middle mixes pages from two different states, and the
+	// -wal / -journal sidecar — where part of the committed state lives — was never
+	// copied at all. Those backups could not be relied on to restore.
+	if err := os.Remove(dest); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("clearing previous backup: %w", err)
 	}
-	if err := os.WriteFile(dest, src, 0644); err != nil {
-		return fmt.Errorf("writing backup: %w", err)
+
+	// VACUUM does not accept bound parameters, so the path goes in as a quoted
+	// literal with single quotes doubled.
+	literal := "'" + strings.ReplaceAll(dest, "'", "''") + "'"
+	if err := db.Exec("VACUUM INTO " + literal).Error; err != nil {
+		return fmt.Errorf("vacuum into %s: %w", dest, err)
+	}
+
+	// Keep the -wal file from growing without bound.
+	if err := db.Exec("PRAGMA wal_checkpoint(TRUNCATE)").Error; err != nil {
+		log.Printf("⚠️ wal_checkpoint: %v", err)
 	}
 
 	// Purge old backups beyond keepDays
@@ -579,18 +671,54 @@ func backupDatabase(dbPath string, keepDays int) error {
 	return nil
 }
 
-// scheduleDailyClose fires task once per day at hour:minute (local time).
-func scheduleDailyClose(hour, minute int, task func()) {
+// runDailyAt runs task once per day at hour:minute local time, until ctx is done.
+//
+// Replaces a version that spawned a goroutine inside a goroutine and could not be
+// stopped: on shutdown it kept running and could touch the database after it was
+// closed. Registering with backgroundJobs lets shutdown wait for it.
+func runDailyAt(ctx context.Context, hour, minute int, task func()) {
+	backgroundJobs.Add(1)
 	go func() {
+		defer backgroundJobs.Done()
 		for {
 			now := time.Now()
 			next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.Local)
 			if !now.Before(next) {
-				next = next.Add(24 * time.Hour)
+				next = next.AddDate(0, 0, 1)
 			}
+
 			timer := time.NewTimer(next.Sub(now))
-			<-timer.C
-			task()
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+				task()
+			}
+		}
+	}()
+}
+
+// runHourlyAt runs task every hour at the given minute, until ctx is done.
+func runHourlyAt(ctx context.Context, minute int, task func()) {
+	backgroundJobs.Add(1)
+	go func() {
+		defer backgroundJobs.Done()
+		for {
+			now := time.Now()
+			next := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), minute, 0, 0, time.Local)
+			if !now.Before(next) {
+				next = next.Add(time.Hour)
+			}
+
+			timer := time.NewTimer(next.Sub(now))
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+				task()
+			}
 		}
 	}()
 }

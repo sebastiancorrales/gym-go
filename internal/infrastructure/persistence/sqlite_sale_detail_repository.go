@@ -43,6 +43,36 @@ func (r *SQLiteSaleDetailRepository) GetBySaleID(ctx context.Context, saleID uui
 	return details, err
 }
 
+// GetBySaleIDs retrieves the details of many sales in one query, grouped by sale
+// ID, batched to keep the bound-parameter count bounded.
+func (r *SQLiteSaleDetailRepository) GetBySaleIDs(ctx context.Context, saleIDs []uuid.UUID) (map[uuid.UUID][]entities.SaleDetail, error) {
+	bySale := make(map[uuid.UUID][]entities.SaleDetail, len(saleIDs))
+	if len(saleIDs) == 0 {
+		return bySale, nil
+	}
+
+	const batchSize = 500
+	for start := 0; start < len(saleIDs); start += batchSize {
+		end := start + batchSize
+		if end > len(saleIDs) {
+			end = len(saleIDs)
+		}
+
+		var details []entities.SaleDetail
+		if err := r.db.WithContext(ctx).
+			Where("sale_id IN ?", saleIDs[start:end]).
+			Order("id ASC").
+			Find(&details).Error; err != nil {
+			return nil, err
+		}
+		for _, d := range details {
+			bySale[d.SaleID] = append(bySale[d.SaleID], d)
+		}
+	}
+
+	return bySale, nil
+}
+
 // GetByID retrieves a sale detail by ID
 func (r *SQLiteSaleDetailRepository) GetByID(ctx context.Context, id uuid.UUID) (*entities.SaleDetail, error) {
 	var detail entities.SaleDetail

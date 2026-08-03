@@ -55,6 +55,43 @@ func (r *SQLiteUserRepository) FindByGymID(gymID uuid.UUID) ([]*entities.User, e
 	return users, err
 }
 
+// FindByIDs resolves many users in one query, in batches so the number of bound
+// parameters stays well under SQLITE_MAX_VARIABLE_NUMBER.
+func (r *SQLiteUserRepository) FindByIDs(ids []uuid.UUID) ([]*entities.User, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	const batchSize = 500
+	users := make([]*entities.User, 0, len(ids))
+
+	for start := 0; start < len(ids); start += batchSize {
+		end := start + batchSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+
+		var batch []*entities.User
+		if err := r.db.Where("id IN ?", ids[start:end]).Find(&batch).Error; err != nil {
+			return nil, err
+		}
+		users = append(users, batch...)
+	}
+
+	return users, nil
+}
+
+// CountByGymIDAndRole counts users of a given role in a gym. The dashboard needs
+// the member count and nothing else, so it should not have to download the whole
+// user list to compute it.
+func (r *SQLiteUserRepository) CountByGymIDAndRole(gymID uuid.UUID, role entities.UserRole) (int64, error) {
+	var count int64
+	err := r.db.Model(&entities.User{}).
+		Where("gym_id = ? AND role = ? AND deleted_at IS NULL", gymID, role).
+		Count(&count).Error
+	return count, err
+}
+
 func (r *SQLiteUserRepository) Update(user *entities.User) error {
 	user.UpdatedAt = time.Now().UTC().Round(0)
 	return r.db.Save(user).Error
@@ -64,13 +101,17 @@ func (r *SQLiteUserRepository) Delete(id uuid.UUID) error {
 	return r.db.Delete(&entities.User{}, id).Error
 }
 
+// List returns users across ALL gyms. Prefer FindByGymID for anything user-facing.
+// A limit of 0 used to mean "no LIMIT clause at all"; it now falls back to a
+// default so this can never emit an unbounded SELECT over the whole table.
 func (r *SQLiteUserRepository) List(limit, offset int) ([]*entities.User, error) {
-	var users []*entities.User
-	q := r.db.Order("created_at DESC").Offset(offset)
-	if limit > 0 {
-		q = q.Limit(limit)
+	if limit <= 0 {
+		limit = defaultUserRows
 	}
-	err := q.Find(&users).Error
+
+	var users []*entities.User
+	err := r.db.Order("created_at DESC").Offset(offset).Limit(limit).Find(&users).Error
+	warnIfCapped("List(users)", len(users), limit)
 	return users, err
 }
 

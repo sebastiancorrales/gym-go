@@ -284,12 +284,8 @@ func (h *ProductHandler) UpdateStock(c *gin.Context) {
 		return
 	}
 
-	if err := h.productUseCase.UpdateProductStock(c.Request.Context(), id, req.Quantity); err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error:   "Internal Server Error",
-			Message: "Error al actualizar stock",
-			Details: map[string]string{"detail": err.Error()},
-		})
+	if err := h.productUseCase.SetProductStock(c.Request.Context(), id, *req.Stock); err != nil {
+		RespondError(c, err, "Error al actualizar stock")
 		return
 	}
 

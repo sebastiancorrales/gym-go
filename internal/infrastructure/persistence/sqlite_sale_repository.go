@@ -38,10 +38,15 @@ func (r *SQLiteSaleRepository) GetByID(ctx context.Context, id uuid.UUID) (*enti
 	return &sale, nil
 }
 
-// GetAll retrieves all sales
+// GetAll retrieves the most recent sales, capped. `sales` only ever grows, so an
+// unbounded SELECT here would return the whole history to serve GET /sales.
 func (r *SQLiteSaleRepository) GetAll(ctx context.Context) ([]entities.Sale, error) {
 	var sales []entities.Sale
-	err := r.db.WithContext(ctx).Order("sale_date DESC").Find(&sales).Error
+	err := r.db.WithContext(ctx).
+		Order("sale_date DESC").
+		Limit(maxSalesRows).
+		Find(&sales).Error
+	warnIfCapped("GetAll(sales)", len(sales), maxSalesRows)
 	return sales, err
 }
 

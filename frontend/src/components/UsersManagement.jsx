@@ -7,6 +7,9 @@ import ConfirmDialog from './ConfirmDialog';
 import { fmt } from '../utils/currency';
 import MemberProfile from './MemberProfile';
 import PlanSelectorGrid from './PlanSelectorGrid';
+import Pagination from './Pagination';
+
+const USERS_PAGE_SIZE = 25;
 
 const FINGER_OPTIONS = [
   { value: 'right_index', label: 'Índice Derecho' },
@@ -41,6 +44,8 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
   const [enrollStatus, setEnrollStatus] = useState('idle');
   const [enrollMessage, setEnrollMessage] = useState('');
   const [userFingerprints, setUserFingerprints] = useState({});
+  const [fingerprintCounts, setFingerprintCounts] = useState({});
+  const [page, setPage] = useState(1);
   const [toast, setToast] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ open: false, onConfirm: null, message: '', title: 'Confirmar', confirmText: 'Confirmar' });
   const [profileUserId, setProfileUserId] = useState(initialProfileUserId);
@@ -51,6 +56,10 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
       onDeepLinkConsumed?.();
     }
   }, [initialProfileUserId]);
+
+  // Al buscar, volver a la primera página: si no, una búsqueda hecha desde la
+  // página 7 puede parecer que no encuentra nada.
+  useEffect(() => { setPage(1); }, [searchQuery]);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -93,6 +102,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
   useEffect(() => {
     fetchUsers();
     fetchPlans();
+    fetchFingerprintCounts();
   }, []);
 
   const fetchPlans = async () => {
@@ -105,7 +115,22 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
     } catch {}
   };
 
-  // Load fingerprints for all users
+  // Enrollment counts for the whole table, in a single request. Do NOT go back to
+  // asking /biometric/user/:id per row: that was one request and one setState per
+  // member (758 of each), which re-rendered the entire table 758 times.
+  const fetchFingerprintCounts = async () => {
+    try {
+      const res = await api.get('/biometric/summary');
+      if (res.ok) {
+        const body = await res.json();
+        setFingerprintCounts(body.data || {});
+      }
+    } catch {
+      // Biometric service may not be running
+    }
+  };
+
+  // Full fingerprint list for a single user — only needed by the enroll modal.
   const loadUserFingerprints = async (userId) => {
     try {
       const res = await api.get(`/biometric/user/${userId}`);
@@ -147,6 +172,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
         setEnrollStatus('success');
         setEnrollMessage(`Huella registrada exitosamente! (Calidad: ${result.quality || 'OK'})`);
         loadUserFingerprints(enrollingUser.id);
+        fetchFingerprintCounts();
       } else {
         const err = await enrollRes.json().catch(() => ({}));
         setEnrollStatus('error');
@@ -169,6 +195,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
           const res = await api.delete(`/biometric/${fingerprintId}`);
           if (res.ok) {
             loadUserFingerprints(userId);
+            fetchFingerprintCounts();
           } else {
             setToast({ message: 'Error al eliminar huella', type: 'error' });
           }
@@ -200,12 +227,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
 
       if (response.ok) {
         const data = await response.json();
-        const userList = data.data || [];
-        setUsers(userList);
-        // Load fingerprints for all users
-        for (const u of userList) {
-          loadUserFingerprints(u.id);
-        }
+        setUsers(data.data || []);
       }
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -454,13 +476,19 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
     );
   }
 
-  const filteredUsers = searchQuery.toLowerCase().trim()
+  // La búsqueda recorre TODOS los usuarios (no solo la página visible): el flujo
+  // real de recepción es buscar por documento y el socio puede estar en cualquier
+  // página. Solo se pagina lo que se pinta.
+  const needle = searchQuery.toLowerCase().trim();
+  const filteredUsers = needle
     ? users.filter(u =>
-        `${u.first_name} ${u.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (u.document_number || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (u.email || '').toLowerCase().includes(searchQuery.toLowerCase())
+        `${u.first_name} ${u.last_name}`.toLowerCase().includes(needle) ||
+        (u.document_number || '').toLowerCase().includes(needle) ||
+        (u.email || '').toLowerCase().includes(needle)
       )
     : users;
+
+  const pageUsers = filteredUsers.slice((page - 1) * USERS_PAGE_SIZE, page * USERS_PAGE_SIZE);
 
   return (
     <div className="p-6">
@@ -885,7 +913,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                   {searchQuery ? `Sin resultados para "${searchQuery}"` : 'No hay usuarios registrados'}
                 </td>
               </tr>
-            ) : filteredUsers.map((user) => (
+            ) : pageUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
@@ -932,18 +960,15 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {(() => {
-                      const fps = userFingerprints[user.id] || [];
-                      return fps.length > 0 ? (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#DCFCE7] text-[#059669]">
-                          ✅ {fps.length}
-                        </span>
-                      ) : (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                          Sin huella
-                        </span>
-                      );
-                    })()}
+                    {fingerprintCounts[user.id] > 0 ? (
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#DCFCE7] text-[#059669]">
+                        ✅ {fingerprintCounts[user.id]}
+                      </span>
+                    ) : (
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                        Sin huella
+                      </span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -994,6 +1019,15 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
             ))}
           </tbody>
         </table>
+        {!loading && (
+          <Pagination
+            total={filteredUsers.length}
+            page={page}
+            pageSize={USERS_PAGE_SIZE}
+            onChange={setPage}
+            itemLabel="usuarios"
+          />
+        )}
       </div>
 
       {/* Fingerprint Enrollment Modal */}

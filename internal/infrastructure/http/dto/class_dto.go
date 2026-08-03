@@ -4,12 +4,12 @@ import "time"
 
 // CreateClassRequest representa la solicitud para crear una clase
 type CreateClassRequest struct {
-	Name         string    `json:"name" validate:"required"`
+	Name         string    `json:"name" binding:"required"`
 	Description  string    `json:"description"`
-	InstructorID string    `json:"instructor_id" validate:"required"`
-	Capacity     int       `json:"capacity" validate:"required,gt=0"`
-	Duration     int       `json:"duration" validate:"required,gt=0"`
-	Schedule     time.Time `json:"schedule" validate:"required"`
+	InstructorID string    `json:"instructor_id" binding:"required"`
+	Capacity     int       `json:"capacity" binding:"required,gt=0"`
+	Duration     int       `json:"duration" binding:"required,gt=0"`
+	Schedule     time.Time `json:"schedule" binding:"required"`
 }
 
 // UpdateClassRequest representa la solicitud para actualizar una clase
