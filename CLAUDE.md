@@ -58,12 +58,32 @@ The pattern for every new module:
 5. Write handler in `internal/infrastructure/http/handlers/<name>_handler.go`
 6. Add DTO in `internal/infrastructure/http/dto/<name>_dto.go`
 7. Register repo, use case, handler and routes in `main.go`
+8. Add the permission(s) the routes need to `internal/domain/entities/permissions.go` (constant + `allPermissions` + the roles that get it), and guard the routes with `middleware.RequirePermission(...)`. If the endpoint takes a date range over money, add `middleware.RestrictReportRange()` too.
 
-## Auth & roles
+## Auth, roles & permissions
 
-JWT tokens stored in browser `localStorage` (`access_token`, `refresh_token`). Middleware order in protected routes: `AuthMiddleware` → `GymTimezoneMiddleware` → `RequireRole(...)`.
+JWT tokens stored in browser `localStorage` (`access_token`, `refresh_token`). Middleware order in protected routes: `AuthMiddleware` → `GymTimezoneMiddleware` → `RequirePermission(...)`.
 
-Roles: `SUPER_ADMIN`, `ADMIN_GYM`, `RECEPCIONISTA`. Most write routes require at least `RECEPCIONISTA`; admin routes require `ADMIN_GYM` or `SUPER_ADMIN`.
+Roles: `SUPER_ADMIN`, `ADMIN_GYM`, `RECEPCIONISTA`, `STAFF`, `MEMBER` (the last one does not enter the panel).
+
+**The single source of truth is `internal/domain/entities/permissions.go`** — a role → permission matrix. Routes declare the *capability* they need (`middleware.RequirePermission(entities.PermSalesCreate)`), never a role, so changing what a role can do means editing that one matrix. `RequireRole` still exists but is legacy; prefer `RequirePermission` for new routes.
+
+The frontend does not duplicate the matrix: the backend ships the permission list in the login response and in `/auth/me`, and `frontend/src/utils/permissions.js` reads it to build the sidebar. Hiding a menu entry is cosmetic — the API check is what protects the data.
+
+### Report scoping
+
+Four separate permissions implement "staff closes its day but cannot look backwards":
+
+| Permission | Meaning |
+|---|---|
+| `reports:daily` | May query the report endpoints **only with today's date** |
+| `reports:history` | May query any date range |
+| `reports:accounting` | Sees the *Reportes Contables* screen |
+| `reports:inventory` | Sees the inventory *Reportes* screen |
+
+`middleware.RestrictReportRange()` enforces the date limit: for any role without `reports:history` it rejects (403) a request whose `start_date`/`end_date`/`from`/`to` is not today in the **gym's timezone**. It rejects instead of silently clamping, so nobody reads a one-day total believing it covers a month. Any new endpoint that exposes historical money data must be wired through it.
+
+`RECEPCIONISTA` and `STAFF` have `reports:daily` and land on the *Cuadre del Día* screen (`frontend/src/components/DailyClose.jsx`); only `ADMIN_GYM` and `SUPER_ADMIN` have the other three.
 
 ## Configuration (env vars)
 

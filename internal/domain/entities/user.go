@@ -146,53 +146,15 @@ func (u *User) Suspend() {
 	u.Status = UserStatusSuspended
 }
 
-// HasPermission checks if user has a specific permission based on role
-func (u *User) HasPermission(permission string) bool {
-	permissions := getRolePermissions(u.Role)
-	for _, p := range permissions {
-		if p == permission {
-			return true
-		}
-	}
-	return false
+// HasPermission checks if user has a specific permission based on role.
+// La matriz de rol → permisos vive en permissions.go.
+func (u *User) HasPermission(permission Permission) bool {
+	return RoleHasPermission(u.Role, permission)
 }
 
 // generateQRCode generates a unique QR code for the user
 func generateQRCode() string {
 	return "GYM-" + uuid.New().String()[:12]
-}
-
-// getRolePermissions returns permissions for a role
-func getRolePermissions(role UserRole) []string {
-	switch role {
-	case RoleSuperAdmin:
-		return []string{"*"} // All permissions
-	case RoleAdminGym:
-		return []string{
-			"users:read", "users:write",
-			"subscriptions:read", "subscriptions:write",
-			"payments:read", "payments:write",
-			"reports:read",
-			"settings:read", "settings:write",
-		}
-	case RoleRecepcionista:
-		return []string{
-			"users:read",
-			"subscriptions:read", "subscriptions:write",
-			"payments:read", "payments:write",
-			"access:validate",
-		}
-	case RoleStaff:
-		return []string{
-			"access:validate",
-		}
-	case RoleMember:
-		return []string{
-			"profile:read", "profile:write",
-		}
-	default:
-		return []string{}
-	}
 }
 
 

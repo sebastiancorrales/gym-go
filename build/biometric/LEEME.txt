@@ -1,0 +1,1 @@
+﻿El servicio biometrico no se incluyo en este build: el SDK de .NET 8 no esta instalado

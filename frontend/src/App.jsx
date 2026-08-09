@@ -3,6 +3,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 import CheckIn from './components/CheckIn';
+import api from './utils/api';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -21,12 +22,39 @@ function App() {
     const token = localStorage.getItem('access_token');
     const savedUser = localStorage.getItem('user');
 
-    if (token && savedUser) {
-      const u = JSON.parse(savedUser);
-      setUser(u);
+    if (!token || !savedUser) {
+      setLoading(false);
+      return;
     }
 
-    setLoading(false);
+    const stored = JSON.parse(savedUser);
+
+    // El menú se arma con `permissions`, que manda el backend. Una sesión
+    // guardada antes de que existieran los permisos no los trae, y como `can()`
+    // falla cerrado el usuario vería el panel vacío: en ese caso hay que esperar
+    // a /auth/me antes de pintar. Si ya los trae, se pinta al instante y la
+    // petición solo sirve para refrescarlos si le cambiaron el rol.
+    const hasPermissions = Array.isArray(stored.permissions);
+    if (hasPermissions) {
+      setUser(stored);
+      setLoading(false);
+    }
+
+    api.get('/auth/me', { noCache: true })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((fresh) => {
+        if (!fresh) return;
+        const merged = { ...stored, ...fresh };
+        localStorage.setItem('user', JSON.stringify(merged));
+        setUser(merged);
+      })
+      .catch(() => {
+        // Sin red no se puede confirmar el rol. Se entra con lo guardado; si no
+        // hay permisos, el panel queda sin secciones hasta que vuelva la
+        // conexión, que es el lado seguro en el que fallar.
+        if (!hasPermissions) setUser(stored);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"github.com/sebastiancorrales/gym-go/pkg/security"
 )
 
@@ -30,6 +31,37 @@ func AuthMiddleware(jwtManager *security.JWTManager) gin.HandlerFunc {
 		c.Set("gym_id", claims.GymID.String())
 		c.Set("email", claims.Email)
 		c.Set("role", claims.Role)
+
+		c.Next()
+	}
+}
+
+// RequirePermission autoriza por permiso en lugar de por rol. Es la forma
+// preferida: la ruta declara qué capacidad necesita y la matriz de
+// entities/permissions.go decide qué roles la tienen, así que sumar un rol
+// nuevo no obliga a tocar main.go.
+//
+// Con varios permisos, se exigen TODOS (AND).
+func RequirePermission(perms ...entities.Permission) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole, exists := c.Get("role")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.Abort()
+			return
+		}
+
+		role := entities.UserRole(userRole.(string))
+		for _, perm := range perms {
+			if !entities.RoleHasPermission(role, perm) {
+				c.JSON(http.StatusForbidden, gin.H{
+					"error":   "Insufficient permissions",
+					"message": "Tu rol no tiene acceso a esta sección",
+				})
+				c.Abort()
+				return
+			}
+		}
 
 		c.Next()
 	}

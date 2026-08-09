@@ -1,9 +1,10 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import api, { clearCache } from '../utils/api';
 import NotificationBell from './NotificationBell';
 import SkeletonTable, { SkeletonKpi } from './SkeletonTable';
 import { fmt } from '../utils/currency';
 import { todayStr, addDays } from '../utils/dateUtils';
+import { PERMS, can } from '../utils/permissions';
 
 // Los 14 tabs se cargan bajo demanda: importarlos de forma estatica metia toda la
 // aplicacion en el chunk inicial, incluidas pantallas que la mayoria no abre.
@@ -18,6 +19,7 @@ const SalesTab = lazy(() => import('./inventory/SalesTab'));
 const SalesHistory = lazy(() => import('./inventory/SalesHistory'));
 const ReportsTab = lazy(() => import('./inventory/ReportsTab'));
 const AccountingReports = lazy(() => import('./AccountingReports'));
+const DailyClose = lazy(() => import('./DailyClose'));
 const PaymentMethodsManagement = lazy(() => import('./inventory/PaymentMethodsManagement'));
 const GymSettings = lazy(() => import('./GymSettings'));
 const DevicesManagement = lazy(() => import('./DevicesManagement'));
@@ -35,6 +37,7 @@ const TAB_LOADERS = {
   'sales-history': () => import('./inventory/SalesHistory'),
   reports: () => import('./inventory/ReportsTab'),
   'accounting-reports': () => import('./AccountingReports'),
+  'daily-close': () => import('./DailyClose'),
   'payment-methods': () => import('./inventory/PaymentMethodsManagement'),
   'gym-settings': () => import('./GymSettings'),
   devices: () => import('./DevicesManagement'),
@@ -76,6 +79,11 @@ const ICONS = {
 };
 
 // ── Nav structure ────────────────────────────────────────────────────────────
+//
+// `perm` es el permiso que hace visible la entrada; sin `perm` la ve todo el
+// mundo. `hiddenBy` la esconde cuando el usuario tiene un permiso mayor, y sirve
+// para que administración no vea a la vez "Cuadre del Día" y "Reportes
+// Contables": el segundo ya incluye al primero con el filtro en "Hoy".
 const NAV_GROUPS = [
   {
     label: 'GENERAL',
@@ -84,43 +92,60 @@ const NAV_GROUPS = [
   {
     label: 'MIEMBROS',
     items: [
-      { id: 'users',         label: 'Usuarios',      icon: 'users' },
-      { id: 'subscriptions', label: 'Suscripciones', icon: 'subs' },
-      { id: 'access',        label: 'Accesos',        icon: 'access' },
+      { id: 'users',         label: 'Usuarios',      icon: 'users',  perm: PERMS.USERS_READ },
+      { id: 'subscriptions', label: 'Suscripciones', icon: 'subs',   perm: PERMS.SUBSCRIPTIONS_READ },
+      { id: 'access',        label: 'Accesos',        icon: 'access', perm: PERMS.ACCESS_READ },
     ],
   },
   {
     label: 'ADMINISTRACIÓN',
     items: [
-      { id: 'staff',           label: 'Staff',           icon: 'staff' },
-      { id: 'plans',           label: 'Planes',           icon: 'plans' },
-      { id: 'payment-methods', label: 'Métodos de Pago', icon: 'payment' },
+      { id: 'staff',           label: 'Staff',           icon: 'staff',   perm: PERMS.STAFF_MANAGE },
+      { id: 'plans',           label: 'Planes',           icon: 'plans',   perm: PERMS.PLANS_WRITE },
+      { id: 'payment-methods', label: 'Métodos de Pago', icon: 'payment', perm: PERMS.PAYMENT_METHODS },
     ],
   },
   {
     label: 'INVENTARIO',
     items: [
-      { id: 'products',      label: 'Productos', icon: 'products' },
-      { id: 'sales',         label: 'Ventas',    icon: 'sales' },
-      { id: 'sales-history', label: 'Historial De Ventas', icon: 'history' },
-      { id: 'reports',       label: 'Reportes',  icon: 'reports' },
+      // Productos es la pantalla de gestión del catálogo, por eso pide escritura;
+      // para vender basta con PRODUCTS_READ, que consume el punto de venta.
+      { id: 'products',      label: 'Productos',           icon: 'products', perm: PERMS.PRODUCTS_WRITE },
+      { id: 'sales',         label: 'Ventas',              icon: 'sales',    perm: PERMS.SALES_CREATE },
+      { id: 'sales-history', label: 'Historial De Ventas', icon: 'history',  perm: PERMS.REPORTS_HISTORY },
+      { id: 'reports',       label: 'Reportes',            icon: 'reports',  perm: PERMS.REPORTS_INVENTORY },
     ],
   },
   {
     label: 'CONTABILIDAD',
     items: [
-      { id: 'accounting-reports', label: 'Reportes Contables', icon: 'accounting' },
+      { id: 'accounting-reports', label: 'Reportes Contables', icon: 'accounting', perm: PERMS.REPORTS_ACCOUNTING },
+      { id: 'daily-close',        label: 'Cuadre del Día',     icon: 'dollar',
+        perm: PERMS.REPORTS_DAILY, hiddenBy: PERMS.REPORTS_ACCOUNTING },
     ],
   },
   {
     label: 'CONFIGURACIÓN',
     items: [
-      { id: 'devices',      label: 'Dispositivos', icon: 'devices' },
-      { id: 'gym-settings', label: 'Gimnasio',      icon: 'settings' },
+      { id: 'devices',      label: 'Dispositivos', icon: 'devices',  perm: PERMS.DEVICES },
+      { id: 'gym-settings', label: 'Gimnasio',      icon: 'settings', perm: PERMS.GYM_SETTINGS },
       { id: 'profile',      label: 'Mi Perfil',     icon: 'profile' },
     ],
   },
 ];
+
+// Quita las entradas que el usuario no puede abrir y los grupos que se quedan
+// vacíos, para que no aparezca un encabezado suelto sin nada debajo.
+const navGroupsFor = (user) =>
+  NAV_GROUPS
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item =>
+        (!item.perm || can(user, item.perm)) &&
+        (!item.hiddenBy || !can(user, item.hiddenBy))
+      ),
+    }))
+    .filter(group => group.items.length > 0);
 
 // ── Avatar ───────────────────────────────────────────────────────────────────
 const AV_COLORS = ['#1272D6','#6D28D9','#0EA5E9','#10B981','#F59E0B','#EF4444','#EC4899','#0F1C35'];
@@ -286,7 +311,17 @@ export default function Dashboard({ user, onLogout }) {
     onLogout();
   };
 
-  const activeLabel = NAV_GROUPS.flatMap(g => g.items).find(i => i.id === activeTab)?.label || 'Dashboard';
+  // El menú y el contenido salen de la misma lista filtrada: así una pestaña que
+  // no está en el menú tampoco se puede renderizar por otra vía (un atajo de
+  // Acciones Rápidas, o un activeTab que quedó de una sesión con más permisos).
+  const navGroups = useMemo(() => navGroupsFor(user), [user]);
+  const allowedTabs = useMemo(
+    () => new Set(navGroups.flatMap(g => g.items).map(i => i.id)),
+    [navGroups]
+  );
+  const showTab = (id) => activeTab === id && allowedTabs.has(id);
+
+  const activeLabel = navGroups.flatMap(g => g.items).find(i => i.id === activeTab)?.label || 'Dashboard';
   const userInitials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
 
   return (
@@ -326,7 +361,7 @@ export default function Dashboard({ user, onLogout }) {
 
         {/* Nav */}
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2">
-          {NAV_GROUPS.map(group => (
+          {navGroups.map(group => (
             <div key={group.label} className="mb-0.5">
               {!collapsed && (
                 <p className="px-2 pt-2.5 pb-1 text-[10px] font-bold tracking-[0.09em] whitespace-nowrap"
@@ -555,7 +590,7 @@ export default function Dashboard({ user, onLogout }) {
                 <DashboardCharts revenueChart={revenueChart} accessChart={accessChart} />
               </Suspense>
 
-              {/* Quick actions */}
+              {/* Quick actions — solo los atajos a pestañas que el rol puede abrir */}
               <div className="bg-white rounded-[12px] border border-[#E2E8EF] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6 mb-6">
                 <h3 className="text-[14px] font-bold text-[#0F1C35] mb-4">Acciones Rápidas</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -563,7 +598,7 @@ export default function Dashboard({ user, onLogout }) {
                     { label: 'Nuevo Usuario',     tab: 'users',         icon: 'userPlus', color: '#1272D6' },
                     { label: 'Nueva Suscripción', tab: 'subscriptions', icon: 'subs',     color: '#10B981' },
                     { label: 'Gestionar Planes',  tab: 'plans',         icon: 'plans',    color: '#6D28D9' },
-                  ].map(({ label, tab, icon, color }) => (
+                  ].filter(({ tab }) => allowedTabs.has(tab)).map(({ label, tab, icon, color }) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
@@ -587,11 +622,13 @@ export default function Dashboard({ user, onLogout }) {
                 <div className="bg-white rounded-[12px] border border-[#E2E8EF] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-[14px] font-bold text-[#0F1C35]">Accesos Recientes</h3>
-                    <button onClick={() => setActiveTab('access')}
-                      className="text-[12px] font-semibold text-[#1272D6] hover:text-[#0D5BAD] transition bg-transparent border-none cursor-pointer"
-                      style={{ fontFamily: 'inherit' }}>
-                      Ver todos →
-                    </button>
+                    {allowedTabs.has('access') && (
+                      <button onClick={() => setActiveTab('access')}
+                        className="text-[12px] font-semibold text-[#1272D6] hover:text-[#0D5BAD] transition bg-transparent border-none cursor-pointer"
+                        style={{ fontFamily: 'inherit' }}>
+                        Ver todos →
+                      </button>
+                    )}
                   </div>
                   <div className="space-y-0.5">
                     {recentAccess.map((entry, i) => {
@@ -624,27 +661,28 @@ export default function Dashboard({ user, onLogout }) {
             </div>
           )}
 
-          {activeTab === 'users'               && <UsersManagement
+          {showTab('users')               && <UsersManagement
             initialProfileUserId={deepLinkUserId}
             onDeepLinkConsumed={() => setDeepLinkUserId(null)}
             onNewSubscription={(u) => { setInitialSubUser(u); setActiveTab('subscriptions'); }}
           />}
-          {activeTab === 'staff'               && <div className="p-7"><StaffManagement /></div>}
-          {activeTab === 'plans'               && <PlansManagement />}
-          {activeTab === 'subscriptions'       && <SubscriptionsManagement
+          {showTab('staff')               && <div className="p-7"><StaffManagement /></div>}
+          {showTab('plans')               && <PlansManagement />}
+          {showTab('subscriptions')       && <SubscriptionsManagement
             initialUser={initialSubUser}
             onInitialUserConsumed={() => setInitialSubUser(null)}
           />}
-          {activeTab === 'access'              && <AccessManagement />}
-          {activeTab === 'products'            && <div className="p-7"><ProductsManagement /></div>}
-          {activeTab === 'sales'               && <div className="p-7"><SalesTab user={user} /></div>}
-          {activeTab === 'sales-history'       && <div className="p-7"><SalesHistory /></div>}
-          {activeTab === 'reports'             && <div className="p-7"><ReportsTab /></div>}
-          {activeTab === 'accounting-reports'  && <div className="p-7"><AccountingReports /></div>}
-          {activeTab === 'payment-methods'     && <div className="p-7"><PaymentMethodsManagement user={user} /></div>}
-          {activeTab === 'devices'             && <div className="p-7"><DevicesManagement /></div>}
-          {activeTab === 'gym-settings'        && <div className="p-7"><GymSettings /></div>}
-          {activeTab === 'profile'             && <div className="p-7"><ProfileSettings user={user} /></div>}
+          {showTab('access')              && <AccessManagement />}
+          {showTab('products')            && <div className="p-7"><ProductsManagement /></div>}
+          {showTab('sales')               && <div className="p-7"><SalesTab user={user} /></div>}
+          {showTab('sales-history')       && <div className="p-7"><SalesHistory /></div>}
+          {showTab('reports')             && <div className="p-7"><ReportsTab /></div>}
+          {showTab('accounting-reports')  && <div className="p-7"><AccountingReports /></div>}
+          {showTab('daily-close')         && <div className="p-7"><DailyClose /></div>}
+          {showTab('payment-methods')     && <div className="p-7"><PaymentMethodsManagement user={user} /></div>}
+          {showTab('devices')             && <div className="p-7"><DevicesManagement /></div>}
+          {showTab('gym-settings')        && <div className="p-7"><GymSettings /></div>}
+          {showTab('profile')             && <div className="p-7"><ProfileSettings user={user} /></div>}
 
           </Suspense>
         </main>

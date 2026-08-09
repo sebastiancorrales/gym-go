@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/dto"
 	"github.com/sebastiancorrales/gym-go/pkg/security"
@@ -127,12 +128,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
 		"user": gin.H{
-			"id":         user.ID.String(),
-			"email":      user.Email,
-			"first_name": user.FirstName,
-			"last_name":  user.LastName,
-			"role":       string(user.Role),
-			"gym_id":     gymID,
+			"id":          user.ID.String(),
+			"email":       user.Email,
+			"first_name":  user.FirstName,
+			"last_name":   user.LastName,
+			"role":        string(user.Role),
+			"gym_id":      gymID,
+			"permissions": entities.PermissionStringsForRole(user.Role),
 		},
 		"gym": gin.H{
 			"currency": gymCurrency,
@@ -211,12 +213,13 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	gymID := user.GymID.String()
 
 	c.JSON(http.StatusOK, dto.UserResponse{
-		ID:        user.ID.String(),
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		Role:      string(user.Role),
-		GymID:     gymID,
+		ID:          user.ID.String(),
+		Email:       user.Email,
+		FirstName:   user.FirstName,
+		LastName:    user.LastName,
+		Role:        string(user.Role),
+		GymID:       gymID,
+		Permissions: entities.PermissionStringsForRole(user.Role),
 	})
 }
 

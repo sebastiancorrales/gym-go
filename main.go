@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/config"
+	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/email"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/handlers"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
@@ -322,7 +323,7 @@ func main() {
 
 		// Gym settings routes - Only ADMIN_GYM and SUPER_ADMIN
 		gym := protected.Group("/gym")
-		gym.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		gym.Use(middleware.RequirePermission(entities.PermGymSettings))
 		{
 			gym.GET("", gymHandler.Get)
 			gym.PUT("", gymHandler.Update)
@@ -371,60 +372,72 @@ func main() {
 			c.JSON(200, gin.H{"message": "Contraseña actualizada exitosamente"})
 		})
 
-		// User routes - Only SUPER_ADMIN and ADMIN_GYM can manage users
+		// User routes - lectura para quien atiende el mostrador, escritura solo
+		// para quien administra.
 		users := protected.Group("/users")
-		users.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		users.Use(middleware.RequirePermission(entities.PermUsersRead))
 		{
 			users.GET("", userHandler.List)
-			users.POST("", userHandler.Create)
 			users.GET("/by-document", userHandler.GetByDocument)
 			users.GET("/:id", userHandler.GetByID)
-			users.PUT("/:id", userHandler.Update)
-			users.DELETE("/:id", userHandler.Delete)
 			users.GET("/:id/profile", userHandler.GetProfile)
+
+			users.POST("", middleware.RequirePermission(entities.PermUsersWrite), userHandler.Create)
+			users.PUT("/:id", middleware.RequirePermission(entities.PermUsersWrite), userHandler.Update)
+			users.DELETE("/:id", middleware.RequirePermission(entities.PermUsersWrite), userHandler.Delete)
 		}
 
-		// Plan routes - Only SUPER_ADMIN and ADMIN_GYM can manage plans
+		// Plan routes - la lista la necesita cualquiera que venda una suscripción;
+		// crear y editar planes es de administración.
 		plans := protected.Group("/plans")
-		plans.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		plans.Use(middleware.RequirePermission(entities.PermPlansRead))
 		{
 			plans.GET("", planHandler.List)
-			plans.POST("", planHandler.Create)
 			plans.GET("/:id", planHandler.GetByID)
-			plans.PUT("/:id", planHandler.Update)
-			plans.DELETE("/:id", planHandler.Deactivate)
+
+			plans.POST("", middleware.RequirePermission(entities.PermPlansWrite), planHandler.Create)
+			plans.PUT("/:id", middleware.RequirePermission(entities.PermPlansWrite), planHandler.Update)
+			plans.DELETE("/:id", middleware.RequirePermission(entities.PermPlansWrite), planHandler.Deactivate)
 		}
 
 		// Subscription routes - Multiple roles can access
 		subscriptions := protected.Group("/subscriptions")
-		subscriptions.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		subscriptions.Use(middleware.RequirePermission(entities.PermSubscriptionsRead))
 		{
 			subscriptions.GET("", subscriptionHandler.List)
-			subscriptions.POST("", subscriptionHandler.Create)
 			subscriptions.GET("/stats", subscriptionHandler.GetStats)
-			subscriptions.GET("/report", subscriptionHandler.Report)
-			subscriptions.POST("/:id/cancel", subscriptionHandler.Cancel)
-			subscriptions.POST("/:id/renew", subscriptionHandler.Renew)
-			subscriptions.POST("/:id/freeze", subscriptionHandler.Freeze)
-			subscriptions.POST("/:id/unfreeze", subscriptionHandler.Unfreeze)
-			subscriptions.PATCH("/:id/dates", subscriptionHandler.UpdateDates)
 			subscriptions.GET("/:id/audit", subscriptionHandler.GetAuditLog)
+
+			// El reporte de suscripciones es la mitad del cuadre del día: los roles
+			// sin PermReportsHistory solo lo pueden pedir con fecha de hoy.
+			subscriptions.GET("/report",
+				middleware.RequirePermission(entities.PermReportsDaily),
+				middleware.RestrictReportRange(),
+				subscriptionHandler.Report)
+
+			subscriptions.POST("", middleware.RequirePermission(entities.PermSubscriptionsWrite), subscriptionHandler.Create)
+			subscriptions.POST("/:id/cancel", middleware.RequirePermission(entities.PermSubscriptionsWrite), subscriptionHandler.Cancel)
+			subscriptions.POST("/:id/renew", middleware.RequirePermission(entities.PermSubscriptionsWrite), subscriptionHandler.Renew)
+			subscriptions.POST("/:id/freeze", middleware.RequirePermission(entities.PermSubscriptionsWrite), subscriptionHandler.Freeze)
+			subscriptions.POST("/:id/unfreeze", middleware.RequirePermission(entities.PermSubscriptionsWrite), subscriptionHandler.Unfreeze)
+			subscriptions.PATCH("/:id/dates", middleware.RequirePermission(entities.PermSubscriptionsWrite), subscriptionHandler.UpdateDates)
 		}
 
 		// Access routes - Multiple roles can access
 		access := protected.Group("/access")
-		access.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		access.Use(middleware.RequirePermission(entities.PermAccessRead))
 		{
-			access.POST("/checkin", accessHandler.CheckIn)
-			access.POST("/checkout", accessHandler.CheckOut)
 			access.GET("/today", accessHandler.ListToday)
 			access.GET("/history", accessHandler.ListHistory)
 			access.GET("/user/:user_id", accessHandler.ListByUser)
 			access.GET("/stats", accessHandler.GetStats)
 
+			access.POST("/checkin", middleware.RequirePermission(entities.PermAccessWrite), accessHandler.CheckIn)
+			access.POST("/checkout", middleware.RequirePermission(entities.PermAccessWrite), accessHandler.CheckOut)
+
 			// Biometric routes - Access to fingerprint functionality
 			biometric := protected.Group("/biometric")
-			biometric.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+			biometric.Use(middleware.RequirePermission(entities.PermBiometric))
 			{
 				biometric.GET("/status", biometricHandler.GetStatus)
 				biometric.POST("/capture", biometricHandler.CaptureFingerprint)
@@ -439,7 +452,7 @@ func main() {
 
 		// Notification routes
 		notifications := protected.Group("/notifications")
-		notifications.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		notifications.Use(middleware.RequirePermission(entities.PermNotifications))
 		{
 			notifications.POST("/send-expiring", notificationHandler.SendExpiringReminders)
 			notifications.POST("/send-daily-close", notificationHandler.SendDailyClose)
@@ -453,7 +466,7 @@ func main() {
 
 		// Class routes
 		classes := protected.Group("/classes")
-		classes.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		classes.Use(middleware.RequirePermission(entities.PermClasses))
 		{
 			classes.GET("", classHandler.ListClasses)
 			classes.POST("", classHandler.CreateClass)
@@ -465,29 +478,31 @@ func main() {
 
 		// Attendance routes
 		attendance := protected.Group("/attendance")
-		attendance.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		attendance.Use(middleware.RequirePermission(entities.PermAttendance))
 		{
 			attendance.GET("", attendanceHandler.ListAttendance)
 			attendance.POST("", attendanceHandler.CheckIn)
 			attendance.PUT("/:member_id/checkout", attendanceHandler.CheckOut)
 		}
 
-		// Product routes (inventory) - Multiple roles
+		// Product routes (inventory) - el catálogo lo consulta quien vende; crear,
+		// editar y ajustar stock es de administración de inventario.
 		products := protected.Group("/products")
-		products.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		products.Use(middleware.RequirePermission(entities.PermProductsRead))
 		{
 			products.GET("", productHandler.GetAllProducts)
 			products.GET("/search", productHandler.SearchProducts)
 			products.GET("/:id", productHandler.GetProduct)
-			products.POST("", productHandler.CreateProduct)
-			products.PUT("/:id", productHandler.UpdateProduct)
-			products.DELETE("/:id", productHandler.DeleteProduct)
-			products.PATCH("/:id/stock", productHandler.UpdateStock)
+
+			products.POST("", middleware.RequirePermission(entities.PermProductsWrite), productHandler.CreateProduct)
+			products.PUT("/:id", middleware.RequirePermission(entities.PermProductsWrite), productHandler.UpdateProduct)
+			products.DELETE("/:id", middleware.RequirePermission(entities.PermProductsWrite), productHandler.DeleteProduct)
+			products.PATCH("/:id/stock", middleware.RequirePermission(entities.PermProductsWrite), productHandler.UpdateStock)
 		}
 
 		// Payment methods routes - Only SUPER_ADMIN and ADMIN_GYM
 		paymentMethods := protected.Group("/payment-methods")
-		paymentMethods.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		paymentMethods.Use(middleware.RequirePermission(entities.PermPaymentMethods))
 		{
 			paymentMethods.GET("", paymentMethodHandler.GetAllPaymentMethods)
 			paymentMethods.GET("/:id", paymentMethodHandler.GetPaymentMethod)
@@ -498,7 +513,7 @@ func main() {
 
 		// Device (relay) routes - Only ADMIN_GYM and SUPER_ADMIN
 		devices := protected.Group("/devices")
-		devices.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM"))
+		devices.Use(middleware.RequirePermission(entities.PermDevices))
 		{
 			devices.GET("", deviceHandler.List)
 			devices.POST("", deviceHandler.Create)
@@ -509,15 +524,24 @@ func main() {
 
 		// Sales routes - Multiple roles
 		sales := protected.Group("/sales")
-		sales.Use(middleware.RequireRole("SUPER_ADMIN", "ADMIN_GYM", "RECEPCIONISTA"))
+		sales.Use(middleware.RequirePermission(entities.PermSalesRead))
 		{
-			sales.GET("", saleHandler.GetAllSales)
-			sales.GET("/by-date", saleHandler.GetSalesByDateRange)
-			sales.GET("/report", saleHandler.GetSalesReport)
-			sales.GET("/report/by-product", saleHandler.GetSalesReportByProduct)
+			// GetAllSales devuelve el histórico completo sin filtro de fecha, así
+			// que no hay rango que recortar: exige directamente PermReportsHistory.
+			sales.GET("", middleware.RequirePermission(entities.PermReportsHistory), saleHandler.GetAllSales)
+
+			// Los tres reportes con rango: RestrictReportRange deja pasar cualquier
+			// fecha a quien tiene histórico y solo el día de hoy al resto.
+			sales.GET("/by-date", middleware.RestrictReportRange(), saleHandler.GetSalesByDateRange)
+			sales.GET("/report", middleware.RestrictReportRange(), saleHandler.GetSalesReport)
+			sales.GET("/report/by-product",
+				middleware.RequirePermission(entities.PermReportsInventory),
+				middleware.RestrictReportRange(),
+				saleHandler.GetSalesReportByProduct)
+
 			sales.GET("/:id", saleHandler.GetSale)
-			sales.POST("", saleHandler.CreateSale)
-			sales.POST("/:id/void", saleHandler.VoidSale)
+			sales.POST("", middleware.RequirePermission(entities.PermSalesCreate), saleHandler.CreateSale)
+			sales.POST("/:id/void", middleware.RequirePermission(entities.PermSalesVoid), saleHandler.VoidSale)
 		}
 	}
 
