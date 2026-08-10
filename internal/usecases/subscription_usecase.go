@@ -17,7 +17,11 @@ type SubscriptionUseCase struct {
 	planRepo         repositories.PlanRepository
 	userRepo         repositories.UserRepository
 	auditRepo        repositories.SubscriptionAuditLogRepository
-	uow              repositories.UnitOfWork
+	// Las suscripciones pasan a cobrar contra el mismo catálogo administrable que
+	// el punto de venta, en vez del string libre que no casaba con nada.
+	paymentMethodRepo repositories.PaymentMethodRepository
+	paymentLineRepo   repositories.PaymentLineRepository
+	uow               repositories.UnitOfWork
 }
 
 func NewSubscriptionUseCase(
@@ -26,19 +30,23 @@ func NewSubscriptionUseCase(
 	planRepo repositories.PlanRepository,
 	userRepo repositories.UserRepository,
 	auditRepo repositories.SubscriptionAuditLogRepository,
+	paymentMethodRepo repositories.PaymentMethodRepository,
+	paymentLineRepo repositories.PaymentLineRepository,
 	uow repositories.UnitOfWork,
 ) *SubscriptionUseCase {
 	return &SubscriptionUseCase{
-		subscriptionRepo: subscriptionRepo,
-		memberRepo:       memberRepo,
-		planRepo:         planRepo,
-		userRepo:         userRepo,
-		auditRepo:        auditRepo,
-		uow:              uow,
+		subscriptionRepo:  subscriptionRepo,
+		memberRepo:        memberRepo,
+		planRepo:          planRepo,
+		userRepo:          userRepo,
+		auditRepo:         auditRepo,
+		paymentMethodRepo: paymentMethodRepo,
+		paymentLineRepo:   paymentLineRepo,
+		uow:               uow,
 	}
 }
 
-func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUID, discount float64, paymentMethod string, additionalMemberIDs []uuid.UUID, loc *time.Location) (*entities.Subscription, error) {
+func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUID, discount float64, payment PaymentInput, additionalMemberIDs []uuid.UUID, loc *time.Location) (*entities.Subscription, error) {
 	// Block if primary user already has an active subscription
 	if active, err := uc.subscriptionRepo.FindActiveByUserID(userID); err == nil && active != nil {
 		return nil, errors.New("el usuario ya tiene una suscripción activa")
@@ -73,11 +81,30 @@ func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUI
 		time.Now(), plan.DurationDays, string(plan.BillingMode),
 		plan.Price, enrollmentFee, discount,
 	)
-	subscription.PaymentMethod = paymentMethod
 	localNow := time.Now().In(loc)
 	subscription.Date = localNow.Format("2006-01-02")
 	subscription.Hour = localNow.Format("15:04")
 	subscription.Activate()
+
+	// Las líneas de pago se resuelven contra el total que ya calculó el
+	// constructor, y todo (IDs, fechas) se decide fuera de la transacción: el
+	// Unit of Work reintenta ante contención y exige idempotencia.
+	resolver := paymentResolver{methodRepo: uc.paymentMethodRepo}
+	paymentLines, primary, err := resolver.resolve(
+		context.Background(), payment, subscription.TotalPaid,
+		entities.PayableSubscription, subscription.ID, gymID,
+		subscription.Date, subscription.Hour, subscription.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	subscription.PaymentMethodID = entities.PrimaryPaymentMethod(paymentLines)
+	// El string pasa a ser el NOMBRE del método principal ('Efectivo' en vez de
+	// 'EFECTIVO'). Los pmLabel del frontend lo absorben porque indexan en
+	// mayúsculas y caen al valor literal.
+	if primary != nil {
+		subscription.PaymentMethod = primary.Name
+	}
 
 	// Members are built before the transaction so a retry reuses the same IDs.
 	members := buildGroupMembers(subscription.ID, userID, additionalMemberIDs)
@@ -95,7 +122,7 @@ func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUI
 				return fmt.Errorf("registrando miembro %s del grupo: %w", m.UserID, err)
 			}
 		}
-		return nil
+		return r.PaymentLines.CreateBatch(context.Background(), paymentLines)
 	}); err != nil {
 		return nil, err
 	}
@@ -158,7 +185,7 @@ func (uc *SubscriptionUseCase) UpdateSubscription(sub *entities.Subscription) er
 	return uc.subscriptionRepo.Update(sub)
 }
 
-func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID uuid.UUID, gymID uuid.UUID, discount float64, paymentMethod string, additionalMemberIDs []uuid.UUID, loc *time.Location) (*entities.Subscription, error) {
+func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID uuid.UUID, gymID uuid.UUID, discount float64, payment PaymentInput, additionalMemberIDs []uuid.UUID, loc *time.Location) (*entities.Subscription, error) {
 	current, err := uc.subscriptionRepo.FindByID(currentSubID)
 	if err != nil {
 		return nil, err
@@ -201,11 +228,30 @@ func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID 
 		startDate, plan.DurationDays, string(plan.BillingMode),
 		plan.Price, plan.EnrollmentFee, discount,
 	)
-	newSub.PaymentMethod = paymentMethod
 	localNow := time.Now().In(loc)
 	newSub.Date = localNow.Format("2006-01-02")
 	newSub.Hour = localNow.Format("15:04")
 	newSub.Activate()
+
+	// Las líneas de pago se resuelven contra el total que ya calculó el
+	// constructor, y todo (IDs, fechas) se decide fuera de la transacción: el
+	// Unit of Work reintenta ante contención y exige idempotencia.
+	resolver := paymentResolver{methodRepo: uc.paymentMethodRepo}
+	paymentLines, primary, err := resolver.resolve(
+		context.Background(), payment, newSub.TotalPaid,
+		entities.PayableSubscription, newSub.ID, gymID,
+		newSub.Date, newSub.Hour, newSub.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	newSub.PaymentMethodID = entities.PrimaryPaymentMethod(paymentLines)
+	// El string pasa a ser el NOMBRE del método principal ('Efectivo' en vez de
+	// 'EFECTIVO'). Los pmLabel del frontend lo absorben porque indexan en
+	// mayúsculas y caen al valor literal.
+	if primary != nil {
+		newSub.PaymentMethod = primary.Name
+	}
 
 	members := buildGroupMembers(newSub.ID, current.UserID, additionalMemberIDs)
 
@@ -218,7 +264,7 @@ func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID 
 				return fmt.Errorf("registrando miembro %s del grupo: %w", m.UserID, err)
 			}
 		}
-		return nil
+		return r.PaymentLines.CreateBatch(context.Background(), paymentLines)
 	}); err != nil {
 		return nil, err
 	}

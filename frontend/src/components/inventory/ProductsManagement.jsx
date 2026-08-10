@@ -16,11 +16,22 @@ export default function ProductsManagement() {
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockProduct, setStockProduct] = useState(null);
   const [newStock, setNewStock] = useState('');
+  // Dos formas distintas de mover inventario, y conviene no confundirlas:
+  // 'count' es un conteo fisico (cuantas hay de verdad) y 'move' es una entrada
+  // o salida concreta (llego mercancia, se rompio una). El backend recibe un
+  // valor absoluto en el primer caso y un delta con motivo en el segundo.
+  const [stockMode, setStockMode] = useState('count');
+  const [moveDelta, setMoveDelta] = useState('');
+  const [moveDirection, setMoveDirection] = useState('in');
+  const [moveReason, setMoveReason] = useState('adjustment');
+  const [moveNote, setMoveNote] = useState('');
+  const [savingStock, setSavingStock] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     unit_price: '',
     stock: '',
+    min_stock: '',
     status: 'active'
   });
 
@@ -68,6 +79,7 @@ export default function ProductsManagement() {
       description: '',
       unit_price: '',
       stock: '',
+      min_stock: '',
       status: 'active'
     });
     setShowModal(true);
@@ -80,6 +92,7 @@ export default function ProductsManagement() {
       description: product.description || '',
       unit_price: product.unit_price,
       stock: product.stock,
+      min_stock: product.min_stock ?? '',
       status: product.status
     });
     setShowModal(true);
@@ -88,13 +101,19 @@ export default function ProductsManagement() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // `stock` solo va en el alta. Editar un producto no mueve inventario: el
+    // stock pertenece al kardex y solo cambia por conteo o por entrada/salida,
+    // que dejan asiento. El backend tampoco lo aceptaria aqui.
     const payload = {
       name: formData.name,
       description: formData.description,
       unit_price: parseFloat(formData.unit_price),
-      stock: parseInt(formData.stock),
+      min_stock: parseInt(formData.min_stock) || 0,
       status: formData.status
     };
+    if (!editingProduct) {
+      payload.stock = parseInt(formData.stock) || 0;
+    }
 
     try {
       const response = editingProduct
@@ -137,30 +156,61 @@ export default function ProductsManagement() {
   const openStockModal = (product) => {
     setStockProduct(product);
     setNewStock(String(product.stock));
+    setStockMode('count');
+    setMoveDelta('');
+    setMoveDirection('in');
+    setMoveReason('adjustment');
+    setMoveNote('');
     setShowStockModal(true);
   };
 
   const handleUpdateStock = async () => {
-    if (!stockProduct) return;
+    if (!stockProduct || savingStock) return;
+    setSavingStock(true);
     try {
-      const response = await api.patch(`/products/${stockProduct.id}/stock`, {
-        stock: parseInt(newStock)
-      });
+      let response;
+      if (stockMode === 'count') {
+        response = await api.patch(`/products/${stockProduct.id}/stock`, {
+          stock: parseInt(newStock),
+          note: moveNote,
+        });
+      } else {
+        const magnitude = Math.abs(parseInt(moveDelta) || 0);
+        if (magnitude === 0) {
+          setToast({ message: 'Indica cuantas unidades entran o salen', type: 'error' });
+          return;
+        }
+        response = await api.post(`/products/${stockProduct.id}/stock/adjust`, {
+          delta: moveDirection === 'out' ? -magnitude : magnitude,
+          reason: moveReason,
+          note: moveNote,
+        });
+      }
+
       if (response.ok) {
-        setToast({ message: 'Stock actualizado', type: 'success' });
+        setToast({ message: 'Inventario actualizado', type: 'success' });
         setShowStockModal(false);
         fetchProducts();
+      } else {
+        // El caso real: intentar sacar mas unidades de las que hay. El backend lo
+        // rechaza en el WHERE del UPDATE, y el mensaje que manda es el util.
+        const body = await response.json().catch(() => ({}));
+        setToast({ message: body.message || 'No se pudo actualizar el inventario', type: 'error' });
       }
     } catch (error) {
       console.error('Error updating stock:', error);
-      setToast({ message: 'Error al actualizar stock', type: 'error' });
+      setToast({ message: 'Error al actualizar inventario', type: 'error' });
+    } finally {
+      setSavingStock(false);
     }
   };
 
-  const getStockBadge = (stock) => {
-    if (stock === 0) {
+  // El umbral lo decide cada producto (min_stock), no un 10 cableado que trataba
+  // igual una barra de proteina y un suplemento de doscientos mil pesos.
+  const getStockBadge = (product) => {
+    if (product.stock === 0) {
       return <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded-full">Sin Stock</span>;
-    } else if (stock < 10) {
+    } else if (product.low_stock) {
       return <span className="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full">Stock Bajo</span>;
     } else {
       return <span className="px-2 py-1 text-xs font-semibold bg-[#DCFCE7] text-[#065F46] rounded-full">Disponible</span>;
@@ -259,7 +309,7 @@ export default function ProductsManagement() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center space-x-2">
                         <span className="text-sm text-gray-900">{product.stock}</span>
-                        {getStockBadge(product.stock)}
+                        {getStockBadge(product)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -361,19 +411,50 @@ export default function ProductsManagement() {
                   />
                 </div>
 
+                {/*
+                  El stock inicial solo se pide al crear. Editando, el campo
+                  desaparece a proposito: el stock lo mueve el kardex (conteo o
+                  entrada/salida), que deja asiento de quien lo cambio y por que.
+                */}
+                {!editingProduct && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Stock Inicial *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={formData.stock}
+                      onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+                    />
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Stock Inicial *
+                    Alerta de stock bajo
                   </label>
                   <input
                     type="number"
-                    required
                     min="0"
-                    value={formData.stock}
-                    onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                    placeholder="0 = sin alerta"
+                    value={formData.min_stock}
+                    onChange={(e) => setFormData({ ...formData, min_stock: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
                   />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Se marca &laquo;Stock Bajo&raquo; cuando queden estas unidades o menos.
+                  </p>
                 </div>
+
+                {editingProduct && (
+                  <p className="text-xs text-gray-400 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    El stock actual ({editingProduct.stock}) se cambia desde el boton de inventario
+                    de la fila, para que quede registrado en el historial de movimientos.
+                  </p>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -414,25 +495,142 @@ export default function ProductsManagement() {
       <Modal
         isOpen={showStockModal && !!stockProduct}
         onClose={() => setShowStockModal(false)}
-        title="Actualizar Stock"
+        title="Movimiento de Inventario"
         maxWidth="sm"
       >
         {stockProduct && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
               Producto: <span className="font-semibold text-gray-900">{stockProduct.name}</span>
+              <span className="text-gray-400"> &middot; hay {stockProduct.stock}</span>
             </p>
+
+            {/* Conteo y movimiento son operaciones distintas y se piden distinto */}
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { key: 'move', label: 'Entrada / Salida' },
+                { key: 'count', label: 'Conteo fisico' },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setStockMode(key)}
+                  className={`px-3 py-2 text-sm font-semibold rounded-lg border transition ${
+                    stockMode === key
+                      ? 'border-[#1272D6] bg-[#EBF3FF] text-[#1272D6]'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {stockMode === 'move' ? (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setMoveDirection('in'); setMoveReason('adjustment'); }}
+                    className={`px-3 py-2 text-sm font-semibold rounded-lg border transition ${
+                      moveDirection === 'in'
+                        ? 'border-[#059669] bg-[#DCFCE7] text-[#065F46]'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    &#43; Entrada
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMoveDirection('out'); setMoveReason('shrinkage'); }}
+                    className={`px-3 py-2 text-sm font-semibold rounded-lg border transition ${
+                      moveDirection === 'out'
+                        ? 'border-red-500 bg-red-50 text-red-700'
+                        : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    &minus; Salida
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Unidades</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={moveDelta}
+                    onChange={(e) => setMoveDelta(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+                    autoFocus
+                  />
+                  {moveDelta && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Quedaran{' '}
+                      <span className="font-semibold text-gray-800">
+                        {moveDirection === 'out'
+                          ? stockProduct.stock - Math.abs(parseInt(moveDelta) || 0)
+                          : stockProduct.stock + Math.abs(parseInt(moveDelta) || 0)}
+                      </span>{' '}
+                      unidades.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Motivo</label>
+                  <select
+                    value={moveReason}
+                    onChange={(e) => setMoveReason(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+                  >
+                    <option value="adjustment">Ajuste manual</option>
+                    <option value="shrinkage">Merma (vencido, roto, robo)</option>
+                  </select>
+                </div>
+              </>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Unidades contadas
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={newStock}
+                  onChange={(e) => setNewStock(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+                  autoFocus
+                />
+                {newStock !== '' && parseInt(newStock) !== stockProduct.stock && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Se registrara una diferencia de{' '}
+                    <span className="font-semibold text-gray-800">
+                      {parseInt(newStock) - stockProduct.stock > 0 ? '+' : ''}
+                      {parseInt(newStock) - stockProduct.stock}
+                    </span>{' '}
+                    unidades.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nuevo Stock</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nota <span className="text-gray-400 font-normal">(opcional)</span>
+              </label>
               <input
-                type="number"
-                min="0"
-                value={newStock}
-                onChange={(e) => setNewStock(e.target.value)}
+                type="text"
+                value={moveNote}
+                onChange={(e) => setMoveNote(e.target.value)}
+                placeholder="Por que se mueve"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
-                autoFocus
               />
             </div>
+
+            <p className="text-xs text-gray-400">
+              El movimiento queda registrado con tu nombre en el historial de inventario.
+            </p>
+
             <div className="flex gap-3">
               <button
                 onClick={() => setShowStockModal(false)}
@@ -442,9 +640,10 @@ export default function ProductsManagement() {
               </button>
               <button
                 onClick={handleUpdateStock}
-                className="flex-1 px-4 py-2 bg-[#1272D6] text-white rounded-xl  transition"
+                disabled={savingStock}
+                className="flex-1 px-4 py-2 bg-[#1272D6] text-white rounded-xl transition disabled:opacity-50"
               >
-                Actualizar
+                {savingStock ? 'Guardando...' : 'Registrar'}
               </button>
             </div>
           </div>

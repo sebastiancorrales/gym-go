@@ -4,13 +4,23 @@ import Toast from '../Toast';
 import Modal from '../Modal';
 import EmptyState from '../EmptyState';
 import { fmt } from '../../utils/currency';
+import PaymentSplitEditor from '../shared/PaymentSplitEditor';
+import { toPaymentsPayload } from '../../utils/payments';
 
 export default function SalesTab({ user }) {
   const [products, setProducts] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [cart, setCart] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
+  // El pago pasa de ser un metodo unico a una lista de lineas. Con una sola
+  // linea el modal se ve igual que antes; el estado extra solo aparece si el
+  // cajero divide el pago.
+  const [paymentLines, setPaymentLines] = useState([]);
+  const [paymentValid, setPaymentValid] = useState(false);
+  // El cambio se muestra en un modal propio que NO se cierra solo: es un numero
+  // sobre el que el cajero tiene que actuar, y un toast autodescartable es el
+  // control equivocado para eso.
+  const [changeDue, setChangeDue] = useState(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
@@ -36,20 +46,7 @@ export default function SalesTab({ user }) {
     try {
       const response = await api.get('/payment-methods?status=active');
       if (response.ok) {
-        const data = await response.json();
-        setPaymentMethods(data || []);
-        
-        // Auto-select "Efectivo" if available
-        const efectivo = data.find(method => 
-          method.name.toLowerCase().includes('efectivo') || 
-          method.name.toLowerCase().includes('cash')
-        );
-        if (efectivo) {
-          setSelectedPaymentMethod(efectivo.id);
-        } else if (data.length > 0) {
-          // If "Efectivo" not found, select first method
-          setSelectedPaymentMethod(data[0].id);
-        }
+        setPaymentMethods((await response.json()) || []);
       }
     } catch (error) {
       console.error('Error fetching payment methods:', error);
@@ -146,15 +143,15 @@ export default function SalesTab({ user }) {
   };
 
   const completeSale = async () => {
-    if (!selectedPaymentMethod) {
-      setToast({ message: 'Seleccione un método de pago', type: 'warning' });
+    if (!paymentValid) {
+      setToast({ message: 'Revisa las formas de pago', type: 'warning' });
       return;
     }
 
     setLoading(true);
     try {
       const saleData = {
-        payment_method_id: selectedPaymentMethod,
+        payments: toPaymentsPayload(paymentLines),
         details: cart.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
@@ -164,32 +161,24 @@ export default function SalesTab({ user }) {
       };
 
       const response = await api.post('/sales', saleData);
-      
+
       if (response.ok) {
         const data = await response.json();
-        setToast({ 
-          message: `✓ Venta completada - Total: ${fmt(data.total)}`,
-          type: 'success' 
-        });
-        
-        // Reset
+
         setCart([]);
         setShowPaymentModal(false);
+        setPaymentLines([]);
         fetchProducts(); // Refresh to update stock
-        
-        // Re-select default payment method
-        const efectivo = paymentMethods.find(method => 
-          method.name.toLowerCase().includes('efectivo') || 
-          method.name.toLowerCase().includes('cash')
-        );
-        if (efectivo) {
-          setSelectedPaymentMethod(efectivo.id);
-        } else if (paymentMethods.length > 0) {
-          setSelectedPaymentMethod(paymentMethods[0].id);
+
+        // El vuelto lo calcula el servidor; aqui solo se muestra.
+        if (data.change_given > 0) {
+          setChangeDue({ change: data.change_given, total: data.total });
+        } else {
+          setToast({ message: `Venta completada - Total: ${fmt(data.total)}`, type: 'success' });
         }
       } else {
         const error = await response.json();
-        setToast({ message: error.error || 'Error al completar la venta', type: 'error' });
+        setToast({ message: error.message || error.error || 'Error al completar la venta', type: 'error' });
       }
     } catch (error) {
       console.error('Error completing sale:', error);
@@ -417,20 +406,16 @@ export default function SalesTab({ user }) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Método de Pago *
+              Forma de Pago *
             </label>
-            <select
-              value={selectedPaymentMethod}
-              onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
-              required
-            >
-              {paymentMethods.map((method) => (
-                <option key={method.id} value={method.id}>
-                  {method.name}
-                </option>
-              ))}
-            </select>
+            <PaymentSplitEditor
+              total={totals.total}
+              methods={paymentMethods}
+              value={paymentLines}
+              onChange={setPaymentLines}
+              onValidityChange={setPaymentValid}
+              disabled={loading}
+            />
           </div>
         </div>
 
@@ -445,12 +430,42 @@ export default function SalesTab({ user }) {
           </button>
           <button
             onClick={completeSale}
-            disabled={loading}
+            disabled={loading || !paymentValid}
             className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Procesando...' : 'Confirmar Venta'}
           </button>
         </div>
+      </Modal>
+
+      {/*
+        El cambio va en su propio modal y NO se autocierra. Es la cifra que el
+        cajero tiene que contar del cajon: un toast que desaparece a los tres
+        segundos es el control equivocado para eso.
+      */}
+      <Modal
+        isOpen={!!changeDue}
+        onClose={() => setChangeDue(null)}
+        title="Venta completada"
+        maxWidth="sm"
+      >
+        {changeDue && (
+          <div className="text-center space-y-4">
+            <p className="text-sm text-gray-500">
+              Total cobrado <span className="font-semibold text-gray-800">{fmt(changeDue.total)}</span>
+            </p>
+            <div className="rounded-xl bg-[#DCFCE7] border border-[#A7F3D0] py-6">
+              <p className="text-xs font-semibold text-[#065F46] uppercase tracking-wide">Cambio</p>
+              <p className="text-5xl font-extrabold text-[#059669] mt-1">{fmt(changeDue.change)}</p>
+            </div>
+            <button
+              onClick={() => setChangeDue(null)}
+              className="w-full px-4 py-3 bg-[#1272D6] text-white rounded-xl font-semibold hover:bg-[#0D5BAD] transition"
+            >
+              Entendido
+            </button>
+          </div>
+        )}
       </Modal>
 
       {/* Toast Notification */}

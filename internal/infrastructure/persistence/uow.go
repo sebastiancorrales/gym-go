@@ -41,5 +41,11 @@ func reposOn(tx *gorm.DB) repositories.Repos {
 		Products:      NewSQLiteProductRepository(tx),
 		Sales:         NewSQLiteSaleRepository(tx),
 		SaleDetails:   NewSQLiteSaleDetailRepository(tx),
+
+		StockMovements: NewSQLiteStockMovementRepository(tx),
+		Expenses:       NewSQLiteExpenseRepository(tx),
+		ExpenseLines:   NewSQLiteExpenseLineRepository(tx),
+		PaymentLines:   NewSQLitePaymentLineRepository(tx),
+		ChangeLogs:     NewSQLiteChangeLogRepository(tx),
 	}
 }

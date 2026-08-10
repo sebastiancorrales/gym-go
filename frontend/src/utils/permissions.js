@@ -31,10 +31,21 @@ export const PERMS = {
 
   PRODUCTS_READ: 'products:read',
   PRODUCTS_WRITE: 'products:write',
+  INVENTORY_MOVEMENTS: 'inventory:movements',
+  INVENTORY_ADJUST: 'inventory:adjust',
+  INVENTORY_COST: 'inventory:cost',
+  PAYMENT_METHODS_READ: 'payment_methods:read',
   PAYMENT_METHODS: 'payment_methods:manage',
   SALES_READ: 'sales:read',
   SALES_CREATE: 'sales:create',
   SALES_VOID: 'sales:void',
+  PAYMENTS_AMEND: 'payments:amend',
+
+  SUPPLIERS_READ: 'suppliers:read',
+  SUPPLIERS_WRITE: 'suppliers:write',
+  EXPENSES_READ: 'expenses:read',
+  EXPENSES_WRITE: 'expenses:write',
+  EXPENSES_VOID: 'expenses:void',
 
   REPORTS_DAILY: 'reports:daily',
   REPORTS_HISTORY: 'reports:history',

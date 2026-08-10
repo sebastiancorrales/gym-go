@@ -29,7 +29,14 @@ type DailyCloseReport struct {
 	TotalSubsAmount   float64
 	TotalSubsCount    int
 	TotalRevenue      float64
-	PaymentMethods    []PaymentMethodSummary
+	// Egresos del periodo. TotalExpensesAmount ya viene neteado (VoidExpense
+	// escribe un espejo negativo, así que anular una compra o un gasto se resta
+	// solo). NetRevenue = TotalRevenue - TotalExpensesAmount: es lo que de
+	// verdad quedó, no sólo lo que entró.
+	TotalExpensesAmount float64
+	TotalExpensesCount  int
+	NetRevenue          float64
+	PaymentMethods      []PaymentMethodSummary
 	Plans             []PlanSummary
 	Products          []ProductSummary
 	SaleItems         []SaleLineItem

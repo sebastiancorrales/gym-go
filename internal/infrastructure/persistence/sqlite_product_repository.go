@@ -53,9 +53,27 @@ func (r *SQLiteProductRepository) GetAll(ctx context.Context, status *entities.P
 	return products, err
 }
 
-// Update updates an existing product
+// Update saves the EDITABLE fields of a product.
+//
+// It used to call Save(), which writes the whole struct. Stock is a plain int,
+// so a PUT without a `stock` field arrived as Stock=0 — indistinguishable from
+// "set it to zero" — and silently wiped the product's stock. That is the real
+// bug; the `if req.Stock >= 0` guard in the handler was only the symptom.
+//
+// `stock` is deliberately absent from this list: it belongs to the stock ledger
+// (StockMovement), not to the edit form. The only way to move it is
+// ApplyStockDelta, which always writes a movement alongside.
 func (r *SQLiteProductRepository) Update(ctx context.Context, product *entities.Product) error {
-	return r.db.WithContext(ctx).Save(product).Error
+	return r.db.WithContext(ctx).Model(&entities.Product{}).
+		Where("id = ?", product.ID).
+		Updates(map[string]interface{}{
+			"name":        product.Name,
+			"description": product.Description,
+			"unit_price":  product.UnitPrice,
+			"min_stock":   product.MinStock,
+			"status":      product.Status,
+			"updated_at":  product.UpdatedAt,
+		}).Error
 }
 
 // Delete deletes a product
@@ -63,60 +81,111 @@ func (r *SQLiteProductRepository) Delete(ctx context.Context, id uuid.UUID) erro
 	return r.db.WithContext(ctx).Delete(&entities.Product{}, id).Error
 }
 
-// UpdateStock adds `quantity` to the stock of a product (negative to subtract).
+// ApplyStockDelta is the single supported way to move stock. See the interface
+// for the rationale; the short version is that the guard lives in the WHERE
+// clause because reading-then-writing is a race that drove stock negative.
 //
-// This used to chain two UpdateColumn calls, and UpdateColumn executes
-// immediately — so every stock movement was two UPDATE statements, each its own
-// transaction. It is one statement now.
-func (r *SQLiteProductRepository) UpdateStock(ctx context.Context, productID uuid.UUID, quantity int) error {
-	return r.db.WithContext(ctx).Model(&entities.Product{}).
-		Where("id = ?", productID).
-		Updates(map[string]interface{}{
-			"stock":      gorm.Expr("stock + ?", quantity),
-			"updated_at": time.Now().UTC().Round(0),
-		}).
-		Error
+// The new stock is read back with a SELECT in the same statement sequence rather
+// than with UPDATE ... RETURNING, which gorm.io/driver/sqlite does not surface
+// through Updates(map). It is exactly as correct here: SQLite has a single
+// writer and the DSN opens every transaction with _txlock=immediate, so between
+// the UPDATE and the SELECT nobody else can touch this row.
+func (r *SQLiteProductRepository) ApplyStockDelta(ctx context.Context, productID uuid.UUID, delta int) (int, error) {
+	db := r.db.WithContext(ctx)
+
+	q := db.Model(&entities.Product{}).Where("id = ?", productID)
+	if delta < 0 {
+		q = q.Where("stock >= ?", -delta)
+	}
+
+	res := q.Updates(map[string]interface{}{
+		"stock":      gorm.Expr("stock + ?", delta),
+		"updated_at": time.Now().UTC().Round(0),
+	})
+	if res.Error != nil {
+		return 0, res.Error
+	}
+
+	if res.RowsAffected == 0 {
+		// "No rows affected" is ambiguous: the product may not exist, or it may
+		// exist without enough stock. The till needs different messages.
+		var exists int64
+		if err := db.Model(&entities.Product{}).Where("id = ?", productID).Count(&exists).Error; err != nil {
+			return 0, err
+		}
+		if exists == 0 {
+			return 0, apperrors.ErrNotFound
+		}
+		return 0, apperrors.ErrInsufficientStock
+	}
+
+	var newStock int
+	if err := db.Model(&entities.Product{}).Where("id = ?", productID).
+		Select("stock").Scan(&newStock).Error; err != nil {
+		return 0, err
+	}
+	return newStock, nil
 }
 
-// SetStock sets the stock to an absolute value.
-func (r *SQLiteProductRepository) SetStock(ctx context.Context, productID uuid.UUID, stock int) error {
-	return r.db.WithContext(ctx).Model(&entities.Product{}).
-		Where("id = ?", productID).
-		Updates(map[string]interface{}{
-			"stock":      stock,
-			"updated_at": time.Now().UTC().Round(0),
-		}).
-		Error
-}
-
-// DecrementStock subtracts qty from a product's stock in a single conditional
-// UPDATE, returning ErrInsufficientStock when there is not enough.
+// ApplyPurchase adds qty to stock and recomputes the weighted average cost in
+// the same transaction.
 //
-// The guard is in the WHERE clause on purpose. Reading the stock and then writing
-// it is a race: two tills selling the last unit at the same time both saw stock
-// available and both decremented, leaving it negative. Here the database decides,
-// and "no rows affected" means someone else got there first.
-func (r *SQLiteProductRepository) DecrementStock(ctx context.Context, productID uuid.UUID, qty int) error {
-	res := r.db.WithContext(ctx).Model(&entities.Product{}).
-		Where("id = ? AND stock >= ?", productID, qty).
+// The average needs the PREVIOUS stock and cost, so it is read here rather than
+// passed in: computing it outside the transaction would go stale the moment
+// another purchase of the same product slipped in between. Safe because SQLite
+// has a single writer and the DSN opens transactions with _txlock=immediate.
+func (r *SQLiteProductRepository) ApplyPurchase(ctx context.Context, productID uuid.UUID, qty int, unitCost float64) (int, float64, error) {
+	if qty <= 0 {
+		return 0, 0, apperrors.ErrInvalidQuantity
+	}
+
+	db := r.db.WithContext(ctx)
+
+	var current struct {
+		Stock     int
+		CostPrice float64
+	}
+	if err := db.Model(&entities.Product{}).Where("id = ?", productID).
+		Select("stock", "cost_price").Scan(&current).Error; err != nil {
+		return 0, 0, err
+	}
+
+	var exists int64
+	if err := db.Model(&entities.Product{}).Where("id = ?", productID).Count(&exists).Error; err != nil {
+		return 0, 0, err
+	}
+	if exists == 0 {
+		return 0, 0, apperrors.ErrNotFound
+	}
+
+	newStock := current.Stock + qty
+	newCost := entities.WeightedAverageCost(current.Stock, current.CostPrice, qty, unitCost)
+
+	res := db.Model(&entities.Product{}).Where("id = ?", productID).
 		Updates(map[string]interface{}{
-			"stock":      gorm.Expr("stock - ?", qty),
+			"stock":      newStock,
+			"cost_price": newCost,
 			"updated_at": time.Now().UTC().Round(0),
 		})
-
 	if res.Error != nil {
-		return res.Error
+		return 0, 0, res.Error
 	}
-	if res.RowsAffected == 0 {
-		return apperrors.ErrInsufficientStock
-	}
-	return nil
+	return newStock, newCost, nil
+}
+
+// DecrementStock subtracts qty from a product's stock, failing with
+// ErrInsufficientStock when there is not enough. Thin wrapper over
+// ApplyStockDelta for callers that do not need the resulting balance.
+func (r *SQLiteProductRepository) DecrementStock(ctx context.Context, productID uuid.UUID, qty int) error {
+	_, err := r.ApplyStockDelta(ctx, productID, -qty)
+	return err
 }
 
 // IncrementStock adds qty back to a product's stock, for voided sales. No guard:
 // restoring stock can never break the invariant.
 func (r *SQLiteProductRepository) IncrementStock(ctx context.Context, productID uuid.UUID, qty int) error {
-	return r.UpdateStock(ctx, productID, qty)
+	_, err := r.ApplyStockDelta(ctx, productID, qty)
+	return err
 }
 
 // Search searches for products by name or description

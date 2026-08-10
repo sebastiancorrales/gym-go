@@ -21,7 +21,21 @@ const (
 	PaymentTypeCash     PaymentMethodType = "cash"
 	PaymentTypeCard     PaymentMethodType = "card"
 	PaymentTypeTransfer PaymentMethodType = "transfer"
+	// PaymentMethodTypeOther cubre lo que no encaja en los tres anteriores
+	// (bonos, cortesías, el "OTRO" que usaban las suscripciones). El tipo es lo
+	// que decide el icono y el tratamiento en los reportes, así que un método sin
+	// tipo adecuado acabaría clasificado por su nombre — y eso se rompe en cuanto
+	// alguien crea "Nequi".
+	//
+	// Rompe la nomenclatura de sus tres hermanos porque `PaymentTypeOther` ya
+	// está cogido por el enum PaymentType de payment.go, que pertenece a la
+	// entidad Payment: una tabla sin repositorio ni uso, muerta desde su creación.
+	PaymentMethodTypeOther PaymentMethodType = "other"
 )
+
+// IsCash indica si el método mueve efectivo físico. Es lo que determina si
+// aplica el cálculo del vuelto y qué debe haber en el cajón al cuadrar.
+func (t PaymentMethodType) IsCash() bool { return t == PaymentTypeCash }
 
 // SalePaymentMethod represents a payment method available for sales
 type SalePaymentMethod struct {

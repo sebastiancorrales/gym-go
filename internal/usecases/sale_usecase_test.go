@@ -99,6 +99,61 @@ func TestConcurrentSales_NoOversell(t *testing.T) {
 	if details != int64(initialStock) {
 		t.Errorf("filas en sale_details = %d, want %d — una venta sin detalles es una venta a medias", details, initialStock)
 	}
+
+	assertLedgerReconciles(t, db, product.ID, initialStock, finalStock)
+}
+
+// assertLedgerReconciles comprueba que el kardex es de fiar bajo concurrencia
+// real, que es la única forma de saberlo: stock_after se lee DENTRO de la
+// transacción que aplica el cambio, y toda su utilidad depende de que ese valor
+// sea el definitivo y no uno intermedio.
+//
+// Las tres comprobaciones, de menos a más exigente:
+//  1. hay un asiento por venta exitosa
+//  2. la suma con signo del libro coincide con products.stock
+//  3. los saldos, ordenados en el tiempo, bajan de uno en uno sin repetir ni
+//     saltar — si dos cajas leyeran el mismo saldo, aquí saldría un duplicado
+func assertLedgerReconciles(t *testing.T, db *gorm.DB, productID uuid.UUID, initialStock, finalStock int) {
+	t.Helper()
+
+	var movements []struct {
+		Direction  string
+		Quantity   int
+		StockAfter *int
+	}
+	if err := db.Raw(
+		`SELECT direction, quantity, stock_after FROM stock_movements
+		  WHERE product_id = ? AND reason = 'sale' ORDER BY stock_after DESC`,
+		productID,
+	).Scan(&movements).Error; err != nil {
+		t.Fatalf("leyendo el kardex: %v", err)
+	}
+
+	if len(movements) != initialStock {
+		t.Fatalf("asientos de venta en el kardex = %d, want %d", len(movements), initialStock)
+	}
+
+	balance := 0
+	for _, m := range movements {
+		if m.Direction == "out" {
+			balance -= m.Quantity
+		} else {
+			balance += m.Quantity
+		}
+	}
+	if want := finalStock - initialStock; balance != want {
+		t.Errorf("suma del kardex = %d, want %d — el libro no cuadra con products.stock", balance, want)
+	}
+
+	// initialStock-1, initialStock-2, ..., 0
+	for i, m := range movements {
+		if m.StockAfter == nil {
+			t.Fatalf("asiento %d sin stock_after: no se pudo leer el saldo dentro de la transacción", i)
+		}
+		if want := initialStock - 1 - i; *m.StockAfter != want {
+			t.Errorf("stock_after[%d] = %d, want %d — dos cajas vieron el mismo saldo", i, *m.StockAfter, want)
+		}
+	}
 }
 
 // TestCreateSale_RollsBackOnStockFailure checks that when the stock update fails
@@ -199,6 +254,7 @@ func seedPOS(t *testing.T, db *gorm.DB, stock int) (*usecases.SaleUseCase, *enti
 		t.Fatalf("creando vendedor: %v", err)
 	}
 
-	saleUC := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo, uow)
+	saleUC := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo,
+		persistence.NewSQLitePaymentLineRepository(db), uow)
 	return saleUC, product, method.ID, sellerID
 }

@@ -1,7 +1,9 @@
 package migrations
 
 import (
+	"fmt"
 	"log"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
@@ -29,6 +31,13 @@ func Migrate(db *gorm.DB) error {
 		&entities.SalePaymentMethod{},
 		&entities.Sale{},
 		&entities.SaleDetail{},
+		&entities.StockMovement{},
+		&entities.Supplier{},
+		&entities.ExpenseCategory{},
+		&entities.Expense{},
+		&entities.ExpenseLine{},
+		&entities.PaymentLine{},
+		&entities.ChangeLog{},
 		&entities.Class{},
 		&entities.Attendance{},
 		&entities.SubscriptionMember{},
@@ -47,6 +56,179 @@ func Migrate(db *gorm.DB) error {
 		log.Printf("⚠️  backfillDateHour: %v", err)
 	}
 
+	if err := backfillDocumentNumbers(db); err != nil {
+		log.Printf("⚠️  backfillDocumentNumbers: %v", err)
+	}
+
+	if err := backfillInitialStockMovements(db); err != nil {
+		log.Printf("⚠️  backfillInitialStockMovements: %v", err)
+	}
+
+	// Este backfill NO se traga su error, a diferencia de los anteriores.
+	//
+	// Los otros dejan como mucho un reporte degradado: una fecha sin rellenar o
+	// un kardex sin saldo inicial se pueden corregir después sin que nadie cobre
+	// mal. Una tabla de pagos a medias es otra cosa: el desglose por método de
+	// pago saldría incompleto y el cuadre de caja daría un número que no cuadra
+	// con lo que hay en el cajón. Es mejor que el gimnasio no abra a que abra
+	// contando mal.
+	//
+	// Va después de backfillDateHour porque necesita las columnas date/hour ya
+	// rellenas para estampar las líneas en el día local correcto.
+	if err := backfillPaymentLines(db); err != nil {
+		return fmt.Errorf("backfillPaymentLines: %w", err)
+	}
+
+	return nil
+}
+
+// backfillInitialStockMovements siembra un asiento `initial` por cada producto
+// con stock que no tenga ninguno, para que la suma del kardex coincida con
+// products.stock desde el primer arranque con el módulo.
+//
+// NO reconstruye la historia desde sale_details a propósito: products.stock YA
+// refleja esas ventas, así que insertarlas las contaría dos veces contra el
+// saldo actual. La consecuencia hay que decirla en la interfaz: el kardex no
+// tiene historia anterior al despliegue, sólo el saldo de partida.
+//
+// Como los demás backfills, abre con una guarda barata y escribe todo dentro de
+// una transacción.
+func backfillInitialStockMovements(db *gorm.DB) error {
+	var products []entities.Product
+	if err := db.Where("stock <> 0").
+		Where("id NOT IN (SELECT DISTINCT product_id FROM stock_movements)").
+		Find(&products).Error; err != nil {
+		return err
+	}
+	if len(products) == 0 {
+		return nil // el caso normal en régimen estacionario
+	}
+
+	log.Printf("🔄 backfillInitialStockMovements: sembrando saldo inicial de %d producto(s)...", len(products))
+
+	now := time.Now().UTC().Round(0)
+	movements := make([]entities.StockMovement, 0, len(products))
+	for _, p := range products {
+		stock := p.Stock
+		productID := p.ID
+		m := entities.NewStockMovement(
+			productID, stock,
+			entities.StockReasonInitial, entities.StockRefProduct, &productID,
+			nil, now, now.Format("2006-01-02"), now.Format("15:04"),
+		)
+		m.Note = "Saldo inicial al activar el módulo de inventario"
+		m.StockAfter = &stock
+		movements = append(movements, m)
+	}
+
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		return tx.Create(&movements).Error
+	}); err != nil {
+		return err
+	}
+
+	log.Printf("✅ backfillInitialStockMovements: %d asiento(s) de saldo inicial", len(movements))
+	return nil
+}
+
+// backfillDocumentNumbers normaliza los document_number ya guardados.
+//
+// Hace falta porque hasta ahora la escritura guardaba el texto crudo mientras la
+// búsqueda del kiosco hacía TrimSpace: un miembro dado de alta como " 12345"
+// existe en la base pero el kiosco no lo encuentra nunca. Este backfill es lo
+// que hace que esos miembros vuelvan a ser localizables.
+//
+// NUNCA fusiona ni borra usuarios. Si normalizar una fila la haría chocar con
+// otra del mismo gimnasio, la deja intacta y la registra en el log: dos filas
+// que colisionan al normalizar son casi siempre la misma persona duplicada, y
+// decidir cuál sobrevive es una decisión de negocio, no de una migración.
+//
+// Como backfillDateHour, abre con una guarda barata y hace todas las escrituras
+// dentro de una sola transacción.
+func backfillDocumentNumbers(db *gorm.DB) error {
+	type row struct {
+		ID             uuid.UUID
+		GymID          uuid.UUID
+		DocumentType   string
+		DocumentNumber string
+	}
+
+	var rows []row
+	if err := db.Model(&entities.User{}).
+		Where("document_number IS NOT NULL AND document_number <> ''").
+		Select("id", "gym_id", "document_type", "document_number").
+		Scan(&rows).Error; err != nil {
+		return err
+	}
+
+	// Índice de los documentos que YA están ocupados, para detectar colisiones
+	// sin una consulta por fila.
+	type gymDoc struct {
+		gym uuid.UUID
+		doc string
+	}
+	taken := make(map[gymDoc]uuid.UUID, len(rows))
+	for _, r := range rows {
+		taken[gymDoc{r.GymID, r.DocumentNumber}] = r.ID
+	}
+
+	type fix struct {
+		id     uuid.UUID
+		number string
+		docTyp string
+	}
+	var fixes []fix
+	var collisions int
+
+	for _, r := range rows {
+		docType := entities.NormalizeDocumentType(r.DocumentType)
+		normalized := entities.NormalizeDocument(docType, r.DocumentNumber)
+
+		if normalized == r.DocumentNumber && docType == r.DocumentType {
+			continue
+		}
+		// Normalizar hasta dejarlo vacío destruiría el dato; se deja como está
+		// para que alguien lo corrija a mano.
+		if normalized == "" {
+			collisions++
+			log.Printf("⚠️  backfillDocumentNumbers: usuario %s tiene un documento que se queda vacío al normalizar (%q); se deja intacto", r.ID, r.DocumentNumber)
+			continue
+		}
+		if owner, exists := taken[gymDoc{r.GymID, normalized}]; exists && owner != r.ID {
+			collisions++
+			log.Printf("⚠️  backfillDocumentNumbers: %q → %q chocaría con el usuario %s en el mismo gimnasio; se deja intacto (probable duplicado, requiere revisión manual)", r.DocumentNumber, normalized, owner)
+			continue
+		}
+
+		taken[gymDoc{r.GymID, normalized}] = r.ID
+		fixes = append(fixes, fix{id: r.ID, number: normalized, docTyp: docType})
+	}
+
+	if len(fixes) == 0 {
+		if collisions > 0 {
+			log.Printf("⚠️  backfillDocumentNumbers: %d documento(s) requieren revisión manual", collisions)
+		}
+		return nil // el caso normal en régimen estacionario
+	}
+
+	log.Printf("🔄 backfillDocumentNumbers: normalizando %d documento(s)...", len(fixes))
+
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		for _, f := range fixes {
+			if err := tx.Model(&entities.User{}).Where("id = ?", f.id).
+				Updates(map[string]interface{}{
+					"document_number": f.number,
+					"document_type":   f.docTyp,
+				}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	log.Printf("✅ backfillDocumentNumbers: %d documento(s) normalizados, %d requieren revisión manual", len(fixes), collisions)
 	return nil
 }
 
@@ -250,6 +432,37 @@ func Seed(db *gorm.DB) error {
 				log.Printf("✅ Payment method created: %s", pm.Name)
 			}
 		}
+	}
+
+	// Categorías de gasto del sistema (gym_id nulo: visibles para todos los
+	// gimnasios). Misma guarda que los métodos de pago: sólo se siembran si la
+	// tabla está vacía, para no resucitar una categoría que alguien desactivó.
+	var expenseCategoryCount int64
+	db.Model(&entities.ExpenseCategory{}).Count(&expenseCategoryCount)
+
+	if expenseCategoryCount == 0 {
+		categories := []entities.ExpenseCategory{
+			{Name: "Mercancía", Kind: entities.ExpenseKindInventory},
+			{Name: "Arriendo", Kind: entities.ExpenseKindOperating},
+			{Name: "Servicios Públicos", Kind: entities.ExpenseKindOperating},
+			{Name: "Nómina", Kind: entities.ExpenseKindPayroll},
+			{Name: "Mantenimiento", Kind: entities.ExpenseKindOperating},
+			{Name: "Aseo y Cafetería", Kind: entities.ExpenseKindOperating},
+			{Name: "Otros", Kind: entities.ExpenseKindOther},
+		}
+
+		now := time.Now().UTC().Round(0)
+		for _, category := range categories {
+			category.ID = uuid.New()
+			category.GymID = uuid.Nil
+			category.Status = "active"
+			category.CreatedAt = now
+			category.UpdatedAt = now
+			if err := db.Create(&category).Error; err != nil {
+				log.Printf("⚠️ Failed to create expense category %s: %v", category.Name, err)
+			}
+		}
+		log.Printf("✅ %d categorías de gasto creadas", len(categories))
 	}
 
 	log.Println("✅ Database seeding completed")

@@ -32,12 +32,36 @@ const (
 	PermAttendance  Permission = "attendance:manage"
 
 	// Inventario y caja
-	PermProductsRead   Permission = "products:read"
-	PermProductsWrite  Permission = "products:write"
-	PermPaymentMethods Permission = "payment_methods:manage"
-	PermSalesRead      Permission = "sales:read"
-	PermSalesCreate    Permission = "sales:create"
-	PermSalesVoid      Permission = "sales:void"
+	PermProductsRead  Permission = "products:read"
+	PermProductsWrite Permission = "products:write"
+	// Ver el kardex y moverlo son permisos distintos de administrar el catálogo:
+	// quien atiende el mostrador cuenta y ajusta stock a diario, pero no crea ni
+	// borra productos.
+	PermInventoryMovements Permission = "inventory:movements"
+	PermInventoryAdjust    Permission = "inventory:adjust"
+	// Ver el costo es ver el margen del negocio: es informacion contable, no
+	// operativa. Quien vende no lo necesita.
+	PermInventoryCost Permission = "inventory:cost"
+	// Leer el catálogo de métodos de pago y administrarlo son permisos distintos:
+	// quien cobra necesita la lista para elegir con qué se paga, pero crear o
+	// desactivar un método es configuración del gimnasio.
+	PermPaymentMethodsRead Permission = "payment_methods:read"
+	PermPaymentMethods     Permission = "payment_methods:manage"
+	PermSalesRead          Permission = "sales:read"
+	PermSalesCreate        Permission = "sales:create"
+	PermSalesVoid          Permission = "sales:void"
+	// Corregir el método de pago de un documento ya registrado. Sólo se concede a
+	// administración: cambiarlo altera reportes de días ya cerrados y enviados.
+	PermPaymentsAmend Permission = "payments:amend"
+
+	// Compras y egresos. Son información contable —revelan a quién se le compra,
+	// a qué precio y cuánto cuesta operar—, así que no se conceden a los roles de
+	// mostrador.
+	PermSuppliersRead  Permission = "suppliers:read"
+	PermSuppliersWrite Permission = "suppliers:write"
+	PermExpensesRead   Permission = "expenses:read"
+	PermExpensesWrite  Permission = "expenses:write"
+	PermExpensesVoid   Permission = "expenses:void"
 
 	// Reportes. La separación entre estos cuatro es la que implementa la regla
 	// "el staff cuadra su día pero no ve lo de atrás":
@@ -59,8 +83,11 @@ var allPermissions = []Permission{
 	PermUsersRead, PermUsersWrite, PermStaffManage,
 	PermPlansRead, PermPlansWrite, PermSubscriptionsRead, PermSubscriptionsWrite,
 	PermAccessRead, PermAccessWrite, PermBiometric, PermClasses, PermAttendance,
-	PermProductsRead, PermProductsWrite, PermPaymentMethods,
-	PermSalesRead, PermSalesCreate, PermSalesVoid,
+	PermProductsRead, PermProductsWrite, PermInventoryMovements, PermInventoryAdjust, PermInventoryCost,
+	PermPaymentMethodsRead, PermPaymentMethods,
+	PermSalesRead, PermSalesCreate, PermSalesVoid, PermPaymentsAmend,
+	PermSuppliersRead, PermSuppliersWrite,
+	PermExpensesRead, PermExpensesWrite, PermExpensesVoid,
 	PermReportsDaily, PermReportsHistory, PermReportsAccounting, PermReportsInventory,
 }
 
@@ -88,6 +115,13 @@ var rolePermissions = map[UserRole]map[Permission]bool{
 		PermSubscriptionsRead, PermSubscriptionsWrite,
 		PermAccessRead, PermAccessWrite, PermBiometric, PermClasses, PermAttendance,
 		PermProductsRead, PermProductsWrite,
+		// Ya podía fijar el stock con PermProductsWrite; ahora ese mismo ajuste
+		// queda auditado con su nombre en el kardex. Quitárselo sería retirarle
+		// una capacidad que ya tenía.
+		PermInventoryMovements, PermInventoryAdjust,
+		// Sin esto el selector del punto de venta llega vacío: el POS pide
+		// GET /payment-methods para saber con qué se puede cobrar.
+		PermPaymentMethodsRead,
 		PermSalesRead, PermSalesCreate, PermSalesVoid,
 		PermReportsDaily,
 	),
@@ -98,6 +132,7 @@ var rolePermissions = map[UserRole]map[Permission]bool{
 		PermSubscriptionsRead,
 		PermAccessRead, PermAccessWrite, PermBiometric, PermAttendance,
 		PermProductsRead,
+		PermPaymentMethodsRead,
 		PermSalesRead, PermSalesCreate,
 		PermReportsDaily,
 	),

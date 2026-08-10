@@ -25,8 +25,17 @@ type NotificationUseCase struct {
 	gymRepo           repositories.GymRepository
 	userRepo          repositories.UserRepository
 	paymentMethodRepo repositories.PaymentMethodRepository
-	productRepo       repositories.ProductRepository
-	emailSender       *email.Sender
+	// paymentLineRepo respalda el desglose por método de pago del cierre diario.
+	// Antes ese desglose se armaba a mano reconciliando el nombre del método de
+	// la venta contra el string libre de la suscripción — dos sistemas que sólo
+	// coincidían por casualidad. SumByMethod agrega en la base por
+	// payment_method_id, así que ya no hay nada que reconciliar.
+	paymentLineRepo repositories.PaymentLineRepository
+	// expenseRepo aporta los egresos del día: el cierre no puede decir "esto
+	// entró" sin decir también "esto salió".
+	expenseRepo repositories.ExpenseRepository
+	productRepo repositories.ProductRepository
+	emailSender *email.Sender
 }
 
 // NewNotificationUseCase constructs the use case with all required dependencies.
@@ -39,6 +48,8 @@ func NewNotificationUseCase(
 	gymRepo repositories.GymRepository,
 	userRepo repositories.UserRepository,
 	paymentMethodRepo repositories.PaymentMethodRepository,
+	paymentLineRepo repositories.PaymentLineRepository,
+	expenseRepo repositories.ExpenseRepository,
 	productRepo repositories.ProductRepository,
 	emailSender *email.Sender,
 ) *NotificationUseCase {
@@ -51,6 +62,8 @@ func NewNotificationUseCase(
 		gymRepo:           gymRepo,
 		userRepo:          userRepo,
 		paymentMethodRepo: paymentMethodRepo,
+		paymentLineRepo:   paymentLineRepo,
+		expenseRepo:       expenseRepo,
 		productRepo:       productRepo,
 		emailSender:       emailSender,
 	}
@@ -124,16 +137,20 @@ func (uc *NotificationUseCase) SendDailyClose(gymID uuid.UUID, startDate, endDat
 	startFmt := startDate.In(loc).Format("02/01/2006")
 	endFmt := endDate.In(loc).Format("02/01/2006")
 	emailData := email.DailyCloseEmailData{
-		GymName:          gym.Name,
-		Date:             startFmt,
-		DateEnd:          endFmt,
-		IsRange:          isRange,
-		TotalSalesAmount: email.FmtAmt(report.TotalSalesAmount),
-		TotalSalesCount:  report.TotalSalesCount,
-		TotalSubsAmount:  email.FmtAmt(report.TotalSubsAmount),
-		TotalSubsCount:   report.TotalSubsCount,
-		TotalRevenue:     email.FmtAmt(report.TotalRevenue),
-		Currency:         currency,
+		GymName:             gym.Name,
+		Date:                startFmt,
+		DateEnd:             endFmt,
+		IsRange:             isRange,
+		TotalSalesAmount:    email.FmtAmt(report.TotalSalesAmount),
+		TotalSalesCount:     report.TotalSalesCount,
+		TotalSubsAmount:     email.FmtAmt(report.TotalSubsAmount),
+		TotalSubsCount:      report.TotalSubsCount,
+		TotalRevenue:        email.FmtAmt(report.TotalRevenue),
+		HasExpenses:         report.TotalExpensesCount > 0,
+		TotalExpensesAmount: email.FmtAmt(report.TotalExpensesAmount),
+		TotalExpensesCount:  report.TotalExpensesCount,
+		NetRevenue:          email.FmtAmt(report.NetRevenue),
+		Currency:            currency,
 	}
 	for _, pm := range report.PaymentMethods {
 		emailData.PaymentMethods = append(emailData.PaymentMethods, email.PaymentMethodRow{
@@ -254,18 +271,8 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 		}
 	}
 
-	// Separate aggregation for subs vs sales per payment method
-	pmMap := make(map[string]*email.PaymentMethodSummary)
 	productMap := make(map[string]*email.ProductSummary)
 	planMap := make(map[string]*email.PlanSummary)
-	ensurePM := func(name string) *email.PaymentMethodSummary {
-		// Normalize key to avoid duplicates like "EFECTIVO" vs "Efectivo"
-		key := strings.ToLower(strings.TrimSpace(name))
-		if _, ok := pmMap[key]; !ok {
-			pmMap[key] = &email.PaymentMethodSummary{Name: name}
-		}
-		return pmMap[key]
-	}
 
 	// ── Sales ─────────────────────────────────────────────────────────────────
 	for _, s := range sales {
@@ -279,11 +286,6 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 		report.TotalSalesCount++
 
 		pmName := pmLookup(s.PaymentMethodID)
-		pm := ensurePM(pmName)
-		pm.SalesTotal += s.Total
-		pm.SalesCount++
-		pm.Total += s.Total
-		pm.Count++
 
 		itemCount := 0
 		for _, d := range detailsBySale[s.ID] {
@@ -317,11 +319,6 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 		if pmName == "" {
 			pmName = "Suscripcion"
 		}
-		pm := ensurePM(pmName)
-		pm.SubsTotal += sub.TotalPaid
-		pm.SubsCount++
-		pm.Total += sub.TotalPaid
-		pm.Count++
 
 		memberName, ok := memberNames[sub.UserID]
 		if !ok {
@@ -372,13 +369,46 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 		return report.Products[i].Revenue > report.Products[j].Revenue
 	})
 
-	// Sort payment methods alphabetically for consistent output
-	for _, pm := range pmMap {
-		report.PaymentMethods = append(report.PaymentMethods, *pm)
+	// Desglose por método de pago: UNA sola consulta que agrega en la base por
+	// payment_method_id, en vez de reconciliar a mano el nombre de la venta
+	// contra el string libre de la suscripción. Con esto la pantalla del Cuadre
+	// del Día (GET /payments/summary) y este correo leen exactamente el mismo
+	// número — antes podían discrepar en un día con una anulación, porque el
+	// correo excluía la venta anulada Y su espejo por completo (sumando cero de
+	// cualquier forma) mientras que ahora el desglose muestra explícitamente el
+	// método afectado en negativo.
+	paymentRows, err := uc.paymentLineRepo.SumByMethod(ctx, startStr, endStr)
+	if err != nil {
+		return nil, fmt.Errorf("fetching payment summary: %w", err)
 	}
+	summary := AggregatePaymentSummary(paymentRows, startStr, endStr)
+	for _, m := range summary.Methods {
+		report.PaymentMethods = append(report.PaymentMethods, email.PaymentMethodSummary{
+			Name:       m.PaymentMethodName,
+			Total:      m.Total,
+			Count:      m.SubsCount + m.SalesCount,
+			SubsTotal:  m.SubsTotal,
+			SubsCount:  m.SubsCount,
+			SalesTotal: m.SalesTotal,
+			SalesCount: m.SalesCount,
+		})
+	}
+	// Orden alfabético para que la salida sea estable entre envíos.
 	sort.Slice(report.PaymentMethods, func(i, j int) bool {
 		return report.PaymentMethods[i].Name < report.PaymentMethods[j].Name
 	})
+
+	// ── Egresos ───────────────────────────────────────────────────────────────
+	// Report() ya neta las anulaciones (VoidExpense escribe un espejo negativo),
+	// así que no hace falta filtrar por estado aquí — el mismo principio que
+	// SumByMethod aplica del lado de los ingresos.
+	expensesReport, err := uc.expenseRepo.Report(ctx, gymID, startStr, endStr)
+	if err != nil {
+		return nil, fmt.Errorf("fetching expenses report: %w", err)
+	}
+	report.TotalExpensesAmount = expensesReport.TotalExpenses
+	report.TotalExpensesCount = expensesReport.ExpensesCount
+	report.NetRevenue = report.TotalRevenue - report.TotalExpensesAmount
 
 	return report, nil
 }

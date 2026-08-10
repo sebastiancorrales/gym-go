@@ -11,10 +11,15 @@ import "log"
 // El tope SIEMPRE avisa cuando se alcanza. Un recorte silencioso es peor que una
 // consulta lenta: hace que un listado parezca completo cuando no lo es.
 const (
-	maxSalesRows     = 2000
-	maxAccessLogRows = 5000
-	maxProductRows   = 1000
-	defaultUserRows  = 500
+	maxSalesRows = 2000
+	// El kardex crece más rápido que las ventas: cada venta genera un movimiento
+	// por producto distinto, y encima se suman compras, ajustes y mermas.
+	maxStockMovementRows = 2000
+	maxExpenseRows       = 2000
+	maxSupplierRows      = 500
+	maxAccessLogRows     = 5000
+	maxProductRows       = 1000
+	defaultUserRows      = 500
 )
 
 // warnIfCapped logs when a query came back exactly at its cap, which means rows

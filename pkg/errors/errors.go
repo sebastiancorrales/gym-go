@@ -23,6 +23,17 @@ var (
 	ErrSaleCannotBeVoided     = errors.New("la venta no puede ser anulada")
 	ErrPaymentMethodNotActive = errors.New("método de pago no activo")
 
+	// Errores de las líneas de pago. Son de negocio, no de infraestructura: la
+	// capa HTTP los traduce a 400 con su propio texto, que es accionable para el
+	// cajero ("la suma de los pagos no coincide con el total").
+	ErrNoPaymentLines           = errors.New("el pago debe tener al menos una línea")
+	ErrPaymentLinesMismatch     = errors.New("la suma de los pagos no coincide con el total")
+	ErrPaymentLineInvalidAmount = errors.New("el monto de una línea de pago es inválido")
+	ErrDuplicatePaymentMethod   = errors.New("un método de pago no puede repetirse en el mismo pago")
+	ErrCashReceivedTooLow       = errors.New("el efectivo recibido es menor que el monto en efectivo")
+	ErrCashChangeOnNonCash      = errors.New("solo la línea de efectivo admite efectivo recibido")
+	ErrCannotAmendVoidSale      = errors.New("corrige el método en la venta original, no en su contrapartida")
+
 	// ErrDatabaseBusy señala contención de locks en SQLite: es un fallo
 	// transitorio y reintentable, no un error de negocio. La capa HTTP lo
 	// traduce a 503 + Retry-After para que el cliente pueda reintentar.

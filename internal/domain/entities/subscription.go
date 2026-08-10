@@ -32,14 +32,26 @@ type Subscription struct {
 	PlanID uuid.UUID `json:"plan_id"`
 	GymID  uuid.UUID `json:"gym_id" gorm:"index:idx_subs_gym_status_end,priority:1;index:idx_subs_gym_date,priority:1"`
 
-	StartDate time.Time `json:"start_date"`
-	EndDate   time.Time `json:"end_date" gorm:"index:idx_subs_user_status_end,priority:3;index:idx_subs_gym_status_end,priority:3;index:idx_subs_status_end,priority:2"`
-	ActivatedAt         *time.Time         `json:"activated_at,omitempty"`
-	CancelledAt         *time.Time         `json:"cancelled_at,omitempty"`
-	PricePaid           float64            `json:"price_paid"`
-	EnrollmentFeePaid   float64            `json:"enrollment_fee_paid"`
-	DiscountApplied     float64            `json:"discount_applied"`
-	TotalPaid           float64            `json:"total_paid"`
+	StartDate         time.Time  `json:"start_date"`
+	EndDate           time.Time  `json:"end_date" gorm:"index:idx_subs_user_status_end,priority:3;index:idx_subs_gym_status_end,priority:3;index:idx_subs_status_end,priority:2"`
+	ActivatedAt       *time.Time `json:"activated_at,omitempty"`
+	CancelledAt       *time.Time `json:"cancelled_at,omitempty"`
+	PricePaid         float64    `json:"price_paid"`
+	EnrollmentFeePaid float64    `json:"enrollment_fee_paid"`
+	DiscountApplied   float64    `json:"discount_applied"`
+	TotalPaid         float64    `json:"total_paid"`
+	// PaymentMethodID es la FK al catálogo administrable (SalePaymentMethod), el
+	// mismo que usa el punto de venta. Hasta ahora las suscripciones guardaban un
+	// string libre sin relación con ese catálogo, y seis sitios reconciliaban los
+	// dos mundos por etiqueta — coincidían por casualidad, y un método nuevo como
+	// "Nequi" aparecía como una cubeta suelta que nunca casaba.
+	//
+	// Es el método PRINCIPAL: la línea de mayor monto cuando el pago es combinado.
+	PaymentMethodID uuid.UUID `json:"payment_method_id,omitempty"`
+	// PaymentMethod pasa a ser el NOMBRE del método principal, para mostrar.
+	// Se conserva porque lo leen nueve sitios entre frontend, correo y reportes;
+	// mantenerlo relleno permite migrarlos por partes en vez de en un único
+	// commit gigante.
 	PaymentMethod       string             `json:"payment_method,omitempty"`
 	Status              SubscriptionStatus `json:"status" gorm:"index:idx_subs_user_status_end,priority:2;index:idx_subs_gym_status_end,priority:2;index:idx_subs_status_end,priority:1"`
 	FrozenUntil         *time.Time         `json:"frozen_until,omitempty"`
@@ -201,6 +213,3 @@ func (s *Subscription) Renew(durationDays int, billingMode string) {
 	s.Status = SubscriptionStatusActive
 	s.UpdatedAt = time.Now().UTC().Round(0)
 }
-
-
-

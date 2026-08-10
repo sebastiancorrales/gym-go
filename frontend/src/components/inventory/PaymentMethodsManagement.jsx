@@ -115,7 +115,8 @@ export default function PaymentMethodsManagement({ user }) {
     const badges = {
       cash: <span className="px-2 py-1 text-xs font-semibold bg-[#DCFCE7] text-[#065F46] rounded-full">💵 Efectivo</span>,
       card: <span className="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded-full">💳 Tarjeta</span>,
-      transfer: <span className="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded-full">🏦 Transferencia</span>
+      transfer: <span className="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded-full">🏦 Transferencia</span>,
+      other: <span className="px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded-full">🧾 Otro</span>
     };
     return badges[type] || <span className="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-800 rounded-full">{type}</span>;
   };
@@ -269,6 +270,7 @@ export default function PaymentMethodsManagement({ user }) {
                     <option value="cash">💵 Efectivo</option>
                     <option value="card">💳 Tarjeta</option>
                     <option value="transfer">🏦 Transferencia</option>
+                    <option value="other">🧾 Otro</option>
                   </select>
                 </div>
 

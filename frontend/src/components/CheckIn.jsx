@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
+import { filterDocumentInput, normalizeDocument } from '../utils/document';
 
 const FINGERPRINT_PATH = 'M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4';
 const BOLT_PATH = 'M13 10V3L4 14h7v7l9-11h-7z';
@@ -223,7 +224,9 @@ export default function CheckIn() {
     setLoading(true); setResult(null); setError(null);
 
     try {
-      const doc = documentNumber.trim();
+      // La misma normalización que usa el backend al guardar, así el miembro
+      // registrado como "1.234.567" se encuentra tecleando "1234567" y al revés.
+      const doc = normalizeDocument('PP', documentNumber);
       const userRes = await api.get(
         `/users/by-document?document=${encodeURIComponent(doc)}`,
         { noCache: true },
@@ -336,10 +339,18 @@ export default function CheckIn() {
             {/* Manual form */}
             {checkInMethod === 'manual' && (
               <form onSubmit={handleCheckIn} className="space-y-4">
+                {/*
+                  El kiosco no pregunta el tipo de documento, así que filtra con
+                  la regla permisiva: bloquea símbolos y el signo menos pero deja
+                  pasar letras, porque quien se registró con pasaporte tiene que
+                  poder entrar.
+                */}
                 <input
                   type="text"
+                  inputMode="text"
+                  autoComplete="off"
                   value={documentNumber}
-                  onChange={e => setDocumentNumber(e.target.value)}
+                  onChange={e => setDocumentNumber(filterDocumentInput('PP', e.target.value))}
                   placeholder="Número de documento"
                   disabled={loading}
                   autoFocus

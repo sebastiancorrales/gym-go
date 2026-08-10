@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -73,9 +72,19 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// El documento se normaliza ANTES de comprobar duplicados y antes de
+	// guardarlo. Si no, "12345" y " 12.345" entran como dos personas distintas y
+	// luego el kiosco (que busca normalizado) solo encuentra a una.
+	docType := entities.NormalizeDocumentType(req.DocumentType)
+	docNumber := entities.NormalizeDocument(docType, req.DocumentNumber)
+	if err := entities.ValidateDocument(docType, docNumber); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	// Bloquear documento duplicado dentro del mismo gimnasio
-	if req.DocumentNumber != "" {
-		if _, err := h.userUseCase.FindByDocumentAndGym(req.DocumentNumber, gymID); err == nil {
+	if docNumber != "" {
+		if _, err := h.userUseCase.FindByDocumentAndGym(docNumber, gymID); err == nil {
 			c.JSON(http.StatusConflict, gin.H{"error": "Ya existe un usuario con ese número de documento"})
 			return
 		}
@@ -90,7 +99,9 @@ func (h *UserHandler) Create(c *gin.Context) {
 	// Auto-generar email si no se provee (miembros no inician sesión)
 	email := req.Email
 	if email == "" {
-		email = fmt.Sprintf("member.%s.%s@gymgo.internal", req.DocumentNumber, randomHex(4))
+		// Con el documento normalizado: interpolar el texto crudo metía espacios y
+		// símbolos dentro de una dirección de correo.
+		email = fmt.Sprintf("member.%s.%s@gymgo.internal", docNumber, randomHex(4))
 	}
 
 	user, err := h.userUseCase.CreateUser(
@@ -107,8 +118,8 @@ func (h *UserHandler) Create(c *gin.Context) {
 	}
 
 	// Set additional fields
-	user.DocumentType = req.DocumentType
-	user.DocumentNumber = req.DocumentNumber
+	user.DocumentType = docType
+	user.DocumentNumber = docNumber
 	user.Gender = req.Gender
 	user.Address = req.Address
 	user.City = req.City
@@ -188,7 +199,15 @@ func (h *UserHandler) GetByDocument(c *gin.Context) {
 		return
 	}
 
-	document := strings.TrimSpace(c.Query("document"))
+	// Se normaliza igual que al guardar. El TrimSpace anterior no bastaba: quien
+	// tecleara "1.234.567" en el kiosco no encontraba al miembro guardado como
+	// "1234567".
+	//
+	// Se usa la regla permisiva (la del pasaporte, que además quita guiones)
+	// porque el kiosco no pregunta el tipo de documento y esto es una búsqueda,
+	// no un guardado: limpiar de más solo puede hacer que encuentre a alguien que
+	// de otro modo no encontraría, nunca guardar un dato malo.
+	document := entities.NormalizeDocument(string(entities.DocumentTypePP), c.Query("document"))
 	if document == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "El parámetro 'document' es obligatorio"})
 		return
@@ -276,10 +295,18 @@ func (h *UserHandler) Update(c *gin.Context) {
 		user.LastName = req.LastName
 	}
 	if req.DocumentType != "" {
-		user.DocumentType = req.DocumentType
+		user.DocumentType = entities.NormalizeDocumentType(req.DocumentType)
 	}
 	if req.DocumentNumber != "" {
-		user.DocumentNumber = req.DocumentNumber
+		// Se valida contra el tipo que el usuario tendrá DESPUÉS de esta edición,
+		// no contra el que tenía: cambiar de cédula a pasaporte y poner un número
+		// con letras es una sola operación y debe aceptarse.
+		docNumber := entities.NormalizeDocument(user.DocumentType, req.DocumentNumber)
+		if err := entities.ValidateDocument(user.DocumentType, docNumber); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		user.DocumentNumber = docNumber
 	}
 	if req.Phone != "" {
 		user.Phone = req.Phone

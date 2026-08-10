@@ -8,6 +8,8 @@ import { fmt } from '../utils/currency';
 import MemberProfile from './MemberProfile';
 import PlanSelectorGrid from './PlanSelectorGrid';
 import Pagination from './Pagination';
+import DocumentNumberInput from './DocumentNumberInput';
+import { DOCUMENT_TYPES } from '../utils/document';
 
 const USERS_PAGE_SIZE = 25;
 
@@ -78,12 +80,10 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
     role: 'MEMBER'
   });
 
-  const documentTypes = [
-    { value: 'CC', label: 'Cédula de Ciudadanía' },
-    { value: 'TI', label: 'Tarjeta de Identidad' },
-    { value: 'CE', label: 'Cédula de Extranjería' },
-    { value: 'PP', label: 'Pasaporte' }
-  ];
+  // Los tipos y sus reglas de validación viven juntos en utils/document.js:
+  // tenerlos separados es lo que permitía añadir un tipo sin decidir qué se
+  // acepta como número para él.
+  const documentTypes = DOCUMENT_TYPES;
 
   const genders = [
     { value: '', label: 'Seleccionar...' },
@@ -540,9 +540,12 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
-                <input type="text" required value={formData.documentNumber}
-                  onChange={e => setFormData({ ...formData, documentNumber: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
+                <DocumentNumberInput
+                  documentType={formData.documentType}
+                  value={formData.documentNumber}
+                  onChange={v => setFormData({ ...formData, documentNumber: v })}
+                  required
+                />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
@@ -787,8 +790,12 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Número de Documento *</label>
-                    <input type="text" required value={formData.documentNumber} onChange={e => setFormData({ ...formData, documentNumber: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
+                    <DocumentNumberInput
+                      documentType={formData.documentType}
+                      value={formData.documentNumber}
+                      onChange={v => setFormData({ ...formData, documentNumber: v })}
+                      required
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento</label>

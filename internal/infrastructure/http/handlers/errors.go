@@ -59,7 +59,14 @@ func RespondError(c *gin.Context, err error, fallbackMessage string) {
 		errors.Is(err, apperrors.ErrInvalidQuantity),
 		errors.Is(err, apperrors.ErrInvalidPrice),
 		errors.Is(err, apperrors.ErrInvalidDiscount),
-		errors.Is(err, apperrors.ErrDiscountExceedsTotal):
+		errors.Is(err, apperrors.ErrDiscountExceedsTotal),
+		errors.Is(err, apperrors.ErrNoPaymentLines),
+		errors.Is(err, apperrors.ErrPaymentLinesMismatch),
+		errors.Is(err, apperrors.ErrPaymentLineInvalidAmount),
+		errors.Is(err, apperrors.ErrDuplicatePaymentMethod),
+		errors.Is(err, apperrors.ErrCashReceivedTooLow),
+		errors.Is(err, apperrors.ErrCashChangeOnNonCash),
+		errors.Is(err, apperrors.ErrCannotAmendVoidSale):
 		status = http.StatusBadRequest
 		message = err.Error()
 

@@ -159,3 +159,71 @@ func TestPermissionMatrix(t *testing.T) {
 		t.Error("MEMBER no debería tener permisos en el panel")
 	}
 }
+
+// El punto de venta pide GET /payment-methods para poblar su selector, así que
+// quien puede cobrar tiene que poder leer el catálogo. Administrarlo (crear,
+// desactivar) sigue siendo de administración.
+func TestPaymentMethodCatalogReadableByWhoeverCharges(t *testing.T) {
+	for _, role := range []entities.UserRole{entities.RoleRecepcionista, entities.RoleStaff} {
+		if !entities.RoleHasPermission(role, entities.PermSalesCreate) {
+			t.Fatalf("premisa rota: %s debería poder crear ventas", role)
+		}
+		if !entities.RoleHasPermission(role, entities.PermPaymentMethodsRead) {
+			t.Errorf("%s cobra pero no puede leer los métodos de pago: el selector del POS llegaría vacío", role)
+		}
+		if entities.RoleHasPermission(role, entities.PermPaymentMethods) {
+			t.Errorf("%s no debería poder administrar los métodos de pago", role)
+		}
+	}
+
+	for _, role := range []entities.UserRole{entities.RoleSuperAdmin, entities.RoleAdminGym} {
+		if !entities.RoleHasPermission(role, entities.PermPaymentMethods) {
+			t.Errorf("%s debería poder administrar los métodos de pago", role)
+		}
+	}
+}
+
+// El costo de un producto revela el margen del negocio, y GET /products lo
+// consume el punto de venta — que usan recepción y staff. En cuanto se añadió la
+// columna cost_price, todo el personal habría podido calcular cuánto gana el
+// gimnasio por cada botella.
+//
+// Lo mismo vale para proveedores y gastos: revelan a quién se le compra, a qué
+// precio y cuánto cuesta operar.
+func TestInformacionContableNoLlegaAlMostrador(t *testing.T) {
+	contables := []entities.Permission{
+		entities.PermInventoryCost,
+		entities.PermSuppliersRead, entities.PermSuppliersWrite,
+		entities.PermExpensesRead, entities.PermExpensesWrite, entities.PermExpensesVoid,
+	}
+
+	for _, role := range []entities.UserRole{entities.RoleRecepcionista, entities.RoleStaff, entities.RoleMember} {
+		// Premisa: estos roles sí leen productos, que es por donde se filtraría.
+		if role != entities.RoleMember && !entities.RoleHasPermission(role, entities.PermProductsRead) {
+			t.Fatalf("premisa rota: %s debería poder leer productos", role)
+		}
+		for _, perm := range contables {
+			if entities.RoleHasPermission(role, perm) {
+				t.Errorf("%s no debería tener %s: es información contable, no operativa", role, perm)
+			}
+		}
+	}
+
+	for _, role := range []entities.UserRole{entities.RoleSuperAdmin, entities.RoleAdminGym} {
+		for _, perm := range contables {
+			if !entities.RoleHasPermission(role, perm) {
+				t.Errorf("%s debería tener %s", role, perm)
+			}
+		}
+	}
+}
+
+// Mover inventario sí es operativo: recepción ya podía fijar el stock antes del
+// kardex, y ahora ese mismo ajuste queda auditado con su nombre.
+func TestRecepcionConservaElAjusteDeInventario(t *testing.T) {
+	for _, perm := range []entities.Permission{entities.PermInventoryMovements, entities.PermInventoryAdjust} {
+		if !entities.RoleHasPermission(entities.RoleRecepcionista, perm) {
+			t.Errorf("RECEPCIONISTA debería tener %s: ya podía ajustar stock antes del kardex", perm)
+		}
+	}
+}

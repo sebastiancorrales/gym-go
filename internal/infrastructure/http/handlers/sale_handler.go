@@ -83,6 +83,13 @@ func (h *SaleHandler) CreateSale(c *gin.Context) {
 	sale.Date = localDateStr(now, saleLoc)
 	sale.Hour = localHourStr(now, saleLoc)
 
+	// El gimnasio del token viaja a las líneas de pago. Sale no tiene columna de
+	// gimnasio —el suyo se resuelve por el vendedor, que es el agujero que
+	// documenta backfillOrphanSales— y las líneas nuevas no deben heredarlo.
+	if gymID, err := uuid.Parse(c.GetString("gym_id")); err == nil {
+		sale.GymID = gymID
+	}
+
 	if err := h.saleUseCase.CreateSale(c.Request.Context(), sale); err != nil {
 		RespondError(c, err, "Error al crear venta")
 		return

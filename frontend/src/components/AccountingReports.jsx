@@ -151,12 +151,18 @@ export default function AccountingReports() {
     try {
       const prev = prevPeriod(dateRange.s, dateRange.e);
 
-      const [subsRes, prevSubsRes, salesRes, prevSalesRes, salesByDateRes] = await Promise.all([
+      const [subsRes, prevSubsRes, salesRes, prevSalesRes, salesByDateRes, expensesRes, prevExpensesRes] = await Promise.all([
         api.get(`/subscriptions/report?from=${dateRange.s}&to=${dateRange.e}`),
         api.get(`/subscriptions/report?from=${prev.start}&to=${prev.end}`),
         api.get(`/sales/report?start_date=${dateRange.s}&end_date=${dateRange.e}`),
         api.get(`/sales/report?start_date=${prev.start}&end_date=${prev.end}`),
         api.get(`/sales/by-date?start_date=${dateRange.s}&end_date=${dateRange.e}`),
+        // Quien ve esta pantalla siempre tiene reports:accounting, y ese permiso
+        // sólo lo dan SUPER_ADMIN/ADMIN_GYM — los mismos que tienen expenses:read.
+        // A diferencia del Cuadre del Día, aquí no hace falta blindar la petición
+        // con un catch aparte para recepción o staff: nunca llegan a esta pantalla.
+        api.get(`/expenses/report?start_date=${dateRange.s}&end_date=${dateRange.e}`),
+        api.get(`/expenses/report?start_date=${prev.start}&end_date=${prev.end}`),
       ]);
 
       // ── Parse subscriptions ──────────────────────────────────────────────
@@ -261,6 +267,17 @@ export default function AccountingReports() {
       const prevGrandTotal = prevSubsRevenue + prevSalesRevenue;
       const totalTransactions = subs.length + (salesReport?.sales_count ?? salesList.length);
 
+      // ── Egresos ────────────────────────────────────────────────────────────
+      // Report() ya neta las anulaciones (el espejo negativo de VoidExpense sale
+      // en la misma suma), así que no hay filtro de estado que aplicar aquí —es
+      // el mismo principio que SumByMethod aplica del lado de los ingresos.
+      const expensesReport = expensesRes.ok ? await expensesRes.json() : null;
+      const prevExpensesReport = prevExpensesRes.ok ? await prevExpensesRes.json() : null;
+      const expensesTotal = expensesReport?.total_expenses ?? 0;
+      const prevExpensesTotal = prevExpensesReport?.total_expenses ?? 0;
+      const netProfit = grandTotal - expensesTotal;
+      const prevNetProfit = prevGrandTotal - prevExpensesTotal;
+
       setData({
         subs,
         subsRevenue,
@@ -272,12 +289,20 @@ export default function AccountingReports() {
         totalTransactions,
         planBreakdown,
         dailyChart,
+        expensesReport,
+        expensesTotal,
+        inventoryCost: expensesReport?.inventory_cost ?? 0,
+        operatingCost: expensesReport?.operating_cost ?? 0,
+        expensesByCategory: expensesReport?.by_category ?? [],
+        netProfit,
       });
       setPrevData({
         subsRevenue: prevSubsRevenue,
         salesRevenue: prevSalesRevenue,
         grandTotal: prevGrandTotal,
         totalTransactions: prevSubs.length + (prevSalesReport?.sales_count ?? 0),
+        expensesTotal: prevExpensesTotal,
+        netProfit: prevNetProfit,
       });
     } finally {
       setLoading(false);
@@ -317,7 +342,13 @@ export default function AccountingReports() {
       data.salesRevenue,
     ]);
     rows.push([]);
-    rows.push(['', '', '', '', '', '', '', '', 'TOTAL GENERAL', data.grandTotal]);
+    rows.push(['', '', '', '', '', '', '', '', 'INGRESOS BRUTOS', data.grandTotal]);
+    rows.push([]);
+    rows.push(['EGRESOS', '', '', '', '', '', '', '', '', '']);
+    rows.push(['Compra de mercancía', 'Gasto operativo', 'Total egresos']);
+    rows.push([data.inventoryCost, data.operatingCost, data.expensesTotal]);
+    rows.push([]);
+    rows.push(['', '', '', '', '', '', '', '', 'UTILIDAD NETA', data.netProfit]);
     exportExcel(`Reporte ${dateRange.s} a ${dateRange.e}`, headers, rows, `reporte-contable_${dateRange.s}_${dateRange.e}`);
   };
 
@@ -349,7 +380,13 @@ export default function AccountingReports() {
       `Transacciones,Bruto,Descuentos,Neto`,
       `${data.salesReport?.sales_count ?? data.salesList.length},${data.salesReport?.total_sales ?? 0},${data.salesReport?.total_discount ?? 0},${data.salesRevenue}`,
       ``,
-      `,,,,,,,,TOTAL GENERAL,${data.grandTotal}`,
+      `,,,,,,,,Ingresos brutos,${data.grandTotal}`,
+      ``,
+      `EGRESOS`,
+      `Compra de mercancia,Gasto operativo,Total egresos`,
+      `${data.inventoryCost},${data.operatingCost},${data.expensesTotal}`,
+      ``,
+      `,,,,,,,,UTILIDAD NETA,${data.netProfit}`,
     ];
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -505,6 +542,22 @@ export default function AccountingReports() {
               accent="text-orange-500"
               sub="Total operaciones"
             />
+            <KpiCard
+              title="Egresos del Periodo"
+              value={fmt(data.expensesTotal)}
+              prevValue={[data.expensesTotal, prevData?.expensesTotal]}
+              icon={'\uD83D\uDCE4'}
+              accent="text-red-600"
+              sub="Gastos y compras"
+            />
+            <KpiCard
+              title="Utilidad Neta"
+              value={fmt(data.netProfit)}
+              prevValue={[data.netProfit, prevData?.netProfit]}
+              icon={'\u2696\uFE0F'}
+              accent={data.netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}
+              sub="Ingresos \u2212 egresos"
+            />
           </div>
 
           {/* Export buttons */}
@@ -625,6 +678,52 @@ export default function AccountingReports() {
                   <p className="text-xs text-gray-500 mt-1">Ingresos netos</p>
                 </div>
               </div>
+            )}
+          </Card>
+
+          {/* Expenses summary */}
+          <Card title="Egresos del periodo">
+            {data.expensesTotal === 0 && data.expensesByCategory.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">Sin gastos registrados en este periodo</p>
+            ) : (
+              <>
+                <div className="px-6 py-5 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-red-600">{fmt(data.expensesTotal)}</p>
+                    <p className="text-xs text-gray-500 mt-1">Total egresos</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-orange-500">{fmt(data.inventoryCost)}</p>
+                    <p className="text-xs text-gray-500 mt-1">Compra de mercanc\u00EDa</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-purple-600">{fmt(data.operatingCost)}</p>
+                    <p className="text-xs text-gray-500 mt-1">Gasto operativo</p>
+                  </div>
+                </div>
+                {data.expensesByCategory.length > 0 && (
+                  <div className="overflow-x-auto border-t border-gray-50">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-50">
+                          <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Categor\u00EDa</th>
+                          <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Registros</th>
+                          <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {data.expensesByCategory.map((c) => (
+                          <tr key={c.category_id} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-5 py-3 font-medium text-gray-800">{c.category_name}</td>
+                            <td className="px-5 py-3 text-right text-gray-500">{c.count}</td>
+                            <td className="px-5 py-3 text-right font-semibold text-gray-900">{fmt(c.total)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
             )}
           </Card>
 

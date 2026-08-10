@@ -125,3 +125,17 @@ func (r *SQLiteSaleRepository) GetSalesReportByProduct(ctx context.Context, star
 
 	return reports, err
 }
+
+// FindVoidBySaleID returns the mirror sale created when the given sale was
+// voided, or nil if it was never voided.
+func (r *SQLiteSaleRepository) FindVoidBySaleID(ctx context.Context, originalSaleID uuid.UUID) (*entities.Sale, error) {
+	var sale entities.Sale
+	err := r.db.WithContext(ctx).Where("voided_sale_id = ?", originalSaleID).First(&sale).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &sale, nil
+}

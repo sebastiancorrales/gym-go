@@ -17,9 +17,16 @@ type SaleDetailRequest struct {
 }
 
 // CreateSaleRequest representa la solicitud para crear una venta
+//
+// Acepta las dos formas: `payments` con las patas del cobro, o el
+// `payment_method_id` suelto de siempre. La segunda no es un caso especial que
+// haya que mantener aparte — el use case la convierte en una línea por el total,
+// que es el caso general con N=1. Eso deja funcionando a cualquier cliente
+// anterior al pago combinado sin ramas duplicadas.
 type CreateSaleRequest struct {
-	PaymentMethodID string              `json:"payment_method_id" binding:"required"`
-	Details         []SaleDetailRequest `json:"details" binding:"required,min=1"`
+	PaymentMethodID string               `json:"payment_method_id,omitempty" binding:"omitempty,uuid"`
+	Payments        []PaymentLineRequest `json:"payments,omitempty" binding:"omitempty,dive"`
+	Details         []SaleDetailRequest  `json:"details" binding:"required,min=1"`
 }
 
 // VoidSaleRequest representa la solicitud para anular una venta
@@ -43,19 +50,28 @@ type SaleDetailResponse struct {
 
 // SaleResponse representa la respuesta de una venta
 type SaleResponse struct {
-	ID                string               `json:"id"`
-	SaleDate          time.Time            `json:"sale_date"`
-	Total             float64              `json:"total"`
-	TotalDiscount     float64              `json:"total_discount"`
-	UserID            string               `json:"user_id"`
-	Type              string               `json:"type"`
-	Status            string               `json:"status"`
-	PaymentMethodID   string               `json:"payment_method_id"`
-	PaymentMethodName string               `json:"payment_method_name,omitempty"`
-	VoidedSaleID      *string              `json:"voided_sale_id,omitempty"`
-	CreatedAt         time.Time            `json:"created_at"`
-	UpdatedAt         time.Time            `json:"updated_at"`
-	Details           []SaleDetailResponse `json:"details,omitempty"`
+	ID                string    `json:"id"`
+	SaleDate          time.Time `json:"sale_date"`
+	Total             float64   `json:"total"`
+	TotalDiscount     float64   `json:"total_discount"`
+	UserID            string    `json:"user_id"`
+	Type              string    `json:"type"`
+	Status            string    `json:"status"`
+	PaymentMethodID   string    `json:"payment_method_id"`
+	PaymentMethodName string    `json:"payment_method_name,omitempty"`
+	VoidedSaleID      *string   `json:"voided_sale_id,omitempty"`
+	// Date y Hour son las columnas locales del gimnasio por las que filtran todos
+	// los reportes. No se exponían, y el historial de ventas del frontend las lee:
+	// su columna "Fecha" mostraba siempre un guion.
+	Date         string                `json:"date,omitempty"`
+	Hour         string                `json:"hour,omitempty"`
+	PaymentLines []PaymentLineResponse `json:"payment_lines,omitempty"`
+	// ChangeGiven es el vuelto total de la venta, para que el punto de venta lo
+	// muestre al cerrar sin recalcularlo.
+	ChangeGiven float64              `json:"change_given,omitempty"`
+	CreatedAt   time.Time            `json:"created_at"`
+	UpdatedAt   time.Time            `json:"updated_at"`
+	Details     []SaleDetailResponse `json:"details,omitempty"`
 }
 
 // SaleReportRequest representa la solicitud para un reporte de ventas
@@ -87,7 +103,18 @@ type SaleProductReportResponse struct {
 
 // ToEntity convierte CreateSaleRequest a Sale entity
 func (r *CreateSaleRequest) ToEntity(userID uuid.UUID) (*entities.Sale, error) {
-	paymentMethodID, err := uuid.Parse(r.PaymentMethodID)
+	// El método suelto es opcional cuando vienen las líneas, y viceversa; que
+	// falten los dos lo rechaza el use case.
+	var paymentMethodID uuid.UUID
+	if r.PaymentMethodID != "" {
+		parsed, err := uuid.Parse(r.PaymentMethodID)
+		if err != nil {
+			return nil, err
+		}
+		paymentMethodID = parsed
+	}
+
+	paymentLines, err := ToPaymentLines(r.Payments)
 	if err != nil {
 		return nil, err
 	}
@@ -109,6 +136,7 @@ func (r *CreateSaleRequest) ToEntity(userID uuid.UUID) (*entities.Sale, error) {
 	return &entities.Sale{
 		UserID:          userID,
 		PaymentMethodID: paymentMethodID,
+		PaymentLines:    paymentLines,
 		Details:         details,
 		Type:            entities.SaleTypeNormal,
 		Status:          entities.SaleStatusCompleted,
@@ -133,8 +161,15 @@ func ToSaleResponse(sale *entities.Sale) *SaleResponse {
 		Status:          string(sale.Status),
 		PaymentMethodID: sale.PaymentMethodID.String(),
 		VoidedSaleID:    voidedSaleID,
+		Date:            sale.Date,
+		Hour:            sale.Hour,
 		CreatedAt:       sale.CreatedAt,
 		UpdatedAt:       sale.UpdatedAt,
+	}
+
+	if len(sale.PaymentLines) > 0 {
+		response.PaymentLines = ToPaymentLineResponseList(sale.PaymentLines, nil)
+		response.ChangeGiven = TotalChangeGiven(sale.PaymentLines)
 	}
 
 	if sale.PaymentMethod != nil {
@@ -143,8 +178,8 @@ func ToSaleResponse(sale *entities.Sale) *SaleResponse {
 
 	if len(sale.Details) > 0 {
 		response.Details = make([]SaleDetailResponse, len(sale.Details))
-		for i, detail := range sale.Details {
-			response.Details[i] = ToSaleDetailResponse(&detail)
+		for i := range sale.Details {
+			response.Details[i] = ToSaleDetailResponse(&sale.Details[i])
 		}
 	}
 
@@ -166,7 +201,7 @@ func ToSaleDetailResponse(detail *entities.SaleDetail) SaleDetailResponse {
 
 	if detail.Product != nil {
 		response.ProductName = detail.Product.Name
-		response.Product = ToProductResponse(detail.Product)
+		response.Product = ToProductResponse(detail.Product, false)
 	}
 
 	return response
@@ -175,8 +210,8 @@ func ToSaleDetailResponse(detail *entities.SaleDetail) SaleDetailResponse {
 // ToSaleResponseList convierte una lista de Sale entities a SaleResponse
 func ToSaleResponseList(sales []entities.Sale) []SaleResponse {
 	responses := make([]SaleResponse, len(sales))
-	for i, sale := range sales {
-		responses[i] = *ToSaleResponse(&sale)
+	for i := range sales {
+		responses[i] = *ToSaleResponse(&sales[i])
 	}
 	return responses
 }

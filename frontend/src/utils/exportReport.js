@@ -201,8 +201,33 @@ async function exportConsolidadoPDFImpl(data, dateRange, gymName = 'Gimnasio') {
     didDrawPage: (d) => { y = d.cursor.y + 6; },
   });
 
+  // ── Sección 4: Egresos ──────────────────────────────────────────────────────
+  // Report() ya neta las anulaciones (el espejo negativo de VoidExpense entra en
+  // la misma suma), así que esta cifra es directamente lo que salió de caja.
+  if (y > 220) { doc.addPage(); y = 20; }
+  sectionTitle('4. EGRESOS DEL PERÍODO');
+
+  if ((data.expensesTotal ?? 0) === 0) {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(...GRAY);
+    doc.text('Sin gastos registrados en este período', 17, y);
+    y += 8;
+  } else {
+    autoTable(doc, {
+      head: [['Compra de mercancía', 'Gasto operativo', 'Total egresos']],
+      body: [[fmt(data.inventoryCost ?? 0), fmt(data.operatingCost ?? 0), fmt(data.expensesTotal ?? 0)]],
+      startY: y,
+      margin: { left: 14, right: 14 },
+      styles:       { fontSize: 8, cellPadding: 3, textColor: BLACK },
+      headStyles:   { fillColor: [220, 38, 38], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      columnStyles: { 2: { halign: 'right', fontStyle: 'bold' } },
+      didDrawPage: (d) => { y = d.cursor.y + 6; },
+    });
+  }
+
   // ── Cuadre de Caja ───────────────────────────────────────────────────────────
-  if (y > 240) { doc.addPage(); y = 20; }
+  if (y > 220) { doc.addPage(); y = 20; }
 
   y += 4;
   // Línea de cierre
@@ -217,13 +242,38 @@ async function exportConsolidadoPDFImpl(data, dateRange, gymName = 'Gimnasio') {
   doc.setTextColor(150, 250, 200);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL GENERAL DEL PERÍODO', W / 2, y + 7, { align: 'center' });
+  doc.text('INGRESOS BRUTOS DEL PERÍODO', W / 2, y + 7, { align: 'center' });
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(20);
   doc.text(fmt(data.grandTotal), W / 2, y + 17, { align: 'center' });
 
-  y += 28;
+  y += 26;
+
+  // Egresos y utilidad neta, en la misma línea, debajo del total bruto.
+  const netProfit = data.netProfit ?? (data.grandTotal - (data.expensesTotal ?? 0));
+  const smallBoxW = (W - 28 - 4) / 2;
+  const netColor = netProfit >= 0 ? GREEN : [220, 38, 38];
+
+  doc.setFillColor(220, 38, 38);
+  doc.roundedRect(14, y, smallBoxW, 18, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.text('EGRESOS DEL PERÍODO', 14 + smallBoxW / 2, y + 6, { align: 'center' });
+  doc.setFontSize(13);
+  doc.text(fmt(data.expensesTotal ?? 0), 14 + smallBoxW / 2, y + 14, { align: 'center' });
+
+  doc.setFillColor(...netColor);
+  doc.roundedRect(14 + smallBoxW + 4, y, smallBoxW, 18, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'bold');
+  doc.text('UTILIDAD NETA', 14 + smallBoxW + 4 + smallBoxW / 2, y + 6, { align: 'center' });
+  doc.setFontSize(13);
+  doc.text(fmt(netProfit), 14 + smallBoxW + 4 + smallBoxW / 2, y + 14, { align: 'center' });
+
+  y += 24;
 
   doc.setDrawColor(...DARK);
   doc.setLineWidth(0.8);

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../utils/api';
 import { fmt } from '../utils/currency';
 import { todayStr } from '../utils/dateUtils';
+import { PERMS, can } from '../utils/permissions';
 import SkeletonTable, { SkeletonKpi } from './SkeletonTable';
 
 // Cuadre del Día — la versión de los reportes para los roles de mostrador
@@ -13,15 +14,22 @@ import SkeletonTable, { SkeletonKpi } from './SkeletonTable';
 // rechaza con 403 cualquier fecha distinta de hoy para estos roles
 // (middleware.RestrictReportRange), así que un selector de fechas aquí solo
 // serviría para producir errores.
+//
+// El desglose por método de pago sale de GET /payments/summary, no de agregar
+// ventas y suscripciones a mano en el cliente. Antes de este endpoint, las
+// anulaciones se excluían del desglose pero SÍ restaban del total (net_sales ya
+// las contaba), así que sum(métodos) ≠ total en cualquier día con una anulación
+// y la caja nunca cuadraba ese día. SumByMethod agrega en la base con el signo
+// de cada línea, así que las anulaciones se restan solas y las dos cifras
+// siempre coinciden.
+//
+// Cambio de comportamiento a saber: un día con una anulación ahora muestra el
+// método afectado con un renglón negativo en vez de ocultar la venta y su
+// reversa por completo. Es el número correcto, pero es distinto del que se veía
+// antes — conviene avisarlo al personal en vez de que lo descubran cuadrando.
 
-const PM_LABEL = { EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia', OTRO: 'Otro' };
-const pmLabel = (m) => PM_LABEL[m?.toUpperCase?.()] ?? m ?? 'Otro';
-const pmIcon = (m) => {
-  const key = m?.toUpperCase?.() ?? '';
-  if (key === 'EFECTIVO') return '💵';
-  if (key === 'TRANSFERENCIA') return '🏦';
-  return '💳';
-};
+const TYPE_ICON = { cash: '💵', card: '💳', transfer: '🏦', other: '🧾' };
+const iconFor = (type) => TYPE_ICON[type] || '🧾';
 
 const hourOf = (iso) =>
   iso ? new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -57,7 +65,7 @@ const Empty = ({ text }) => (
   <p className="px-6 py-10 text-center text-[13px] text-[#94A3B8]">{text}</p>
 );
 
-export default function DailyClose() {
+export default function DailyClose({ user }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
@@ -67,13 +75,25 @@ export default function DailyClose() {
     setLoading(true);
     setError(null);
     try {
-      const [subsRes, salesReportRes, salesListRes] = await Promise.all([
+      const qs = `start_date=${today}&end_date=${today}`;
+
+      // La petición de gastos va APARTE del resto, con su propio catch: un rol
+      // sin permiso contable recibe 403 en /expenses, y si esa petición viviera
+      // en el mismo Promise.all tumbaría toda la pantalla de cuadre para
+      // recepción y staff, que son justo quienes más la usan a diario.
+      const canSeeExpenses = can(user, PERMS.EXPENSES_READ);
+
+      const [subsRes, salesReportRes, salesListRes, summaryRes] = await Promise.all([
         api.get(`/subscriptions/report?from=${today}&to=${today}`, { noCache: true }),
         api.get(`/sales/report?start_date=${today}&end_date=${today}`, { noCache: true }),
         api.get(`/sales/by-date?start_date=${today}&end_date=${today}`, { noCache: true }),
+        api.get(`/payments/summary?${qs}`, { noCache: true }),
       ]);
+      const expensesRes = canSeeExpenses
+        ? await api.get(`/expenses?${qs}`, { noCache: true }).catch(() => null)
+        : null;
 
-      if (!subsRes.ok || !salesReportRes.ok || !salesListRes.ok) {
+      if (!subsRes.ok || !salesReportRes.ok || !salesListRes.ok || !summaryRes.ok) {
         setError('No se pudo cargar el cuadre del día.');
         return;
       }
@@ -81,34 +101,48 @@ export default function DailyClose() {
       const rawSubs = await subsRes.json();
       // Una suscripción cancelada no entra en la caja del día.
       const subs = (rawSubs?.data || rawSubs || []).filter((s) => s.status !== 'CANCELLED');
-      const subsTotal = subs.reduce((sum, s) => sum + (s.total_paid || 0), 0);
 
       const salesReport = await salesReportRes.json();
       const rawSales = (await salesListRes.json()) || [];
       const sales = rawSales.filter((s) => s.status !== 'voided' && s.type !== 'void');
       const salesTotal = salesReport?.net_sales ?? sales.reduce((sum, s) => sum + (s.total ?? 0), 0);
+      const subsTotal = subs.reduce((sum, s) => sum + (s.total_paid || 0), 0);
 
-      // Desglose por método de pago, juntando suscripciones y ventas: es lo que
-      // se compara contra el efectivo del cajón al cerrar.
-      const byMethod = {};
-      const bucket = (m) => {
-        const key = pmLabel(m);
-        if (!byMethod[key]) byMethod[key] = { method: key, subsTotal: 0, salesTotal: 0, count: 0 };
-        return byMethod[key];
-      };
-      subs.forEach((s) => {
-        const b = bucket(s.payment_method);
-        b.subsTotal += s.total_paid || 0;
-        b.count++;
-      });
-      sales.forEach((s) => {
-        const b = bucket(s.payment_method_name);
-        b.salesTotal += s.total ?? 0;
-        b.count++;
-      });
-      const methods = Object.values(byMethod)
-        .map((m) => ({ ...m, total: m.subsTotal + m.salesTotal }))
-        .sort((a, b) => b.total - a.total);
+      // El desglose por método ya viene agregado y neteado desde el backend:
+      // sum(methods) === summary.total siempre, con o sin anulaciones.
+      const summary = await summaryRes.json();
+      const methods = (summary.methods || []).map((m) => ({
+        method: m.payment_method_name,
+        type: m.type,
+        subsTotal: m.subs_total,
+        salesTotal: m.sales_total,
+        total: m.total,
+      }));
+
+      let expenses = [];
+      let expensesTotal = 0;
+      let expensesByMethod = {};
+      if (expensesRes?.ok) {
+        const rawExpenses = await expensesRes.json();
+        // El espejo negativo de una anulación ya está incluido: sumar todas las
+        // filas del rango neteado es lo mismo que hace el reporte de gastos.
+        expenses = rawExpenses || [];
+        expensesTotal = expenses.reduce((sum, e) => sum + (e.total || 0), 0);
+        expenses.forEach((e) => {
+          const key = e.payment_method_name || 'Otro';
+          expensesByMethod[key] = (expensesByMethod[key] || 0) + (e.total || 0);
+        });
+      }
+
+      // Lo que debe haber en el cajón al cerrar no es sólo lo que entró: hay que
+      // restar lo que salió pagado con el mismo método. Sin esto, la caja
+      // descuadra cada vez que alguien paga el domicilio del agua con la plata
+      // del cajón — que es exactamente el caso que motiva el módulo de gastos.
+      const methodsNet = methods.map((m) => ({
+        ...m,
+        expensesTotal: expensesByMethod[m.method] || 0,
+        net: m.total - (expensesByMethod[m.method] || 0),
+      }));
 
       setData({
         subs,
@@ -116,15 +150,20 @@ export default function DailyClose() {
         sales,
         salesTotal,
         salesCount: salesReport?.sales_count ?? sales.length,
-        methods,
-        grandTotal: subsTotal + salesTotal,
+        methods: methodsNet,
+        grandTotal: summary.total,
+        changeGiven: summary.change_given || 0,
+        expenses,
+        expensesTotal,
+        canSeeExpenses,
+        netTotal: summary.total - expensesTotal,
       });
     } catch {
       setError('No se pudo cargar el cuadre del día.');
     } finally {
       setLoading(false);
     }
-  }, [today]);
+  }, [today, user]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -179,16 +218,54 @@ export default function DailyClose() {
               sub={`${data.salesCount} transacci${data.salesCount !== 1 ? 'ones' : 'ón'} hoy`}
               icon="🛒" accent="#EA580C"
             />
-            <KpiCard
-              title="Total del día"
-              value={fmt(data.grandTotal)}
-              sub="Suscripciones + ventas"
-              icon="💰" accent="#059669"
-            />
+            {data.canSeeExpenses ? (
+              <KpiCard
+                title="Egresos del día"
+                value={fmt(data.expensesTotal)}
+                sub={`${data.expenses.length} gasto${data.expenses.length !== 1 ? 's' : ''} hoy`}
+                icon="📤" accent="#DC2626"
+              />
+            ) : (
+              <KpiCard
+                title="Total del día"
+                value={fmt(data.grandTotal)}
+                sub="Suscripciones + ventas"
+                icon="💰" accent="#059669"
+              />
+            )}
           </div>
 
+          {/* Neto, sólo para quien ve gastos: ingresos - egresos */}
+          {data.canSeeExpenses && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <KpiCard
+                title="Ingresos brutos"
+                value={fmt(data.grandTotal)}
+                sub="Suscripciones + ventas"
+                icon="💰" accent="#059669"
+              />
+              <KpiCard
+                title="Neto del día"
+                value={fmt(data.netTotal)}
+                sub="Ingresos − egresos"
+                icon="⚖️" accent={data.netTotal >= 0 ? '#059669' : '#DC2626'}
+              />
+            </div>
+          )}
+
+          {/* Vuelto entregado hoy: número operativo real, no derivable de nada más */}
+          {data.changeGiven > 0 && (
+            <div className="rounded-[12px] bg-[#FFF7ED] border border-[#FED7AA] px-5 py-3 flex items-center justify-between">
+              <span className="text-[13px] font-semibold text-[#9A3412]">Vuelto entregado hoy</span>
+              <span className="text-[16px] font-extrabold text-[#EA580C]">{fmt(data.changeGiven)}</span>
+            </div>
+          )}
+
           {/* Desglose por método de pago */}
-          <Card title="Por método de pago" note="Lo que debe cuadrar contra la caja">
+          <Card
+            title="Por método de pago"
+            note={data.canSeeExpenses ? 'Ingresos, egresos y lo que debe quedar en caja' : 'Lo que debe cuadrar contra la caja'}
+          >
             {data.methods.length === 0 ? (
               <Empty text="Todavía no hay movimientos hoy." />
             ) : (
@@ -199,25 +276,40 @@ export default function DailyClose() {
                       <th className="px-6 py-2.5">Método</th>
                       <th className="px-6 py-2.5 text-right">Suscripciones</th>
                       <th className="px-6 py-2.5 text-right">Ventas</th>
-                      <th className="px-6 py-2.5 text-right">Total</th>
+                      {data.canSeeExpenses && <th className="px-6 py-2.5 text-right">Egresos</th>}
+                      <th className="px-6 py-2.5 text-right">{data.canSeeExpenses ? 'Neto' : 'Total'}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.methods.map((m) => (
                       <tr key={m.method} className="border-t border-[#F1F5F9]">
                         <td className="px-6 py-3 font-semibold text-[#0F1C35]">
-                          <span className="mr-2">{pmIcon(m.method)}</span>{m.method}
+                          <span className="mr-2">{iconFor(m.type)}</span>{m.method}
                         </td>
                         <td className="px-6 py-3 text-right text-[#4B5778]">{fmt(m.subsTotal)}</td>
                         <td className="px-6 py-3 text-right text-[#4B5778]">{fmt(m.salesTotal)}</td>
-                        <td className="px-6 py-3 text-right font-bold text-[#0F1C35]">{fmt(m.total)}</td>
+                        {data.canSeeExpenses && (
+                          <td className="px-6 py-3 text-right text-red-600">
+                            {m.expensesTotal > 0 ? `-${fmt(m.expensesTotal)}` : '—'}
+                          </td>
+                        )}
+                        <td className="px-6 py-3 text-right font-bold text-[#0F1C35]">
+                          {fmt(data.canSeeExpenses ? m.net : m.total)}
+                        </td>
                       </tr>
                     ))}
                     <tr className="border-t-2 border-[#E2E8EF] bg-[#F8FAFC]">
                       <td className="px-6 py-3 font-bold text-[#0F1C35]">TOTAL</td>
                       <td className="px-6 py-3 text-right font-semibold text-[#4B5778]">{fmt(data.subsTotal)}</td>
                       <td className="px-6 py-3 text-right font-semibold text-[#4B5778]">{fmt(data.salesTotal)}</td>
-                      <td className="px-6 py-3 text-right font-extrabold text-[#059669]">{fmt(data.grandTotal)}</td>
+                      {data.canSeeExpenses && (
+                        <td className="px-6 py-3 text-right font-semibold text-red-600">
+                          {data.expensesTotal > 0 ? `-${fmt(data.expensesTotal)}` : '—'}
+                        </td>
+                      )}
+                      <td className="px-6 py-3 text-right font-extrabold text-[#059669]">
+                        {fmt(data.canSeeExpenses ? data.netTotal : data.grandTotal)}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
@@ -242,7 +334,6 @@ export default function DailyClose() {
                         </p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs">{pmIcon(s.payment_method)}</span>
                         <span className="text-[13px] font-bold text-[#0F1C35]">{fmt(s.total_paid)}</span>
                       </div>
                     </div>
@@ -267,11 +358,12 @@ export default function DailyClose() {
                           : 'Venta'}
                       </p>
                       <p className="text-[11.5px] text-[#94A3B8]">
-                        {pmLabel(s.payment_method_name)} · {hourOf(s.sale_date || s.created_at)}
+                        {s.payment_lines?.length > 1
+                          ? s.payment_lines.map((l) => l.payment_method_name).join(' + ')
+                          : (s.payment_method_name || '—')} · {hourOf(s.sale_date || s.created_at)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-xs">{pmIcon(s.payment_method_name)}</span>
                       <span className="text-[13px] font-bold text-[#0F1C35]">{fmt(s.total)}</span>
                     </div>
                   </div>
@@ -279,6 +371,35 @@ export default function DailyClose() {
               </div>
             )}
           </Card>
+
+          {/* Gastos de hoy, sólo para quien tiene el permiso */}
+          {data.canSeeExpenses && (
+            <Card title="Gastos de hoy" note={`${data.expenses.length} registro${data.expenses.length !== 1 ? 's' : ''}`}>
+              {data.expenses.length === 0 ? (
+                <Empty text="No se registraron gastos hoy." />
+              ) : (
+                <div className="divide-y divide-[#F1F5F9]">
+                  {data.expenses.map((e) => (
+                    <div key={e.id} className="flex items-center justify-between px-6 py-3">
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-semibold text-[#0F1C35] truncate">
+                          {e.description || e.category_name || 'Gasto'}
+                        </p>
+                        <p className="text-[11.5px] text-[#94A3B8]">
+                          {e.category_name || '—'} · {e.payment_method_name || '—'} · {hourOf(e.created_at)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className={`text-[13px] font-bold ${e.total < 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                          {e.total < 0 ? fmt(e.total) : `-${fmt(e.total)}`}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
         </>
       )}
     </div>

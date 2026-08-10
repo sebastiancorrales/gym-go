@@ -21,8 +21,14 @@ type DailyCloseEmailData struct {
 	TotalSubsAmount  string
 	TotalSubsCount   int
 	TotalRevenue     string
-	Currency         string
-	PaymentMethods   []PaymentMethodRow
+	// HasExpenses controla si se muestran las filas de egresos: un periodo sin
+	// gastos no necesita una fila de "$0" que sólo añade ruido.
+	HasExpenses         bool
+	TotalExpensesAmount string
+	TotalExpensesCount  int
+	NetRevenue          string
+	Currency            string
+	PaymentMethods      []PaymentMethodRow
 }
 
 // PaymentMethodRow is one line in the payment-method breakdown table.
@@ -70,10 +76,22 @@ const dailyCloseTpl = `<!DOCTYPE html>
           <td style="padding:10px 14px;text-align:center">{{.TotalSubsCount}}</td>
           <td style="padding:10px 14px;text-align:right">{{.TotalSubsAmount}}</td>
         </tr>
+        <tr style="border-top:2px solid #e5e7eb;font-weight:600">
+          <td style="padding:10px 14px;color:#374151">{{if .IsRange}}INGRESOS BRUTOS DEL PERIODO{{else}}INGRESOS BRUTOS DEL DIA{{end}}</td>
+          <td style="padding:10px 14px;text-align:center;color:#374151">{{totalCount .TotalSalesCount .TotalSubsCount}}</td>
+          <td style="padding:10px 14px;text-align:right;color:#374151">{{.TotalRevenue}}</td>
+        </tr>
+        {{if .HasExpenses}}
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:10px 14px;color:#b91c1c">Egresos (gastos y compras)</td>
+          <td style="padding:10px 14px;text-align:center;color:#b91c1c">{{.TotalExpensesCount}}</td>
+          <td style="padding:10px 14px;text-align:right;color:#b91c1c">-{{.TotalExpensesAmount}}</td>
+        </tr>
+        {{end}}
         <tr style="background:#ecfdf5;font-weight:700">
-          <td style="padding:12px 14px;border-radius:0 0 0 6px;color:#065f46">{{if .IsRange}}TOTAL DEL PERIODO{{else}}TOTAL DEL DIA{{end}}</td>
-          <td style="padding:12px 14px;text-align:center;color:#065f46">{{totalCount .TotalSalesCount .TotalSubsCount}}</td>
-          <td style="padding:12px 14px;text-align:right;color:#10b981;font-size:16px;border-radius:0 0 6px 0">{{.TotalRevenue}}</td>
+          <td style="padding:12px 14px;border-radius:0 0 0 6px;color:#065f46">{{if .IsRange}}NETO DEL PERIODO{{else}}NETO DEL DIA{{end}}</td>
+          <td style="padding:12px 14px;text-align:center;color:#065f46"></td>
+          <td style="padding:12px 14px;text-align:right;color:#10b981;font-size:16px;border-radius:0 0 6px 0">{{.NetRevenue}}</td>
         </tr>
       </tbody>
     </table>

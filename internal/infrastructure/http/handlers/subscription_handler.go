@@ -3,12 +3,14 @@ package handlers
 import (
 	"log"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
+	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/dto"
 	"github.com/sebastiancorrales/gym-go/internal/infrastructure/http/middleware"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
 	"github.com/sebastiancorrales/gym-go/pkg/timeutil"
@@ -18,17 +20,22 @@ type SubscriptionHandler struct {
 	subscriptionUseCase *usecases.SubscriptionUseCase
 	userUseCase         *usecases.UserUseCase
 	planUseCase         *usecases.PlanUseCase
+	// paymentUseCase aporta la mitad nueva de la bitácora: las correcciones de
+	// método de pago viven en ChangeLog, no en SubscriptionAuditLog.
+	paymentUseCase *usecases.PaymentUseCase
 }
 
 func NewSubscriptionHandler(
 	subscriptionUseCase *usecases.SubscriptionUseCase,
 	userUseCase *usecases.UserUseCase,
 	planUseCase *usecases.PlanUseCase,
+	paymentUseCase *usecases.PaymentUseCase,
 ) *SubscriptionHandler {
 	return &SubscriptionHandler{
 		subscriptionUseCase: subscriptionUseCase,
 		userUseCase:         userUseCase,
 		planUseCase:         planUseCase,
+		paymentUseCase:      paymentUseCase,
 	}
 }
 
@@ -46,11 +53,36 @@ type SubscriptionResponse struct {
 }
 
 type CreateSubscriptionRequest struct {
-	UserID            string   `json:"user_id" binding:"required"`
-	PlanID            string   `json:"plan_id" binding:"required"`
-	Discount          float64  `json:"discount"`
-	PaymentMethod     string   `json:"payment_method"`
-	AdditionalMembers []string `json:"additional_members"`
+	UserID   string  `json:"user_id" binding:"required"`
+	PlanID   string  `json:"plan_id" binding:"required"`
+	Discount float64 `json:"discount"`
+	// Tres formas de decir cómo se paga, por orden de preferencia: `payments`
+	// (combinado), `payment_method_id` (uno del catálogo) o `payment_method` (el
+	// string libre de siempre). La última existe para que un cliente sin
+	// actualizar siga cobrando mientras se despliega el frontend.
+	Payments          []dto.PaymentLineRequest `json:"payments,omitempty" binding:"omitempty,dive"`
+	PaymentMethodID   string                   `json:"payment_method_id,omitempty" binding:"omitempty,uuid"`
+	PaymentMethod     string                   `json:"payment_method"`
+	AdditionalMembers []string                 `json:"additional_members"`
+}
+
+// toPaymentInput traduce las tres formas de indicar el pago a lo que espera el
+// use case.
+func toPaymentInput(payments []dto.PaymentLineRequest, methodID, legacyName string) (usecases.PaymentInput, error) {
+	lines, err := dto.ToPaymentLines(payments)
+	if err != nil {
+		return usecases.PaymentInput{}, err
+	}
+
+	input := usecases.PaymentInput{Lines: lines, LegacyName: legacyName}
+	if methodID != "" {
+		parsed, err := uuid.Parse(methodID)
+		if err != nil {
+			return usecases.PaymentInput{}, err
+		}
+		input.MethodID = parsed
+	}
+	return input, nil
 }
 
 func (h *SubscriptionHandler) Create(c *gin.Context) {
@@ -89,7 +121,13 @@ func (h *SubscriptionHandler) Create(c *gin.Context) {
 	}
 
 	loc := middleware.GetGymLocation(c)
-	subscription, err := h.subscriptionUseCase.CreateSubscription(userID, planID, gymID, req.Discount, req.PaymentMethod, additionalIDs, loc)
+	payment, err := toPaymentInput(req.Payments, req.PaymentMethodID, req.PaymentMethod)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Método de pago inválido"})
+		return
+	}
+
+	subscription, err := h.subscriptionUseCase.CreateSubscription(userID, planID, gymID, req.Discount, payment, additionalIDs, loc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -254,10 +292,12 @@ func (h *SubscriptionHandler) Renew(c *gin.Context) {
 		return
 	}
 	var req struct {
-		PlanID            string   `json:"plan_id" binding:"required"`
-		Discount          float64  `json:"discount"`
-		PaymentMethod     string   `json:"payment_method"`
-		AdditionalMembers []string `json:"additional_members"`
+		PlanID            string                   `json:"plan_id" binding:"required"`
+		Discount          float64                  `json:"discount"`
+		Payments          []dto.PaymentLineRequest `json:"payments,omitempty" binding:"omitempty,dive"`
+		PaymentMethodID   string                   `json:"payment_method_id,omitempty" binding:"omitempty,uuid"`
+		PaymentMethod     string                   `json:"payment_method"`
+		AdditionalMembers []string                 `json:"additional_members"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -277,7 +317,13 @@ func (h *SubscriptionHandler) Renew(c *gin.Context) {
 	gymIDStr := c.GetString("gym_id")
 	gymID, _ := uuid.Parse(gymIDStr)
 	renewLoc := middleware.GetGymLocation(c)
-	newSub, err := h.subscriptionUseCase.RenewSubscription(id, planID, gymID, req.Discount, req.PaymentMethod, additionalIDs, renewLoc)
+	payment, err := toPaymentInput(req.Payments, req.PaymentMethodID, req.PaymentMethod)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Método de pago inválido"})
+		return
+	}
+
+	newSub, err := h.subscriptionUseCase.RenewSubscription(id, planID, gymID, req.Discount, payment, additionalIDs, renewLoc)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -330,12 +376,34 @@ func (h *SubscriptionHandler) GetAuditLog(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid subscription ID"})
 		return
 	}
+	// La bitácora sale de DOS tablas: SubscriptionAuditLog (sólo fechas, la
+	// original) y ChangeLog (genérica, donde van las correcciones de método de
+	// pago). Se devuelven normalizadas y ordenadas para que la pantalla no tenga
+	// que saber que son dos.
 	logs, err := h.subscriptionUseCase.GetAuditLog(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, logs)
+
+	entries := make([]usecases.AuditEntry, 0, len(logs))
+	for _, l := range logs {
+		entries = append(entries, usecases.AuditEntry{
+			Description:   "Fechas editadas manualmente",
+			OldValue:      l.OldStartDate.Format("2006-01-02") + " → " + l.OldEndDate.Format("2006-01-02"),
+			NewValue:      l.NewStartDate.Format("2006-01-02") + " → " + l.NewEndDate.Format("2006-01-02"),
+			ChangedByName: l.ChangedByName,
+			CreatedAt:     l.CreatedAt,
+		})
+	}
+
+	corrections, err := h.paymentUseCase.AuditFor(c.Request.Context(), entities.ChangeLogEntitySubscription, id)
+	if err == nil {
+		entries = append(entries, corrections...)
+	}
+
+	sort.Slice(entries, func(i, j int) bool { return entries[i].CreatedAt.After(entries[j].CreatedAt) })
+	c.JSON(http.StatusOK, entries)
 }
 
 func (h *SubscriptionHandler) Freeze(c *gin.Context) {

@@ -17,9 +17,12 @@ const AccessManagement = lazy(() => import('./AccessManagement'));
 const ProductsManagement = lazy(() => import('./inventory/ProductsManagement'));
 const SalesTab = lazy(() => import('./inventory/SalesTab'));
 const SalesHistory = lazy(() => import('./inventory/SalesHistory'));
+const StockMovements = lazy(() => import('./inventory/StockMovements'));
 const ReportsTab = lazy(() => import('./inventory/ReportsTab'));
 const AccountingReports = lazy(() => import('./AccountingReports'));
 const DailyClose = lazy(() => import('./DailyClose'));
+const SuppliersManagement = lazy(() => import('./accounting/SuppliersManagement'));
+const ExpensesManagement = lazy(() => import('./accounting/ExpensesManagement'));
 const PaymentMethodsManagement = lazy(() => import('./inventory/PaymentMethodsManagement'));
 const GymSettings = lazy(() => import('./GymSettings'));
 const DevicesManagement = lazy(() => import('./DevicesManagement'));
@@ -35,9 +38,12 @@ const TAB_LOADERS = {
   products: () => import('./inventory/ProductsManagement'),
   sales: () => import('./inventory/SalesTab'),
   'sales-history': () => import('./inventory/SalesHistory'),
+  'stock-movements': () => import('./inventory/StockMovements'),
   reports: () => import('./inventory/ReportsTab'),
   'accounting-reports': () => import('./AccountingReports'),
   'daily-close': () => import('./DailyClose'),
+  suppliers: () => import('./accounting/SuppliersManagement'),
+  expenses: () => import('./accounting/ExpensesManagement'),
   'payment-methods': () => import('./inventory/PaymentMethodsManagement'),
   'gym-settings': () => import('./GymSettings'),
   devices: () => import('./DevicesManagement'),
@@ -112,6 +118,7 @@ const NAV_GROUPS = [
       // para vender basta con PRODUCTS_READ, que consume el punto de venta.
       { id: 'products',      label: 'Productos',           icon: 'products', perm: PERMS.PRODUCTS_WRITE },
       { id: 'sales',         label: 'Ventas',              icon: 'sales',    perm: PERMS.SALES_CREATE },
+      { id: 'stock-movements', label: 'Movimientos',        icon: 'history',  perm: PERMS.INVENTORY_MOVEMENTS },
       { id: 'sales-history', label: 'Historial De Ventas', icon: 'history',  perm: PERMS.REPORTS_HISTORY },
       { id: 'reports',       label: 'Reportes',            icon: 'reports',  perm: PERMS.REPORTS_INVENTORY },
     ],
@@ -119,6 +126,8 @@ const NAV_GROUPS = [
   {
     label: 'CONTABILIDAD',
     items: [
+      { id: 'expenses',           label: 'Gastos y Egresos',   icon: 'dollar',     perm: PERMS.EXPENSES_READ },
+      { id: 'suppliers',          label: 'Proveedores',        icon: 'staff',      perm: PERMS.SUPPLIERS_READ },
       { id: 'accounting-reports', label: 'Reportes Contables', icon: 'accounting', perm: PERMS.REPORTS_ACCOUNTING },
       { id: 'daily-close',        label: 'Cuadre del Día',     icon: 'dollar',
         perm: PERMS.REPORTS_DAILY, hiddenBy: PERMS.REPORTS_ACCOUNTING },
@@ -148,6 +157,29 @@ const navGroupsFor = (user) =>
     .filter(group => group.items.length > 0);
 
 // ── Avatar ───────────────────────────────────────────────────────────────────
+// Ícono por el NOMBRE del método, buscando palabras clave en vez de comparar
+// contra una lista fija de valores. Antes había un diccionario exacto
+// { EFECTIVO: '💵', TRANSFERENCIA: '🏦', OTRO: '💳' } que sólo casaba con el
+// string libre que usaban las suscripciones ('EFECTIVO' en mayúsculas); desde
+// que cobran contra el catálogo real el valor es 'Efectivo' y ese diccionario
+// nunca volvía a acertar — el ícono salía siempre '❔'. Buscar por palabra clave
+// además sobrevive a un método nuevo como "Nequi": no acierta el ícono exacto,
+// pero tampoco lo pierde por completo.
+const iconForMethodName = (name) => {
+  const key = (name || '').toLowerCase();
+  if (key.includes('efectivo') || key.includes('cash')) return '💵';
+  if (key.includes('transfer')) return '🏦';
+  if (key.includes('tarjeta') || key.includes('card')) return '💳';
+  return '🧾';
+};
+const METHOD_TILE_COLORS = [
+  { bg: '#DCFCE7', color: '#059669' },
+  { bg: '#EBF3FF', color: '#1272D6' },
+  { bg: '#EDE9FE', color: '#6D28D9' },
+  { bg: '#FFF7ED', color: '#EA580C' },
+  { bg: '#F1F5F9', color: '#64748B' },
+];
+
 const AV_COLORS = ['#1272D6','#6D28D9','#0EA5E9','#10B981','#F59E0B','#EF4444','#EC4899','#0F1C35'];
 const Avatar = ({ name = '??', size = 32, idx = 0 }) => {
   const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -250,7 +282,12 @@ export default function Dashboard({ user, onLogout }) {
 
         const byMethod = {};
         for (const s of todayList) {
-          const m = s.payment_method || 'SIN ESPECIFICAR';
+          // Desde que las suscripciones cobran contra el catálogo real, este
+          // campo ya no es 'EFECTIVO'/'TRANSFERENCIA'/'OTRO': es el nombre tal
+          // cual está en Métodos de Pago ('Efectivo', 'Tarjeta', o lo que un
+          // admin haya creado). Se agrupa por ese nombre sin normalizar, porque
+          // es justo lo que hay que mostrar.
+          const m = s.payment_method || 'Sin método';
           if (!byMethod[m]) byMethod[m] = { count: 0, total: 0 };
           byMethod[m].count++;
           byMethod[m].total += s.total_paid || 0;
@@ -530,40 +567,33 @@ export default function Dashboard({ user, onLogout }) {
                   </div>
 
                   <div className="grid grid-cols-3 gap-3 mb-5">
-                    {[
-                      { key: 'EFECTIVO',      label: 'Efectivo',      emoji: '💵', bg: '#DCFCE7', color: '#059669' },
-                      { key: 'TRANSFERENCIA', label: 'Transferencia', emoji: '🏦', bg: '#EBF3FF', color: '#1272D6' },
-                      { key: 'OTRO',          label: 'Otro',          emoji: '💳', bg: '#EDE9FE', color: '#6D28D9' },
-                    ].map(({ key, label, emoji, bg, color }) => {
-                      const d = todaySubs.byMethod[key];
-                      if (!d) return null;
-                      return (
-                        <div key={key} className="rounded-[10px] p-3" style={{ background: bg }}>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <span className="text-base">{emoji}</span>
-                            <span className="text-[12px] font-semibold" style={{ color }}>{label}</span>
+                    {/*
+                      Las tarjetas salen de los métodos que de verdad se usaron
+                      hoy, no de una lista fija de tres nombres: esa lista fija
+                      es la que dejaba de acertar en cuanto el nombre real del
+                      catálogo ('Efectivo') dejó de coincidir con el string que
+                      antes guardaban las suscripciones ('EFECTIVO').
+                    */}
+                    {Object.entries(todaySubs.byMethod)
+                      .sort((a, b) => b[1].total - a[1].total)
+                      .map(([name, d], i) => {
+                        const { bg, color } = METHOD_TILE_COLORS[i % METHOD_TILE_COLORS.length];
+                        return (
+                          <div key={name} className="rounded-[10px] p-3" style={{ background: bg }}>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="text-base">{iconForMethodName(name)}</span>
+                              <span className="text-[12px] font-semibold" style={{ color }}>{name}</span>
+                            </div>
+                            <p className="text-[18px] font-extrabold" style={{ color }}>{fmt(d.total)}</p>
+                            <p className="text-[11px] opacity-70" style={{ color }}>{d.count} pago{d.count !== 1 ? 's' : ''}</p>
                           </div>
-                          <p className="text-[18px] font-extrabold" style={{ color }}>{fmt(d.total)}</p>
-                          <p className="text-[11px] opacity-70" style={{ color }}>{d.count} pago{d.count !== 1 ? 's' : ''}</p>
-                        </div>
-                      );
-                    })}
-                    {todaySubs.byMethod['SIN ESPECIFICAR'] && (
-                      <div className="rounded-[10px] p-3" style={{ background: '#F1F5F9' }}>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <span className="text-base">❔</span>
-                          <span className="text-[12px] font-semibold text-[#64748B]">Sin método</span>
-                        </div>
-                        <p className="text-[18px] font-extrabold text-[#0F1C35]">{fmt(todaySubs.byMethod['SIN ESPECIFICAR'].total)}</p>
-                        <p className="text-[11px] text-[#94A3B8]">{todaySubs.byMethod['SIN ESPECIFICAR'].count} pago{todaySubs.byMethod['SIN ESPECIFICAR'].count !== 1 ? 's' : ''}</p>
-                      </div>
-                    )}
+                        );
+                      })}
                   </div>
 
                   <div className="space-y-0.5">
                     {todaySubs.list.map(s => {
                       const name = s.user ? `${s.user.first_name || ''} ${s.user.last_name || ''}`.trim() : 'Miembro';
-                      const methodIcons = { EFECTIVO: '💵', TRANSFERENCIA: '🏦', OTRO: '💳' };
                       const hour = new Date(s.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
                       return (
                         <div key={s.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-[#F4F7FC] transition-colors">
@@ -575,7 +605,7 @@ export default function Dashboard({ user, onLogout }) {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs">{methodIcons[s.payment_method] || '❔'}</span>
+                            <span className="text-xs">{iconForMethodName(s.payment_method)}</span>
                             <span className="text-[13px] font-bold text-[#0F1C35]">{fmt(s.total_paid)}</span>
                           </div>
                         </div>
@@ -675,10 +705,13 @@ export default function Dashboard({ user, onLogout }) {
           {showTab('access')              && <AccessManagement />}
           {showTab('products')            && <div className="p-7"><ProductsManagement /></div>}
           {showTab('sales')               && <div className="p-7"><SalesTab user={user} /></div>}
-          {showTab('sales-history')       && <div className="p-7"><SalesHistory /></div>}
+          {showTab('stock-movements')     && <div className="p-7"><StockMovements /></div>}
+          {showTab('sales-history')       && <div className="p-7"><SalesHistory user={user} /></div>}
           {showTab('reports')             && <div className="p-7"><ReportsTab /></div>}
           {showTab('accounting-reports')  && <div className="p-7"><AccountingReports /></div>}
-          {showTab('daily-close')         && <div className="p-7"><DailyClose /></div>}
+          {showTab('daily-close')         && <div className="p-7"><DailyClose user={user} /></div>}
+          {showTab('expenses')            && <div className="p-7"><ExpensesManagement /></div>}
+          {showTab('suppliers')           && <div className="p-7"><SuppliersManagement /></div>}
           {showTab('payment-methods')     && <div className="p-7"><PaymentMethodsManagement user={user} /></div>}
           {showTab('devices')             && <div className="p-7"><DevicesManagement /></div>}
           {showTab('gym-settings')        && <div className="p-7"><GymSettings /></div>}

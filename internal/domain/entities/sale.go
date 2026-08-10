@@ -37,7 +37,10 @@ type Sale struct {
 	Type            SaleType   `json:"type" db:"type"`
 	Status          SaleStatus `json:"status" db:"status"`
 	PaymentMethodID uuid.UUID  `json:"payment_method_id" db:"payment_method_id"`
-	VoidedSaleID    *uuid.UUID `json:"voided_sale_id,omitempty" db:"voided_sale_id"` // If this is a void, references the original sale
+	// Índice: corregir el método de pago de una venta anulada necesita localizar
+	// su espejo por este campo, y sin índice sería un escaneo completo de una
+	// tabla append-only bajo lock de escritura.
+	VoidedSaleID *uuid.UUID `json:"voided_sale_id,omitempty" db:"voided_sale_id" gorm:"index:idx_sales_voided"` // If this is a void, references the original sale
 	Date            string     `json:"date" db:"date" gorm:"index:idx_sales_date;index:idx_sales_user_date,priority:2"`
 	Hour            string     `json:"hour" db:"hour"`
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
@@ -47,6 +50,16 @@ type Sale struct {
 	Details       []SaleDetail       `json:"details,omitempty" gorm:"-" db:"-"`
 	User          *User              `json:"user,omitempty" gorm:"-" db:"-"`
 	PaymentMethod *SalePaymentMethod `json:"payment_method,omitempty" gorm:"-" db:"-"`
+
+	// PaymentLines son las patas del pago (método, monto). Con un solo método es
+	// una línea; con pago combinado son N que suman el total. Viven en su propia
+	// tabla, así que aquí son transitorias como Details.
+	PaymentLines []PaymentLine `json:"payment_lines,omitempty" gorm:"-" db:"-"`
+
+	// GymID es transitorio: Sale no tiene columna de gimnasio y el suyo se
+	// resuelve por el vendedor. Lo pone el handler desde el token para poder
+	// estampar las líneas de pago, que sí lo llevan.
+	GymID uuid.UUID `json:"-" gorm:"-" db:"-"`
 }
 
 // CalculateTotal calculates the total from details

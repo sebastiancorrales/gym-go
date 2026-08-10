@@ -13,6 +13,22 @@ type Repos struct {
 	Products      ProductRepository
 	Sales         SaleRepository
 	SaleDetails   SaleDetailRepository
+	// StockMovements entra aquí porque el movimiento y el cambio de stock tienen
+	// que ser atómicos: un stock movido sin su asiento deja el libro descuadrado
+	// y sin forma de saber quién lo movió.
+	StockMovements StockMovementRepository
+	// Un gasto con líneas de producto mueve inventario: la cabecera, sus líneas y
+	// los asientos del kardex tienen que entrar juntos o no entrar.
+	Expenses     ExpenseRepository
+	ExpenseLines ExpenseLineRepository
+	// PaymentLines entra aquí porque las patas del pago se escriben junto al
+	// documento que pagan: un cobro registrado sin sus líneas es dinero que
+	// entró y no aparece en el desglose de la caja.
+	PaymentLines PaymentLineRepository
+	// ChangeLogs entra aquí porque la corrección y su registro son una sola cosa:
+	// un cobro corregido sin constancia de quién lo cambió es peor que no poder
+	// corregirlo.
+	ChangeLogs ChangeLogRepository
 }
 
 // UnitOfWork ejecuta una función dentro de una única transacción de base de datos.

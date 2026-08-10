@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import PlanSelectorGrid from './PlanSelectorGrid';
 import api from '../utils/api';
+import PaymentSplitEditor from './shared/PaymentSplitEditor';
+import { toPaymentsPayload } from '../utils/payments';
 import Modal from './Modal';
 import SkeletonTable from './SkeletonTable';
 import EmptyState from './EmptyState';
@@ -113,13 +115,19 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
   const [selectedMember, setSelectedMember] = useState(null);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [discount, setDiscount] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState('EFECTIVO');
+  // Los tres botones fijos (EFECTIVO/TRANSFERENCIA/OTRO) eran un enum de la
+  // interfaz que no casaba con el catalogo administrable del punto de venta.
+  // Ahora se cobra contra el mismo catalogo, y ademas se puede dividir el pago.
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [paymentLines, setPaymentLines] = useState([]);
+  const [paymentValid, setPaymentValid] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // Group members
   const [additionalMembers, setAdditionalMembers] = useState([]); // [{user}]
   const [addMemberSearch, setAddMemberSearch] = useState('');
   // Renew payment method
-  const [renewPaymentMethod, setRenewPaymentMethod] = useState('EFECTIVO');
+  const [renewPaymentLines, setRenewPaymentLines] = useState([]);
+  const [renewPaymentValid, setRenewPaymentValid] = useState(false);
   const [renewAdditionalMembers, setRenewAdditionalMembers] = useState([]);
   const [renewMemberSearch, setRenewMemberSearch] = useState('');
   // Edit dates
@@ -155,6 +163,10 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     fetchUsers();
     fetchPlans();
     api.get('/gym').then(r => r.ok ? r.json() : null).then(d => { if (d?.name) setGymName(d.name); });
+    api.get('/payment-methods?status=active')
+      .then(r => (r.ok ? r.json() : []))
+      .then(d => setPaymentMethods(Array.isArray(d) ? d : (d?.data ?? [])))
+      .catch(() => {});
   }, []);
 
   // Volver a la página 1 cuando cambia lo que se está mirando.
@@ -260,7 +272,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     setSelectedMember(null);
     setSelectedPlan(null);
     setDiscount(0);
-    setPaymentMethod('EFECTIVO');
+    setPaymentLines([]);
     setAdditionalMembers([]);
     setAddMemberSearch('');
   };
@@ -271,7 +283,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     setSelectedMember(null);
     setSelectedPlan(null);
     setDiscount(0);
-    setPaymentMethod('EFECTIVO');
+    setPaymentLines([]);
     setAdditionalMembers([]);
     setAddMemberSearch('');
   };
@@ -326,7 +338,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
         user_id: selectedMember.id,
         plan_id: selectedPlan.id,
         discount: parseFloat(discount) || 0,
-        payment_method: paymentMethod,
+        payments: toPaymentsPayload(paymentLines),
         additional_members: additionalMembers.map(m => m.id),
       });
 
@@ -357,7 +369,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
     setCancelReason('');
     setRenewPlanId(sub.plan_id || '');
     setRenewDiscount(0);
-    setRenewPaymentMethod('EFECTIVO');
+    setRenewPaymentLines([]);
     setRenewMemberSearch('');
     // Pre-populate additional members from current subscription (non-primary)
     const existing = (sub.members || [])
@@ -387,7 +399,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
       } else if (type === 'unfreeze') {
         res = await api.post(`/subscriptions/${sub.id}/unfreeze`, {});
       } else if (type === 'renew') {
-        res = await api.post(`/subscriptions/${sub.id}/renew`, { plan_id: renewPlanId, discount: parseFloat(renewDiscount) || 0, payment_method: renewPaymentMethod, additional_members: renewAdditionalMembers.map(m => m.id) });
+        res = await api.post(`/subscriptions/${sub.id}/renew`, { plan_id: renewPlanId, discount: parseFloat(renewDiscount) || 0, payments: toPaymentsPayload(renewPaymentLines), additional_members: renewAdditionalMembers.map(m => m.id) });
       } else if (type === 'editDates') {
         res = await api.patch(`/subscriptions/${sub.id}/dates`, { start_date: editStartDate, end_date: editEndDate });
       }
@@ -411,6 +423,14 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
       setActionLoading(false);
     }
   };
+
+  // Mismo calculo que el alta, con el plan y el descuento del modal de renovar.
+  // RenewSubscription siempre cobra la matricula completa, a diferencia del alta,
+  // que la exonera cuando ya hubo suscripciones antes.
+  const renewPlan = plans.find(p => p.id === renewPlanId);
+  const renewTotalToPay = renewPlan
+    ? Math.max(0, (renewPlan.price + (renewPlan.enrollment_fee || 0)) - (parseFloat(renewDiscount) || 0))
+    : 0;
 
   const totalToPay = selectedPlan
     ? Math.max(0, (selectedPlan.price + (selectedPlan.enrollment_fee || 0)) - (parseFloat(discount) || 0))
@@ -1059,15 +1079,14 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
 
             {/* Payment method */}
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Metodo de pago</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[['EFECTIVO','💵','Efectivo'],['TRANSFERENCIA','📲','Transferencia'],['OTRO','💳','Otro']].map(([val, icon, label]) => (
-                  <button key={val} type="button" onClick={() => setPaymentMethod(val)}
-                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-sm font-medium ${paymentMethod === val ? 'border-[#1272D6] bg-[#EBF3FF] text-[#1272D6]' : 'border-[#E2E8EF] text-[#4B5778] hover:border-[#C5DEFA]'}`}>
-                    <span className="text-lg">{icon}</span>{label}
-                  </button>
-                ))}
-              </div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Forma de pago</label>
+              <PaymentSplitEditor
+                total={totalToPay}
+                methods={paymentMethods}
+                value={paymentLines}
+                onChange={setPaymentLines}
+                onValidityChange={setPaymentValid}
+              />
             </div>
 
             {/* Price breakdown */}
@@ -1114,7 +1133,7 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={submitting}
+                disabled={submitting || !paymentValid}
                 className="px-8 py-2.5 bg-[#1272D6] text-white font-bold rounded-xl hover:bg-[#0D5BAD] transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Procesando...' : 'Confirmar Suscripcion'}
@@ -1277,20 +1296,19 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
                 placeholder="0" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Metodo de pago</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[['EFECTIVO','💵','Efectivo'],['TRANSFERENCIA','📲','Transferencia'],['OTRO','💳','Otro']].map(([val, icon, label]) => (
-                  <button key={val} type="button" onClick={() => setRenewPaymentMethod(val)}
-                    className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-sm font-medium ${renewPaymentMethod === val ? 'border-[#1272D6] bg-[#EBF3FF] text-[#1272D6]' : 'border-[#E2E8EF] text-[#4B5778] hover:border-[#C5DEFA]'}`}>
-                    <span className="text-lg">{icon}</span>{label}
-                  </button>
-                ))}
-              </div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Forma de pago</label>
+              <PaymentSplitEditor
+                total={renewTotalToPay}
+                methods={paymentMethods}
+                value={renewPaymentLines}
+                onChange={setRenewPaymentLines}
+                onValidityChange={setRenewPaymentValid}
+              />
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={closeAction} className="px-5 py-2.5 text-gray-600 font-medium rounded-xl hover:bg-gray-100 transition">Volver</button>
               <button onClick={handleAction}
-                disabled={actionLoading || !renewPlanId || (renewMaxAdditional > 0 && renewAdditionalMembers.length < renewMaxAdditional)}
+                disabled={actionLoading || !renewPlanId || !renewPaymentValid || (renewMaxAdditional > 0 && renewAdditionalMembers.length < renewMaxAdditional)}
                 className="px-6 py-2.5 bg-[#1272D6] hover:bg-[#0D5BAD] text-white font-semibold rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
                 {actionLoading ? 'Procesando...' : renewMaxAdditional > 0 && renewAdditionalMembers.length < renewMaxAdditional
                   ? `Faltan ${renewMaxAdditional - renewAdditionalMembers.length} persona${renewMaxAdditional - renewAdditionalMembers.length > 1 ? 's' : ''}`
@@ -1324,18 +1342,24 @@ export default function SubscriptionsManagement({ initialUser = null, onInitialU
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Bitacora de cambios</p>
                 <div className="max-h-40 overflow-y-auto space-y-2">
-                  {editAuditLog.map(log => (
-                    <div key={log.id} className="text-xs bg-gray-50 rounded-lg p-2.5">
+                  {/*
+                    La bitacora llega normalizada desde el backend porque sale de
+                    dos tablas: la de fechas (la original) y la generica, donde
+                    van las correcciones de metodo de pago.
+                  */}
+                  {editAuditLog.map((log, i) => (
+                    <div key={i} className="text-xs bg-gray-50 rounded-lg p-2.5">
                       <div className="flex justify-between items-start mb-1">
                         <span className="font-semibold text-gray-700">{log.changed_by_name || 'Admin'}</span>
                         <span className="text-gray-400">{new Date(log.created_at).toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}</span>
                       </div>
-                      <p className="text-gray-500">
-                        Inicio: <span className="text-gray-700">{new Date(log.old_start_date).toLocaleDateString('es-CO')} → {new Date(log.new_start_date).toLocaleDateString('es-CO')}</span>
-                      </p>
-                      <p className="text-gray-500">
-                        Fin: <span className="text-gray-700">{new Date(log.old_end_date).toLocaleDateString('es-CO')} → {new Date(log.new_end_date).toLocaleDateString('es-CO')}</span>
-                      </p>
+                      <p className="text-gray-600 font-medium">{log.description}</p>
+                      {(log.old_value || log.new_value) && (
+                        <p className="text-gray-500">
+                          <span className="text-gray-700">{log.old_value}</span> → <span className="text-gray-700">{log.new_value}</span>
+                        </p>
+                      )}
+                      {log.reason && <p className="text-gray-400 italic mt-0.5">{log.reason}</p>}
                     </div>
                   ))}
                 </div>

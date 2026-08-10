@@ -79,6 +79,54 @@ func TestHotQueriesUseIndexes(t *testing.T) {
 			query: "SELECT * FROM access_logs WHERE gym_id = ? AND access_time >= ? ORDER BY access_time DESC",
 			args:  []interface{}{"00000000-0000-0000-0000-000000000000", "2026-01-01"},
 		},
+		{
+			name:  "kardex de un producto en un rango",
+			query: "SELECT * FROM stock_movements WHERE product_id = ? AND date >= ? AND date <= ?",
+			args:  []interface{}{"00000000-0000-0000-0000-000000000000", "2026-01-01", "2026-01-31"},
+		},
+		{
+			name:  "kardex general por rango de fecha",
+			query: "SELECT * FROM stock_movements WHERE date >= ? AND date <= ?",
+			args:  []interface{}{"2026-01-01", "2026-01-31"},
+		},
+		{
+			name:  "movimientos generados por un documento",
+			query: "SELECT * FROM stock_movements WHERE ref_id = ?",
+			args:  []interface{}{"00000000-0000-0000-0000-000000000000"},
+		},
+		{
+			name:  "lineas de pago de un documento",
+			query: "SELECT * FROM payment_lines WHERE payable_kind = ? AND payable_id = ?",
+			args:  []interface{}{"sale", "00000000-0000-0000-0000-000000000000"},
+		},
+		{
+			name:  "desglose por metodo de pago en un rango",
+			query: "SELECT * FROM payment_lines WHERE date >= ? AND date <= ?",
+			args:  []interface{}{"2026-01-01", "2026-01-31"},
+		},
+		{
+			name:  "cuanto entro por un metodo entre dos fechas",
+			query: "SELECT * FROM payment_lines WHERE payment_method_id = ? AND date >= ?",
+			args:  []interface{}{"00000000-0000-0000-0000-000000000000", "2026-01-01"},
+		},
+		{
+			// Localizar el espejo de una anulacion al corregir su metodo de pago.
+			// Sin indice seria un escaneo completo de una tabla append-only bajo
+			// lock de escritura.
+			name:  "venta espejo de una anulacion",
+			query: "SELECT * FROM sales WHERE voided_sale_id = ?",
+			args:  []interface{}{"00000000-0000-0000-0000-000000000000"},
+		},
+		{
+			name:  "gastos del gym por rango de fecha",
+			query: "SELECT * FROM expenses WHERE gym_id = ? AND date >= ? AND date <= ?",
+			args:  []interface{}{"00000000-0000-0000-0000-000000000000", "2026-01-01", "2026-01-31"},
+		},
+		{
+			name:  "lineas de un gasto",
+			query: "SELECT * FROM expense_lines WHERE expense_id = ?",
+			args:  []interface{}{"00000000-0000-0000-0000-000000000000"},
+		},
 	}
 
 	for _, tc := range cases {

@@ -185,6 +185,13 @@ func main() {
 	gymRepo := persistence.NewSQLiteGymRepository(database.DB)
 	fingerprintRepo := persistence.NewSQLiteFingerprintRepository(database.DB)
 	productRepo := persistence.NewSQLiteProductRepository(database.DB)
+	stockMovementRepo := persistence.NewSQLiteStockMovementRepository(database.DB)
+	supplierRepo := persistence.NewSQLiteSupplierRepository(database.DB)
+	expenseCategoryRepo := persistence.NewSQLiteExpenseCategoryRepository(database.DB)
+	expenseRepo := persistence.NewSQLiteExpenseRepository(database.DB)
+	expenseLineRepo := persistence.NewSQLiteExpenseLineRepository(database.DB)
+	paymentLineRepo := persistence.NewSQLitePaymentLineRepository(database.DB)
+	changeLogRepo := persistence.NewSQLiteChangeLogRepository(database.DB)
 	paymentMethodRepo := persistence.NewSQLitePaymentMethodRepository(database.DB)
 	saleRepo := persistence.NewSQLiteSaleRepository(database.DB)
 	saleDetailRepo := persistence.NewSQLiteSaleDetailRepository(database.DB)
@@ -203,12 +210,15 @@ func main() {
 	// Initialize use cases
 	userUseCase := usecases.NewUserUseCase(userRepo)
 	planUseCase := usecases.NewPlanUseCase(planRepo)
-	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, subscriptionMemberRepo, planRepo, userRepo, subscriptionAuditRepo, uow)
+	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, subscriptionMemberRepo, planRepo, userRepo, subscriptionAuditRepo, paymentMethodRepo, paymentLineRepo, uow)
 	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
 	biometricService := usecases.NewBiometricService(fingerprintRepo, userRepo)
-	productUseCase := usecases.NewProductUseCase(productRepo)
+	productUseCase := usecases.NewProductUseCase(productRepo, stockMovementRepo, uow)
+	supplierUseCase := usecases.NewSupplierUseCase(supplierRepo)
+	paymentUseCase := usecases.NewPaymentUseCase(paymentLineRepo, paymentMethodRepo, changeLogRepo, saleRepo, subscriptionRepo, expenseRepo, uow)
+	expenseUseCase := usecases.NewExpenseUseCase(expenseRepo, expenseLineRepo, expenseCategoryRepo, supplierRepo, productRepo, paymentMethodRepo, stockMovementRepo, uow)
 	paymentMethodUseCase := usecases.NewPaymentMethodUseCase(paymentMethodRepo)
-	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo, uow)
+	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo, paymentLineRepo, uow)
 	classUseCase := usecases.NewClassUseCase(classRepo, instructorRepo)
 	attendanceUseCase := usecases.NewAttendanceUseCase(attendanceRepo, memberRepo, classRepo)
 
@@ -228,6 +238,8 @@ func main() {
 		gymRepo,
 		userRepo,
 		paymentMethodRepo,
+		paymentLineRepo,
+		expenseRepo,
 		productRepo,
 		emailSender,
 	)
@@ -237,8 +249,10 @@ func main() {
 	registerHandler := handlers.NewRegisterHandler(gymRepo, userRepo, jwtManager, uow)
 	userHandler := handlers.NewUserHandler(userUseCase, subscriptionUseCase, planUseCase)
 	planHandler := handlers.NewPlanHandler(planUseCase)
-	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionUseCase, userUseCase, planUseCase)
+	subscriptionHandler := handlers.NewSubscriptionHandler(subscriptionUseCase, userUseCase, planUseCase, paymentUseCase)
 	productHandler := handlers.NewProductHandler(productUseCase)
+	expenseHandler := handlers.NewExpenseHandler(expenseUseCase, supplierUseCase)
+	paymentHandler := handlers.NewPaymentHandler(paymentUseCase, userUseCase)
 	paymentMethodHandler := handlers.NewPaymentMethodHandler(paymentMethodUseCase)
 	saleHandler := handlers.NewSaleHandler(saleUseCase)
 	gymHandler := handlers.NewGymHandler(gymRepo)
@@ -421,6 +435,7 @@ func main() {
 			subscriptions.POST("/:id/freeze", middleware.RequirePermission(entities.PermSubscriptionsWrite), subscriptionHandler.Freeze)
 			subscriptions.POST("/:id/unfreeze", middleware.RequirePermission(entities.PermSubscriptionsWrite), subscriptionHandler.Unfreeze)
 			subscriptions.PATCH("/:id/dates", middleware.RequirePermission(entities.PermSubscriptionsWrite), subscriptionHandler.UpdateDates)
+			subscriptions.PATCH("/:id/payments", middleware.RequirePermission(entities.PermPaymentsAmend), paymentHandler.AmendSubscriptionPayments)
 		}
 
 		// Access routes - Multiple roles can access
@@ -497,18 +512,33 @@ func main() {
 			products.POST("", middleware.RequirePermission(entities.PermProductsWrite), productHandler.CreateProduct)
 			products.PUT("/:id", middleware.RequirePermission(entities.PermProductsWrite), productHandler.UpdateProduct)
 			products.DELETE("/:id", middleware.RequirePermission(entities.PermProductsWrite), productHandler.DeleteProduct)
-			products.PATCH("/:id/stock", middleware.RequirePermission(entities.PermProductsWrite), productHandler.UpdateStock)
+
+			// Mover stock ya no es "escribir un producto": deja asiento en el
+			// kardex, así que va bajo el permiso de inventario.
+			products.PATCH("/:id/stock", middleware.RequirePermission(entities.PermInventoryAdjust), productHandler.UpdateStock)
+			products.POST("/:id/stock/adjust", middleware.RequirePermission(entities.PermInventoryAdjust), productHandler.AdjustStock)
+			products.GET("/:id/movements", middleware.RequirePermission(entities.PermInventoryMovements), middleware.RestrictReportRange(), productHandler.GetProductMovements)
 		}
 
-		// Payment methods routes - Only SUPER_ADMIN and ADMIN_GYM
+		// Inventory routes - el kardex general
+		inventory := protected.Group("/inventory")
+		inventory.Use(middleware.RequirePermission(entities.PermInventoryMovements))
+		{
+			inventory.GET("/movements", middleware.RestrictReportRange(), productHandler.ListStockMovements)
+		}
+
+		// Payment methods routes - el catálogo lo lee quien cobra (el punto de
+		// venta lo necesita para poblar el selector); crearlos y desactivarlos es
+		// configuración del gimnasio.
 		paymentMethods := protected.Group("/payment-methods")
-		paymentMethods.Use(middleware.RequirePermission(entities.PermPaymentMethods))
+		paymentMethods.Use(middleware.RequirePermission(entities.PermPaymentMethodsRead))
 		{
 			paymentMethods.GET("", paymentMethodHandler.GetAllPaymentMethods)
 			paymentMethods.GET("/:id", paymentMethodHandler.GetPaymentMethod)
-			paymentMethods.POST("", paymentMethodHandler.CreatePaymentMethod)
-			paymentMethods.PUT("/:id", paymentMethodHandler.UpdatePaymentMethod)
-			paymentMethods.DELETE("/:id", paymentMethodHandler.DeletePaymentMethod)
+
+			paymentMethods.POST("", middleware.RequirePermission(entities.PermPaymentMethods), paymentMethodHandler.CreatePaymentMethod)
+			paymentMethods.PUT("/:id", middleware.RequirePermission(entities.PermPaymentMethods), paymentMethodHandler.UpdatePaymentMethod)
+			paymentMethods.DELETE("/:id", middleware.RequirePermission(entities.PermPaymentMethods), paymentMethodHandler.DeletePaymentMethod)
 		}
 
 		// Device (relay) routes - Only ADMIN_GYM and SUPER_ADMIN
@@ -520,6 +550,48 @@ func main() {
 			devices.PUT("/:id", deviceHandler.Update)
 			devices.DELETE("/:id", deviceHandler.Delete)
 			devices.POST("/:id/trigger", deviceHandler.Trigger)
+		}
+
+		// Suppliers routes - a quién se le compra. Es información contable
+		// (revela proveedores y precios), así que no llega a los roles de mostrador.
+		suppliers := protected.Group("/suppliers")
+		suppliers.Use(middleware.RequirePermission(entities.PermSuppliersRead))
+		{
+			suppliers.GET("", expenseHandler.ListSuppliers)
+
+			suppliers.POST("", middleware.RequirePermission(entities.PermSuppliersWrite), expenseHandler.CreateSupplier)
+			suppliers.PUT("/:id", middleware.RequirePermission(entities.PermSuppliersWrite), expenseHandler.UpdateSupplier)
+			suppliers.DELETE("/:id", middleware.RequirePermission(entities.PermSuppliersWrite), expenseHandler.DeactivateSupplier)
+		}
+
+		// Expense categories - catálogo de solo lectura; se siembra en Seed.
+		protected.GET("/expense-categories",
+			middleware.RequirePermission(entities.PermExpensesRead), expenseHandler.ListCategories)
+
+		// Expenses routes - egresos: gastos generales y compras que mueven stock.
+		//
+		// Los listados y reportes pasan por RestrictReportRange y EXIGEN fechas:
+		// el middleware sólo actúa sobre los parámetros que recibe, así que un
+		// endpoint con fechas opcionales sería un agujero para el histórico.
+		expenses := protected.Group("/expenses")
+		expenses.Use(middleware.RequirePermission(entities.PermExpensesRead))
+		{
+			expenses.GET("", middleware.RestrictReportRange(), expenseHandler.ListExpenses)
+			expenses.GET("/report", middleware.RestrictReportRange(), expenseHandler.ExpenseReport)
+			expenses.GET("/:id", expenseHandler.GetExpense)
+
+			expenses.POST("", middleware.RequirePermission(entities.PermExpensesWrite), expenseHandler.CreateExpense)
+			expenses.POST("/:id/void", middleware.RequirePermission(entities.PermExpensesVoid), expenseHandler.VoidExpense)
+			expenses.PATCH("/:id/payments", middleware.RequirePermission(entities.PermPaymentsAmend), paymentHandler.AmendExpensePayments)
+		}
+
+		// Payments routes - el desglose unificado por metodo de pago, que sustituye
+		// a los seis sitios del frontend que hoy reconcilian ventas y
+		// suscripciones por etiqueta.
+		payments := protected.Group("/payments")
+		payments.Use(middleware.RequirePermission(entities.PermReportsDaily), middleware.RestrictReportRange())
+		{
+			payments.GET("/summary", paymentHandler.Summary)
 		}
 
 		// Sales routes - Multiple roles
@@ -542,6 +614,11 @@ func main() {
 			sales.GET("/:id", saleHandler.GetSale)
 			sales.POST("", middleware.RequirePermission(entities.PermSalesCreate), saleHandler.CreateSale)
 			sales.POST("/:id/void", middleware.RequirePermission(entities.PermSalesVoid), saleHandler.VoidSale)
+
+			// Corregir el metodo de pago de una venta ya registrada. Solo
+			// administracion: altera reportes de dias ya cerrados y enviados.
+			sales.PATCH("/:id/payments", middleware.RequirePermission(entities.PermPaymentsAmend), paymentHandler.AmendSalePayments)
+			sales.GET("/:id/audit", paymentHandler.GetSaleAudit)
 		}
 	}
 

@@ -5,6 +5,9 @@ import Toast from '../Toast';
 import EmptyState from '../EmptyState';
 import ConfirmDialog from '../ConfirmDialog';
 import { fmt } from '../../utils/currency';
+import PaymentSplitEditor from '../shared/PaymentSplitEditor';
+import { toPaymentsPayload } from '../../utils/payments';
+import { PERMS, can } from '../../utils/permissions';
 
 // Helper function to get today's date in YYYY-MM-DD format
 const getTodayDate = () => {
@@ -15,7 +18,7 @@ const getTodayDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-export default function SalesHistory() {
+export default function SalesHistory({ user }) {
   const todayDate = getTodayDate();
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,6 +26,14 @@ export default function SalesHistory() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [toast, setToast] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState({ open: false, onConfirm: null });
+  // Correccion del metodo de pago: solo administracion. Cambiarlo altera
+  // reportes de dias ya cerrados, asi que se pide un motivo.
+  const [amendSale, setAmendSale] = useState(null);
+  const [amendLines, setAmendLines] = useState([]);
+  const [amendValid, setAmendValid] = useState(false);
+  const [amendReason, setAmendReason] = useState('');
+  const [amendSaving, setAmendSaving] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [dateRange, setDateRange] = useState({
     start_date: todayDate,
     end_date: todayDate
@@ -30,6 +41,10 @@ export default function SalesHistory() {
 
   useEffect(() => {
     fetchSales();
+    api.get('/payment-methods?status=active')
+      .then(r => (r.ok ? r.json() : []))
+      .then(d => setPaymentMethods(Array.isArray(d) ? d : (d?.data ?? [])))
+      .catch(() => {});
   }, []);
 
   const fetchSales = async () => {
@@ -57,6 +72,42 @@ export default function SalesHistory() {
   const handleFilterByDate = (e) => {
     e.preventDefault();
     fetchSales();
+  };
+
+  const openAmend = (sale) => {
+    setAmendSale(sale);
+    // Se precargan las lineas actuales para que el admin corrija lo que haga
+    // falta en vez de reconstruir el cobro desde cero.
+    setAmendLines((sale.payment_lines || []).map(l => ({
+      payment_method_id: l.payment_method_id,
+      amount: l.amount,
+      cash_received: l.cash_received || '',
+    })));
+    setAmendReason('');
+    setShowDetailModal(false);
+  };
+
+  const saveAmend = async () => {
+    if (!amendSale || amendSaving || !amendValid) return;
+    setAmendSaving(true);
+    try {
+      const res = await api.patch(`/sales/${amendSale.id}/payments`, {
+        payments: toPaymentsPayload(amendLines),
+        reason: amendReason,
+      });
+      if (res.ok) {
+        setToast({ message: 'Metodo de pago corregido', type: 'success' });
+        setAmendSale(null);
+        fetchSales();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setToast({ message: body.message || 'No se pudo corregir', type: 'error' });
+      }
+    } catch {
+      setToast({ message: 'Error al corregir el metodo de pago', type: 'error' });
+    } finally {
+      setAmendSaving(false);
+    }
   };
 
   const viewSaleDetail = async (saleId) => {
@@ -259,7 +310,13 @@ export default function SalesHistory() {
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Metodo de Pago:</span>
-                <span className="text-sm font-medium">{selectedSale.payment_method_name || 'N/A'}</span>
+                <span className="text-sm font-medium text-right">
+                  {selectedSale.payment_lines?.length
+                    ? selectedSale.payment_lines
+                        .map(l => `${l.payment_method_name} ${fmt(l.amount)}`)
+                        .join(' + ')
+                    : (selectedSale.payment_method_name || 'N/A')}
+                </span>
               </div>
               {selectedSale.type === 'void' && (
                 <div className="flex justify-between">
@@ -320,6 +377,14 @@ export default function SalesHistory() {
               >
                 Cerrar
               </button>
+              {can(user, PERMS.PAYMENTS_AMEND) && selectedSale.type !== 'void' && (
+                <button
+                  onClick={() => openAmend(selectedSale)}
+                  className="flex-1 px-4 py-2 border border-[#1272D6] text-[#1272D6] rounded-xl hover:bg-[#EBF3FF] transition"
+                >
+                  Cambiar metodo
+                </button>
+              )}
               {selectedSale.status === 'completed' && selectedSale.type !== 'void' && (
                 <button
                   onClick={() => handleVoidSale(selectedSale.id)}
@@ -330,6 +395,73 @@ export default function SalesHistory() {
               )}
             </div>
           </>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={!!amendSale}
+        onClose={() => setAmendSale(null)}
+        title="Corregir metodo de pago"
+        maxWidth="md"
+      >
+        {amendSale && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Venta del {amendSale.date} por{' '}
+              <span className="font-semibold text-gray-900">{fmt(amendSale.total)}</span>
+            </p>
+
+            {/*
+              Corregir una venta anulada reescribe tambien su contrapartida. Sin
+              eso el desglose mostraria el importe en el metodo nuevo Y en
+              negativo en el viejo: un fantasma que no corresponde a nada.
+            */}
+            {amendSale.status === 'voided' && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+                Esta venta esta anulada. El ajuste se aplicara tambien a su
+                contrapartida para que el cuadre siga en cero.
+              </div>
+            )}
+
+            <PaymentSplitEditor
+              total={amendSale.total}
+              methods={paymentMethods}
+              value={amendLines}
+              onChange={setAmendLines}
+              onValidityChange={setAmendValid}
+              allowCashChange={false}
+              disabled={amendSaving}
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Motivo <span className="font-normal text-gray-400">(queda en la bitacora)</span>
+              </label>
+              <textarea
+                rows={2}
+                value={amendReason}
+                onChange={e => setAmendReason(e.target.value)}
+                placeholder="Por que se corrige"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setAmendSale(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveAmend}
+                disabled={amendSaving || !amendValid}
+                className="flex-1 px-4 py-2 bg-[#1272D6] text-white rounded-xl hover:bg-[#0D5BAD] transition disabled:opacity-50"
+              >
+                {amendSaving ? 'Guardando...' : 'Guardar correccion'}
+              </button>
+            </div>
+          </div>
         )}
       </Modal>
 
