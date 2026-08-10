@@ -408,6 +408,8 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 	}
 	report.TotalExpensesAmount = expensesReport.TotalExpenses
 	report.TotalExpensesCount = expensesReport.ExpensesCount
+	report.InventoryCost = expensesReport.InventoryCost
+	report.OperatingCost = expensesReport.OperatingCost
 	report.NetRevenue = report.TotalRevenue - report.TotalExpensesAmount
 
 	return report, nil

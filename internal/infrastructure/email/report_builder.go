@@ -36,6 +36,11 @@ type DailyCloseReport struct {
 	TotalExpensesAmount float64
 	TotalExpensesCount  int
 	NetRevenue          float64
+	// InventoryCost/OperatingCost desglosan TotalExpensesAmount por tipo de
+	// categoría, igual que el export contable del panel (AccountingReports.jsx):
+	// mercancía para revender vs. gasto operativo, sin adivinar por el nombre.
+	InventoryCost float64
+	OperatingCost float64
 	PaymentMethods      []PaymentMethodSummary
 	Plans             []PlanSummary
 	Products          []ProductSummary
@@ -295,10 +300,38 @@ func BuildExcelReport(report *DailyCloseReport) ([]byte, error) {
 		row++ // blank
 	}
 
-	// Total general
-	f.SetCellValue(sh, xlCell(9, row), "TOTAL GENERAL")
+	// Ingresos brutos (antes "TOTAL GENERAL" a secas: con la fila de utilidad
+	// neta más abajo, el nombre tiene que decir de qué cifra se trata).
+	f.SetCellValue(sh, xlCell(9, row), "INGRESOS BRUTOS")
 	f.SetCellValue(sh, xlCell(10, row), report.TotalRevenue)
 	f.SetCellStyle(sh, xlCell(9, row), xlCell(10, row), totalSt)
+	row++
+
+	// ── Egresos ───────────────────────────────────────────────────────────────
+	// Sin fila de "$0" cuando el periodo no tuvo gastos — sólo añade ruido.
+	if report.TotalExpensesCount > 0 {
+		row++ // blank
+		f.SetCellValue(sh, xlCell(1, row), "EGRESOS")
+		f.SetCellStyle(sh, xlCell(1, row), xlCell(10, row), sectionLabelSt)
+		f.MergeCell(sh, xlCell(1, row), xlCell(10, row))
+		row++
+
+		for i, h := range []string{"Compra de mercancia", "Gasto operativo", "Total egresos"} {
+			f.SetCellValue(sh, xlCell(i+1, row), h)
+		}
+		f.SetCellStyle(sh, xlCell(1, row), xlCell(3, row), blueHeaderSt)
+		row++
+
+		f.SetCellValue(sh, xlCell(1, row), report.InventoryCost)
+		f.SetCellValue(sh, xlCell(2, row), report.OperatingCost)
+		f.SetCellValue(sh, xlCell(3, row), report.TotalExpensesAmount)
+		f.SetCellStyle(sh, xlCell(1, row), xlCell(3, row), numSt)
+		row += 2 // blank line before utilidad neta
+
+		f.SetCellValue(sh, xlCell(9, row), "UTILIDAD NETA")
+		f.SetCellValue(sh, xlCell(10, row), report.NetRevenue)
+		f.SetCellStyle(sh, xlCell(9, row), xlCell(10, row), totalSt)
+	}
 
 	// Column widths
 	colWidths := map[string]float64{
@@ -647,6 +680,31 @@ func BuildPDFReport(report *DailyCloseReport) ([]byte, error) {
 
 	pdf.SetY(pdf.GetY() + 8)
 
+	// ── Section 4: Egresos del periodo ────────────────────────────────────────
+	// Report() ya neta las anulaciones (el espejo negativo de VoidExpense entra
+	// en la misma suma), así que esta cifra es directamente lo que salió de caja.
+	// Sin sección cuando el periodo no tuvo gastos — nada que desglosar.
+	if report.TotalExpensesCount > 0 {
+		if pdf.GetY() > 220 {
+			pdf.AddPage()
+		}
+		drawSectionTitle("4. EGRESOS DEL PERIODO")
+
+		expColW := cw / 3
+		expCols := []colSpec{{expColW, "C"}, {expColW, "C"}, {expColW, "C"}}
+		drawRow(
+			[]string{"Compra de mercancia", "Gasto operativo", "Total egresos"},
+			expCols, 7,
+			220, 38, 38, 255, 255, 255, true, true,
+		)
+		drawRow(
+			[]string{fmtAmt(report.InventoryCost), fmtAmt(report.OperatingCost), fmtAmt(report.TotalExpensesAmount)},
+			expCols, 7,
+			255, 255, 255, 220, 38, 38, false, true,
+		)
+		pdf.SetY(pdf.GetY() + 6)
+	}
+
 	// ── Total General box ──────────────────────────────────────────────────────
 	if pdf.GetY() > 242 {
 		pdf.AddPage()
@@ -665,14 +723,52 @@ func BuildPDFReport(report *DailyCloseReport) ([]byte, error) {
 	pdf.SetTextColor(150, 250, 200)
 	pdf.SetFont("Helvetica", "B", 8)
 	pdf.SetXY(14, ty+4)
-	pdf.CellFormat(cw, 5, "TOTAL GENERAL DEL PERIODO", "", 1, "C", false, 0, "")
+	pdf.CellFormat(cw, 5, "INGRESOS BRUTOS DEL PERIODO", "", 1, "C", false, 0, "")
 
 	pdf.SetTextColor(255, 255, 255)
 	pdf.SetFont("Helvetica", "B", 18)
 	pdf.SetX(14)
 	pdf.CellFormat(cw, 9, fmtAmt(report.TotalRevenue), "", 1, "C", false, 0, "")
 
-	pdf.SetY(ty + 28)
+	pdf.SetY(ty + 26)
+
+	// Egresos y utilidad neta, lado a lado, debajo del ingreso bruto — sólo si
+	// el periodo tuvo gastos (si no, neto y bruto son el mismo número y la caja
+	// extra sólo repetiría lo de arriba).
+	if report.TotalExpensesCount > 0 {
+		if pdf.GetY() > 242 {
+			pdf.AddPage()
+		}
+		smallBoxW := (cw - 4) / 2
+		by := pdf.GetY()
+		netR, netG, netB := greenR, greenG, greenB
+		if report.NetRevenue < 0 {
+			netR, netG, netB = 220, 38, 38
+		}
+
+		pdf.SetFillColor(220, 38, 38)
+		pdf.RoundedRect(14, by, smallBoxW, 18, 2, "1234", "F")
+		pdf.SetTextColor(255, 255, 255)
+		pdf.SetFont("Helvetica", "B", 7)
+		pdf.SetXY(14, by+3)
+		pdf.CellFormat(smallBoxW, 4, "EGRESOS DEL PERIODO", "", 1, "C", false, 0, "")
+		pdf.SetFont("Helvetica", "B", 12)
+		pdf.SetXY(14, by+9)
+		pdf.CellFormat(smallBoxW, 6, fmtAmt(report.TotalExpensesAmount), "", 1, "C", false, 0, "")
+
+		nx := 14 + smallBoxW + 4
+		pdf.SetFillColor(netR, netG, netB)
+		pdf.RoundedRect(nx, by, smallBoxW, 18, 2, "1234", "F")
+		pdf.SetTextColor(255, 255, 255)
+		pdf.SetFont("Helvetica", "B", 7)
+		pdf.SetXY(nx, by+3)
+		pdf.CellFormat(smallBoxW, 4, "UTILIDAD NETA", "", 1, "C", false, 0, "")
+		pdf.SetFont("Helvetica", "B", 12)
+		pdf.SetXY(nx, by+9)
+		pdf.CellFormat(smallBoxW, 6, fmtAmt(report.NetRevenue), "", 1, "C", false, 0, "")
+
+		pdf.SetY(by + 24)
+	}
 
 	// Bottom line
 	pdf.SetDrawColor(darkR, darkG, darkB)

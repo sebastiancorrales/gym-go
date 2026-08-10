@@ -1,0 +1,25 @@
+2026/08/10 14:12:22 📝 Log en gym-go.log
+2026/08/10 14:12:22 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=1
+2026/08/10 14:12:22 🔄 Running database migrations...
+2026/08/10 14:12:22 ✅ Database migrations completed successfully
+2026/08/10 14:12:22 🔄 backfillDocumentNumbers: normalizando 9 documento(s)...
+2026/08/10 14:12:22 ✅ backfillDocumentNumbers: 9 documento(s) normalizados, 0 requieren revisión manual
+2026/08/10 14:12:22 🔄 backfillInitialStockMovements: sembrando saldo inicial de 7 producto(s)...
+2026/08/10 14:12:22 ✅ backfillInitialStockMovements: 7 asiento(s) de saldo inicial
+2026/08/10 14:12:22 🔄 backfillPaymentLines: 1474 documento(s) sin línea de pago, migrando...
+2026/08/10 14:12:22    método de pago creado: Otro
+2026/08/10 14:12:22 ✅ backfillPaymentLines: 1474 línea(s) de venta y 1079 de suscripción en 109ms
+2026/08/10 14:12:22 🌱 Seeding database...
+2026/08/10 14:12:22 ✅ 7 categorías de gasto creadas
+2026/08/10 14:12:22 ✅ Database seeding completed
+2026/08/10 14:12:22 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=8
+2026/08/10 14:12:22 📁 Serving frontend from disk: frontend/dist
+2026/08/10 14:12:22 ✅ Server running on http://localhost:8080
+2026/08/10 14:12:22 🌐 Frontend: http://localhost:8080/
+2026/08/10 14:12:22 📊 Health check: http://localhost:8080/api/v1/health
+2026/08/10 14:12:22 🔐 Auth endpoint: http://localhost:8080/api/v1/auth/login
+2026/08/10 14:12:22 📝 Environment: development
+2026/08/10 14:13:36 🔍 DEBUG GetSalesReport - startDate: 2026-08-10, endDate: 2026-08-10
+2026/08/10 14:13:36 🔍 DEBUG GetSalesReport - Found 1 reports, error: <nil>
+2026/08/10 14:13:36 🔍 DEBUG GetSalesReport - Report: {TotalSales:0 TotalDiscount:0 NetSales:0 SalesCount:0}
+2026/08/10 14:16:59 ⏰ Auto-expired 43 subscriptions

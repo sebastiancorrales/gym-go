@@ -76,13 +76,20 @@ func (r *SQLiteSaleRepository) GetSalesReport(ctx context.Context, startDate, en
 
 	log.Printf("🔍 DEBUG GetSalesReport - startDate: %v, endDate: %v", startDate, endDate)
 
+	// Una venta anulada cambia su Status a `voided` (ver VoidSale) pero conserva
+	// Type='normal'; el filtro por status ya la saca de esta cuenta por
+	// completo. El espejo que crea la anulación es Type='void' y nunca entra en
+	// el CASE de arriba, así que no hace falta (ni es correcto) restarlo aparte:
+	// hacerlo restaba el total del espejo una segunda vez sobre una venta que ya
+	// había sido excluida, dejando net_sales negativo en cualquier día con una
+	// anulación en vez de neutro. total_sales y net_sales quedan iguales a
+	// propósito — una vez excluida la venta anulada no queda nada más que netear.
 	query := r.db.WithContext(ctx).
 		Model(&entities.Sale{}).
 		Select(`
 			COALESCE(SUM(CASE WHEN type = 'normal' THEN total ELSE 0 END), 0) as total_sales,
 			COALESCE(SUM(CASE WHEN type = 'normal' THEN total_discount ELSE 0 END), 0) as total_discount,
-			COALESCE(SUM(CASE WHEN type = 'normal' THEN total ELSE 0 END) -
-			         SUM(CASE WHEN type = 'void' THEN ABS(total) ELSE 0 END), 0) as net_sales,
+			COALESCE(SUM(CASE WHEN type = 'normal' THEN total ELSE 0 END), 0) as net_sales,
 			COUNT(CASE WHEN type = 'normal' THEN 1 END) as sales_count
 		`).
 		Where("date >= ? AND date <= ?", startDate, endDate).
