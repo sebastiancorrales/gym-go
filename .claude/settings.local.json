@@ -58,7 +58,34 @@
       "Bash(python \"C:/Users/pined/AppData/Local/Temp/claude/c--Proyectos-gym-go/d9d63228-89ba-43b0-bdd7-61d84585318e/scratchpad/patch_saleshistory.py\")",
       "Bash(python -c ' *)",
       "Bash(SERVER_PORT=8099 DATABASE_PATH=scratch/f7.db go run main.go)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8099/api/v1/auth/login)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8099/api/v1/auth/login)",
+      "Bash(git status *)",
+      "Bash(git check-ignore *)",
+      "Bash(dotnet --list-sdks)",
+      "Bash(grep -n 'buildBiometric = $false\\\\|biometricSkipReason =' build-installer.ps1)",
+      "Bash(echo \"BUILD_EXIT=$?\")",
+      "Bash(echo \"VET_EXIT=$?\")",
+      "Bash(echo \"BUILD=$?\")",
+      "Bash(echo \"VET=$?\")",
+      "Bash(grep -rln \"api.get\\('/users\\\\|api\\\\.get\\(\\\\`/users\" \"C:\\\\Proyectos\\\\gym-go\\\\frontend\\\\src\\\\components\")",
+      "Bash(SERVER_PORT=8099 DATABASE_PATH=scratch/fiado.db go run main.go)",
+      "Bash(curl -s http://localhost:8099/api/v1/payment-methods -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(curl -s http://localhost:8099/api/v1/products -X POST -H 'Authorization: Bearer __TRACKED_VAR__' -H 'Content-Type: application/json' -d '{\"name\":\"Gatorade\",\"unit_price\":5000,\"stock\":20,\"sku\":\"GAT1\"}')",
+      "Bash(curl -s http://localhost:8099/api/v1/users -X POST -H 'Authorization: Bearer __TRACKED_VAR__' -H 'Content-Type: application/json' -d '{\"email\":\"deudor@test.com\",\"first_name\":\"Carlos\",\"last_name\":\"Ramirez\",\"role\":\"MEMBER\",\"document_type\":\"CC\",\"document_number\":\"99887766\"}')",
+      "Bash(netstat -ano)",
+      "Bash(cd c:/Proyectos/gym-go && rm -f scratch/fiado.db scratch/fiado.db-* scratch/token.txt)",
+      "Bash(curl -s http://localhost:8099/api/v1/debts/summary -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(curl -s http://localhost:8099/api/v1/debts?status=pending -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(curl -s 'http://localhost:8099/api/v1/payments/summary?start_date=__TRACKED_VAR__&end_date=__TRACKED_VAR__' -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(curl -s 'http://localhost:8099/api/v1/payments/summary?start_date=2026-08-13&end_date=2026-08-13' -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(SERVER_PORT=8098 DATABASE_PATH=scratch2/fiado2.db go run main.go)",
+      "Bash(curl -s http://localhost:8098/api/v1/payment-methods -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(curl -s http://localhost:8098/api/v1/sales -X POST -H 'Authorization: Bearer __TRACKED_VAR__' -H 'Content-Type: application/json' -d '{\"details\":[{\"product_id\":\"__TRACKED_VAR__\",\"quantity\":3,\"unit_price\":1500}],\"payments\":[{\"payment_method_id\":\"__TRACKED_VAR__\",\"amount\":4500}],\"debtor\":{\"name\":\"Luisa Fernanda\"}}')",
+      "Bash(curl -s http://localhost:8098/api/v1/debts?status=pending -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(curl -s http://localhost:8098/api/v1/debts/18d7cc5f-03d3-4edb-8c0a-b31bb2da39f0 -H 'Authorization: Bearer __TRACKED_VAR__')"
+    ],
+    "additionalDirectories": [
+      "C:\\Proyectos\\gym-go\\scratch"
     ]
   }
 }

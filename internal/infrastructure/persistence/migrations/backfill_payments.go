@@ -28,6 +28,10 @@ var legacySubscriptionMethods = map[string]string{
 }
 
 // defaultCatalog son los métodos que deben existir siempre.
+//
+// "Fiado" se agregó después de los cuatro originales — ensurePaymentMethodCatalog
+// corre en cada arranque y es idempotente por nombre, así que una instalación
+// ya desplegada lo gana solo en el siguiente arranque, sin migración aparte.
 var defaultCatalog = []struct {
 	name string
 	kind entities.PaymentMethodType
@@ -36,6 +40,7 @@ var defaultCatalog = []struct {
 	{"Tarjeta", entities.PaymentTypeCard},
 	{"Transferencia", entities.PaymentTypeTransfer},
 	{"Otro", entities.PaymentMethodTypeOther},
+	{"Fiado", entities.PaymentTypeCredit},
 }
 
 func normalizeMethodName(name string) string {

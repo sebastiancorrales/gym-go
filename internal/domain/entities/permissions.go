@@ -53,6 +53,12 @@ const (
 	// Corregir el método de pago de un documento ya registrado. Sólo se concede a
 	// administración: cambiarlo altera reportes de días ya cerrados y enviados.
 	PermPaymentsAmend Permission = "payments:amend"
+	// Fiado: ver quién debe y cobrar una deuda son el mismo acto de confianza
+	// que vender/cobrar en efectivo (PermSalesCreate), así que van al mismo
+	// tramo de mostrador. Vender fiado en sí no necesita un permiso nuevo: usa
+	// PermSalesCreate, porque es una venta más con un método de pago más.
+	PermDebtsRead    Permission = "debts:read"
+	PermDebtsCollect Permission = "debts:collect"
 
 	// Compras y egresos. Son información contable —revelan a quién se le compra,
 	// a qué precio y cuánto cuesta operar—, así que no se conceden a los roles de
@@ -86,6 +92,7 @@ var allPermissions = []Permission{
 	PermProductsRead, PermProductsWrite, PermInventoryMovements, PermInventoryAdjust, PermInventoryCost,
 	PermPaymentMethodsRead, PermPaymentMethods,
 	PermSalesRead, PermSalesCreate, PermSalesVoid, PermPaymentsAmend,
+	PermDebtsRead, PermDebtsCollect,
 	PermSuppliersRead, PermSuppliersWrite,
 	PermExpensesRead, PermExpensesWrite, PermExpensesVoid,
 	PermReportsDaily, PermReportsHistory, PermReportsAccounting, PermReportsInventory,
@@ -123,6 +130,7 @@ var rolePermissions = map[UserRole]map[Permission]bool{
 		// GET /payment-methods para saber con qué se puede cobrar.
 		PermPaymentMethodsRead,
 		PermSalesRead, PermSalesCreate, PermSalesVoid,
+		PermDebtsRead, PermDebtsCollect,
 		PermReportsDaily,
 	),
 
@@ -134,6 +142,7 @@ var rolePermissions = map[UserRole]map[Permission]bool{
 		PermProductsRead,
 		PermPaymentMethodsRead,
 		PermSalesRead, PermSalesCreate,
+		PermDebtsRead, PermDebtsCollect,
 		PermReportsDaily,
 	),
 

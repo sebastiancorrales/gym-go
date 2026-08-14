@@ -22,6 +22,7 @@ func newPaymentUC(db *gorm.DB) *usecases.PaymentUseCase {
 		persistence.NewSQLiteSaleRepository(db),
 		persistence.NewSQLiteSubscriptionRepository(db),
 		persistence.NewSQLiteExpenseRepository(db),
+		persistence.NewSQLiteDebtRepository(db),
 		persistence.NewUnitOfWork(db),
 	)
 }

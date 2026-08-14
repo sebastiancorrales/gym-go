@@ -255,6 +255,7 @@ func seedPOS(t *testing.T, db *gorm.DB, stock int) (*usecases.SaleUseCase, *enti
 	}
 
 	saleUC := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo,
-		persistence.NewSQLitePaymentLineRepository(db), uow)
+		persistence.NewSQLitePaymentLineRepository(db),
+		persistence.NewSQLiteUserRepository(db), persistence.NewSQLiteDebtRepository(db), uow)
 	return saleUC, product, method.ID, sellerID
 }

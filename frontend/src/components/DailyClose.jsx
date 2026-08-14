@@ -28,7 +28,7 @@ import SkeletonTable, { SkeletonKpi } from './SkeletonTable';
 // reversa por completo. Es el número correcto, pero es distinto del que se veía
 // antes — conviene avisarlo al personal en vez de que lo descubran cuadrando.
 
-const TYPE_ICON = { cash: '💵', card: '💳', transfer: '🏦', other: '🧾' };
+const TYPE_ICON = { cash: '💵', card: '💳', transfer: '🏦', other: '🧾', credit: '📝' };
 const iconFor = (type) => TYPE_ICON[type] || '🧾';
 
 const hourOf = (iso) =>
@@ -282,9 +282,20 @@ export default function DailyClose({ user }) {
                   </thead>
                   <tbody>
                     {data.methods.map((m) => (
-                      <tr key={m.method} className="border-t border-[#F1F5F9]">
+                      <tr
+                        key={m.method}
+                        className={`border-t border-[#F1F5F9] ${m.type === 'credit' ? 'bg-[#FFFBEB]' : ''}`}
+                      >
                         <td className="px-6 py-3 font-semibold text-[#0F1C35]">
                           <span className="mr-2">{iconFor(m.type)}</span>{m.method}
+                          {/* El fiado no es dinero en caja: sin este aviso, el
+                              renglón se ve idéntico a Efectivo o Transferencia
+                              y alguien podría contarlo dos veces al cuadrar. */}
+                          {m.type === 'credit' && (
+                            <span className="ml-2 align-middle text-[10px] font-bold uppercase tracking-wide text-[#B45309] bg-[#FEF3C7] px-1.5 py-0.5 rounded">
+                              pendiente de cobro
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-3 text-right text-[#4B5778]">{fmt(m.subsTotal)}</td>
                         <td className="px-6 py-3 text-right text-[#4B5778]">{fmt(m.salesTotal)}</td>

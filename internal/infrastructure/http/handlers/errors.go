@@ -66,8 +66,19 @@ func RespondError(c *gin.Context, err error, fallbackMessage string) {
 		errors.Is(err, apperrors.ErrDuplicatePaymentMethod),
 		errors.Is(err, apperrors.ErrCashReceivedTooLow),
 		errors.Is(err, apperrors.ErrCashChangeOnNonCash),
-		errors.Is(err, apperrors.ErrCannotAmendVoidSale):
+		errors.Is(err, apperrors.ErrCannotAmendVoidSale),
+		errors.Is(err, apperrors.ErrDebtorRequired),
+		errors.Is(err, apperrors.ErrDebtNotPending),
+		errors.Is(err, apperrors.ErrDebtNotCollected),
+		errors.Is(err, apperrors.ErrCannotPayDebtWithCredit),
+		errors.Is(err, apperrors.ErrCannotAmendCreditSale):
 		status = http.StatusBadRequest
+		message = err.Error()
+
+	// Un conflicto de ESTADO, no de entrada inválida: el fiado existe y la
+	// operación es válida en general, sólo que ya lo cobraron. 409, no 400.
+	case errors.Is(err, apperrors.ErrDebtAlreadyCollected):
+		status = http.StatusConflict
 		message = err.Error()
 
 	case errors.Is(err, apperrors.ErrUnauthorized):

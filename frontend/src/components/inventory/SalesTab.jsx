@@ -10,6 +10,10 @@ import { toPaymentsPayload } from '../../utils/payments';
 export default function SalesTab({ user }) {
   const [products, setProducts] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
+  // Sólo para el buscador de socio del fiado (PaymentSplitEditor). El punto de
+  // venta en sí sigue sin saber quién compra — esto no cambia nada si nadie
+  // usa el método Fiado.
+  const [users, setUsers] = useState([]);
   const [cart, setCart] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   // El pago pasa de ser un metodo unico a una lista de lineas. Con una sola
@@ -28,7 +32,24 @@ export default function SalesTab({ user }) {
   useEffect(() => {
     fetchProducts();
     fetchPaymentMethods();
+    fetchUsers();
   }, []);
+
+  // Se pide una sola vez y sin filtro de servidor, igual que en
+  // SubscriptionsManagement: el filtrado por nombre/documento es en cliente.
+  // Si un cajero sin PERMS.USERS_READ llega aquí, la lista queda vacía y el
+  // fiado sigue funcionando por nombre libre — no rompe nada.
+  const fetchUsers = async () => {
+    try {
+      const response = await api.get('/users');
+      if (response.ok) {
+        const result = await response.json();
+        setUsers(result.data || result || []);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -150,6 +171,13 @@ export default function SalesTab({ user }) {
 
     setLoading(true);
     try {
+      // La línea de fiado (si hay una) trae a quién cobrarle colgado de sí
+      // misma; toPaymentsPayload lo descarta porque el backend no lo espera
+      // ahí — viaja aparte, como `debtor` a nivel de la venta completa.
+      const creditLine = paymentLines.find(
+        l => paymentMethods.find(m => m.id === l.payment_method_id)?.type === 'credit'
+      );
+
       const saleData = {
         payments: toPaymentsPayload(paymentLines),
         details: cart.map(item => ({
@@ -157,7 +185,13 @@ export default function SalesTab({ user }) {
           quantity: item.quantity,
           unit_price: item.unit_price,
           discount: item.discount
-        }))
+        })),
+        ...(creditLine && {
+          debtor: {
+            name: creditLine.debtor_name || '',
+            user_id: creditLine.debtor_user_id || undefined,
+          },
+        }),
       };
 
       const response = await api.post('/sales', saleData);
@@ -415,6 +449,8 @@ export default function SalesTab({ user }) {
               onChange={setPaymentLines}
               onValidityChange={setPaymentValid}
               disabled={loading}
+              allowCredit
+              users={users}
             />
           </div>
         </div>

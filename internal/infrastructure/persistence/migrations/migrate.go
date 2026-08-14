@@ -38,6 +38,7 @@ func Migrate(db *gorm.DB) error {
 		&entities.ExpenseLine{},
 		&entities.PaymentLine{},
 		&entities.ChangeLog{},
+		&entities.Debt{},
 		&entities.Class{},
 		&entities.Attendance{},
 		&entities.SubscriptionMember{},
@@ -62,6 +63,17 @@ func Migrate(db *gorm.DB) error {
 
 	if err := backfillInitialStockMovements(db); err != nil {
 		log.Printf("⚠️  backfillInitialStockMovements: %v", err)
+	}
+
+	// ensurePaymentMethodCatalog TAMBIÉN se llama dentro de backfillPaymentLines,
+	// pero SÓLO si hay documentos pendientes de migrar (backfillPaymentLines
+	// devuelve temprano si pending == 0). En una instalación nueva, o ya migrada
+	// en régimen estacionario, pending siempre es 0 — así que sin esta llamada
+	// aparte, un método nuevo agregado a defaultCatalog (p. ej. "Fiado") jamás
+	// se siembra fuera del instante puntual de una migración real. Llamarla aquí
+	// también es idempotente por nombre, así que no crea duplicados.
+	if _, err := ensurePaymentMethodCatalog(db); err != nil {
+		log.Printf("⚠️  ensurePaymentMethodCatalog: %v", err)
 	}
 
 	// Este backfill NO se traga su error, a diferencia de los anteriores.

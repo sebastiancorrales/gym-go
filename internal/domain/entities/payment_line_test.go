@@ -76,6 +76,38 @@ func TestValidatePaymentLines(t *testing.T) {
 	}
 }
 
+// TestValidatePaymentLines_AceptaUnaLineaDeCredito prueba la premisa central
+// del diseño de fiado: ValidatePaymentLines no distingue tipos de método —
+// una línea de Fiado (PaymentTypeCredit) cuenta hacia el total exactamente
+// igual que una de Efectivo. No hace falta ningún caso especial aquí; el
+// fiado es "una línea de pago más", y la deuda que abre se decide en el use
+// case, no en esta validación.
+func TestValidatePaymentLines_AceptaUnaLineaDeCredito(t *testing.T) {
+	fiado := uuid.New()
+
+	// Fiado solo, por el total completo.
+	if err := ValidatePaymentLines([]PaymentLine{line(fiado, 45000)}, 45000); err != nil {
+		t.Errorf("una venta 100%% fiada debería validar, error = %v", err)
+	}
+
+	// Combinado: mitad efectivo, mitad fiado.
+	combined := []PaymentLine{line(efectivo, 50000), line(fiado, 50000)}
+	if err := ValidatePaymentLines(combined, 100000); err != nil {
+		t.Errorf("pago combinado con fiado debería validar, error = %v", err)
+	}
+
+	// ValidateCashChange tampoco necesita saber de fiado: la línea de crédito
+	// simplemente no tiene CashReceived, así que no entra en la cuenta de
+	// "cuántas líneas traen efectivo".
+	methods := map[uuid.UUID]*SalePaymentMethod{
+		efectivo: {ID: efectivo, Name: "Efectivo", Type: PaymentTypeCash},
+		fiado:    {ID: fiado, Name: "Fiado", Type: PaymentTypeCredit},
+	}
+	if err := ValidateCashChange(combined, methods); err != nil {
+		t.Errorf("ValidateCashChange no debería rechazar la línea de fiado, error = %v", err)
+	}
+}
+
 func TestValidateCashChange(t *testing.T) {
 	methods := map[uuid.UUID]*SalePaymentMethod{
 		efectivo:      {ID: efectivo, Name: "Efectivo", Type: PaymentTypeCash},

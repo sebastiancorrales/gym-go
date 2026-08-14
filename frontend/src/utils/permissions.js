@@ -40,6 +40,8 @@ export const PERMS = {
   SALES_CREATE: 'sales:create',
   SALES_VOID: 'sales:void',
   PAYMENTS_AMEND: 'payments:amend',
+  DEBTS_READ: 'debts:read',
+  DEBTS_COLLECT: 'debts:collect',
 
   SUPPLIERS_READ: 'suppliers:read',
   SUPPLIERS_WRITE: 'suppliers:write',

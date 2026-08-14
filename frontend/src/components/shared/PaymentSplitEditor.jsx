@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { fmt } from '../../utils/currency';
 
 // Editor de las patas de un pago, compartido por el punto de venta, el alta de
@@ -14,6 +14,7 @@ import { fmt } from '../../utils/currency';
 const CHIPS = [10000, 20000, 50000, 100000];
 
 const isCash = (method) => method?.type === 'cash';
+const isCredit = (method) => method?.type === 'credit';
 const round = (v) => Math.round((v + Number.EPSILON) * 100) / 100;
 
 export default function PaymentSplitEditor({
@@ -23,9 +24,19 @@ export default function PaymentSplitEditor({
   onChange,
   onValidityChange,
   allowCashChange = true,
+  // El fiado sólo aplica al punto de venta: éste y `users` llegan apagados por
+  // defecto para que suscripciones/renovación (que reusan este mismo
+  // componente) no ofrezcan un método que no les corresponde.
+  allowCredit = false,
+  users = [],
   disabled = false,
 }) {
-  const active = useMemo(() => methods.filter(m => m.status === 'active'), [methods]);
+  // Fiado sólo aparece en el selector cuando el padre lo habilita
+  // explícitamente (el punto de venta): en suscripciones/renovación no hay
+  // "a quién cobrarle después" que capturar, así que ni se ofrece.
+  const active = useMemo(
+    () => methods.filter(m => m.status === 'active' && (allowCredit || !isCredit(m))),
+    [methods, allowCredit]);
 
   // Método por defecto: el de efectivo si existe, si no el primero.
   const defaultMethodId = useMemo(() => {
@@ -56,7 +67,13 @@ export default function PaymentSplitEditor({
     && parseFloat(cashLine.cash_received) < (parseFloat(cashLine.amount) || 0);
   const cashOnNonCash = cashLine && !isCash(methodById[cashLine.payment_method_id]);
 
-  const valid = balanced && value.length > 0 && !cashShort && !cashOnNonCash
+  // La línea de fiado necesita saber a quién cobrarle: un nombre tecleado
+  // rápido o un socio vinculado, cualquiera de los dos basta.
+  const creditLine = value.find(l => isCredit(methodById[l.payment_method_id]));
+  const creditMissingDebtor = creditLine
+    && !(creditLine.debtor_name?.trim() || creditLine.debtor_user_id);
+
+  const valid = balanced && value.length > 0 && !cashShort && !cashOnNonCash && !creditMissingDebtor
     && value.every(l => l.payment_method_id && (parseFloat(l.amount) || 0) !== 0);
 
   useEffect(() => { onValidityChange?.(valid); }, [valid, onValidityChange]);
@@ -190,6 +207,15 @@ export default function PaymentSplitEditor({
                 </div>
               </div>
             )}
+
+            {allowCredit && isCredit(method) && (
+              <DebtorPicker
+                line={line}
+                users={users}
+                disabled={disabled}
+                onChange={patch => update(i, patch)}
+              />
+            )}
           </div>
         );
       })}
@@ -217,11 +243,104 @@ export default function PaymentSplitEditor({
           El efectivo recibido no cubre el monto de esa línea.
         </p>
       )}
+      {creditMissingDebtor && (
+        <p className="text-sm font-semibold text-red-600">
+          Escribe el nombre de quien debe (o vincula un socio) antes de confirmar el fiado.
+        </p>
+      )}
 
       {change > 0 && (
         <div className="rounded-lg bg-[#DCFCE7] border border-[#A7F3D0] px-4 py-3">
           <p className="text-xs font-semibold text-[#065F46] uppercase tracking-wide">Cambio</p>
           <p className="text-2xl font-extrabold text-[#059669]">{fmt(change)}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// DebtorPicker captura a quién se le fía: un nombre libre tecleado rápido, o
+// un socio ya registrado (buscado por nombre/documento, mismo patrón que ya
+// existe — repetido a mano — en SubscriptionsManagement/UsersManagement).
+// Un socio vinculado no impide corregir el nombre visible; sí hay que
+// "quitarlo" explícitamente para volver a buscar otro.
+function DebtorPicker({ line, users, disabled, onChange }) {
+  const [search, setSearch] = useState('');
+  const linkedUser = users.find(u => u.id === line.debtor_user_id);
+
+  const matches = search.trim().length < 2 ? [] : users
+    .filter(u => {
+      const q = search.toLowerCase();
+      const fullName = `${u.first_name} ${u.last_name}`.toLowerCase();
+      const doc = (u.document_number || '').toLowerCase();
+      return fullName.includes(q) || doc.includes(q);
+    })
+    .slice(0, 6);
+
+  return (
+    <div className="pl-1 space-y-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+      <div>
+        <label className="block text-xs font-medium text-amber-700 mb-1">
+          Nombre de quien debe
+        </label>
+        <input
+          type="text"
+          placeholder="Ej: Juan Pérez"
+          value={line.debtor_name || ''}
+          disabled={disabled}
+          onChange={e => onChange({ debtor_name: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+        />
+      </div>
+
+      {linkedUser ? (
+        <div className="flex items-center justify-between bg-[#EBF3FF] border border-[#BFDBFE] rounded-lg px-3 py-2">
+          <span className="text-sm font-medium text-[#0D5BAD]">
+            Socio vinculado: {linkedUser.first_name} {linkedUser.last_name}
+          </span>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange({ debtor_user_id: '' })}
+            className="text-xs text-gray-400 hover:text-red-600 bg-transparent border-none cursor-pointer"
+          >
+            Quitar
+          </button>
+        </div>
+      ) : (
+        <div>
+          <label className="block text-xs font-medium text-gray-400 mb-1">
+            Vincular a un socio (opcional)
+          </label>
+          <input
+            type="text"
+            placeholder="Buscar por nombre o documento..."
+            value={search}
+            disabled={disabled}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+          />
+          {matches.length > 0 && (
+            <div className="mt-1 max-h-40 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-100 bg-white">
+              {matches.map(u => (
+                <button
+                  key={u.id}
+                  type="button"
+                  onClick={() => {
+                    onChange({
+                      debtor_user_id: u.id,
+                      debtor_name: line.debtor_name || `${u.first_name} ${u.last_name}`,
+                    });
+                    setSearch('');
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-[#EBF3FF] bg-transparent border-none cursor-pointer"
+                >
+                  {u.first_name} {u.last_name}
+                  {u.document_number && <span className="text-gray-400 ml-1">· {u.document_number}</span>}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

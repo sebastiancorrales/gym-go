@@ -32,6 +32,12 @@ const (
 	PayableSale         PayableKind = "sale"
 	PayableSubscription PayableKind = "subscription"
 	PayableExpense      PayableKind = "expense"
+	// PayableDebt es EXCLUSIVA de la línea que registra el cobro real de un
+	// fiado (ver entities.Debt) — nunca de la línea de crédito original, que
+	// sigue viviendo bajo PayableSale porque es parte del pago de esa venta.
+	// La fecha de esta línea es la del día en que se cobra, no la de la venta,
+	// así que el dinero aparece en el cuadre del día correcto.
+	PayableDebt PayableKind = "debt"
 )
 
 // PaymentLine es una pata (método, monto) de un pago.

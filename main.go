@@ -192,6 +192,7 @@ func main() {
 	expenseLineRepo := persistence.NewSQLiteExpenseLineRepository(database.DB)
 	paymentLineRepo := persistence.NewSQLitePaymentLineRepository(database.DB)
 	changeLogRepo := persistence.NewSQLiteChangeLogRepository(database.DB)
+	debtRepo := persistence.NewSQLiteDebtRepository(database.DB)
 	paymentMethodRepo := persistence.NewSQLitePaymentMethodRepository(database.DB)
 	saleRepo := persistence.NewSQLiteSaleRepository(database.DB)
 	saleDetailRepo := persistence.NewSQLiteSaleDetailRepository(database.DB)
@@ -215,10 +216,11 @@ func main() {
 	biometricService := usecases.NewBiometricService(fingerprintRepo, userRepo)
 	productUseCase := usecases.NewProductUseCase(productRepo, stockMovementRepo, uow)
 	supplierUseCase := usecases.NewSupplierUseCase(supplierRepo)
-	paymentUseCase := usecases.NewPaymentUseCase(paymentLineRepo, paymentMethodRepo, changeLogRepo, saleRepo, subscriptionRepo, expenseRepo, uow)
+	paymentUseCase := usecases.NewPaymentUseCase(paymentLineRepo, paymentMethodRepo, changeLogRepo, saleRepo, subscriptionRepo, expenseRepo, debtRepo, uow)
 	expenseUseCase := usecases.NewExpenseUseCase(expenseRepo, expenseLineRepo, expenseCategoryRepo, supplierRepo, productRepo, paymentMethodRepo, stockMovementRepo, uow)
 	paymentMethodUseCase := usecases.NewPaymentMethodUseCase(paymentMethodRepo)
-	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo, paymentLineRepo, uow)
+	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo, paymentLineRepo, userRepo, debtRepo, uow)
+	debtUseCase := usecases.NewDebtUseCase(debtRepo, paymentMethodRepo, paymentLineRepo, userRepo, saleDetailRepo, productRepo, uow)
 	classUseCase := usecases.NewClassUseCase(classRepo, instructorRepo)
 	attendanceUseCase := usecases.NewAttendanceUseCase(attendanceRepo, memberRepo, classRepo)
 
@@ -255,6 +257,7 @@ func main() {
 	paymentHandler := handlers.NewPaymentHandler(paymentUseCase, userUseCase)
 	paymentMethodHandler := handlers.NewPaymentMethodHandler(paymentMethodUseCase)
 	saleHandler := handlers.NewSaleHandler(saleUseCase)
+	debtHandler := handlers.NewDebtHandler(debtUseCase)
 	gymHandler := handlers.NewGymHandler(gymRepo)
 	classHandler := handlers.NewClassHandler(classUseCase)
 	attendanceHandler := handlers.NewAttendanceHandler(attendanceUseCase)
@@ -619,6 +622,22 @@ func main() {
 			// administracion: altera reportes de dias ya cerrados y enviados.
 			sales.PATCH("/:id/payments", middleware.RequirePermission(entities.PermPaymentsAmend), paymentHandler.AmendSalePayments)
 			sales.GET("/:id/audit", paymentHandler.GetSaleAudit)
+		}
+
+		// Debts routes - fiado. Vender fiado ocurre dentro de POST /sales (una
+		// línea de pago más); esto es sólo consultar quién debe y cobrar/revertir.
+		debts := protected.Group("/debts")
+		debts.Use(middleware.RequirePermission(entities.PermDebtsRead))
+		{
+			debts.GET("/summary", debtHandler.Summary)
+			debts.GET("", debtHandler.List)
+			debts.GET("/:id", debtHandler.GetDebt)
+
+			debts.POST("/:id/collect", middleware.RequirePermission(entities.PermDebtsCollect), debtHandler.Collect)
+			debts.PATCH("/:id/link-debtor", middleware.RequirePermission(entities.PermDebtsCollect), debtHandler.LinkDebtor)
+			// Revertir un cobro es la misma operación de confianza que corregir
+			// cualquier otro pago ya registrado: sólo administración.
+			debts.POST("/:id/uncollect", middleware.RequirePermission(entities.PermPaymentsAmend), debtHandler.Uncollect)
 		}
 	}
 

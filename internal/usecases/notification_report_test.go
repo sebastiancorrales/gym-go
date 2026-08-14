@@ -68,7 +68,8 @@ func TestBuildDailyCloseReport_SumaMetodosGastosYNeto(t *testing.T) {
 	saleDetailRepo := persistence.NewSQLiteSaleDetailRepository(db)
 	uow := persistence.NewUnitOfWork(db)
 	saleUC := NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo,
-		persistence.NewSQLitePaymentLineRepository(db), uow)
+		persistence.NewSQLitePaymentLineRepository(db),
+		persistence.NewSQLiteUserRepository(db), persistence.NewSQLiteDebtRepository(db), uow)
 
 	sellerID := uuid.New()
 	today := time.Now().UTC().Format("2006-01-02")

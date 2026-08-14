@@ -16,6 +16,7 @@ const SubscriptionsManagement = lazy(() => import('./SubscriptionsManagement'));
 const AccessManagement = lazy(() => import('./AccessManagement'));
 const ProductsManagement = lazy(() => import('./inventory/ProductsManagement'));
 const SalesTab = lazy(() => import('./inventory/SalesTab'));
+const DebtsTab = lazy(() => import('./DebtsTab'));
 const SalesHistory = lazy(() => import('./inventory/SalesHistory'));
 const StockMovements = lazy(() => import('./inventory/StockMovements'));
 const ReportsTab = lazy(() => import('./inventory/ReportsTab'));
@@ -37,6 +38,7 @@ const TAB_LOADERS = {
   access: () => import('./AccessManagement'),
   products: () => import('./inventory/ProductsManagement'),
   sales: () => import('./inventory/SalesTab'),
+  debts: () => import('./DebtsTab'),
   'sales-history': () => import('./inventory/SalesHistory'),
   'stock-movements': () => import('./inventory/StockMovements'),
   reports: () => import('./inventory/ReportsTab'),
@@ -118,6 +120,7 @@ const NAV_GROUPS = [
       // para vender basta con PRODUCTS_READ, que consume el punto de venta.
       { id: 'products',      label: 'Productos',           icon: 'products', perm: PERMS.PRODUCTS_WRITE },
       { id: 'sales',         label: 'Ventas',              icon: 'sales',    perm: PERMS.SALES_CREATE },
+      { id: 'debts',         label: 'Fiados',              icon: 'dollar',   perm: PERMS.DEBTS_READ },
       { id: 'stock-movements', label: 'Movimientos',        icon: 'history',  perm: PERMS.INVENTORY_MOVEMENTS },
       { id: 'sales-history', label: 'Historial De Ventas', icon: 'history',  perm: PERMS.REPORTS_HISTORY },
       { id: 'reports',       label: 'Reportes',            icon: 'reports',  perm: PERMS.REPORTS_INVENTORY },
@@ -705,6 +708,7 @@ export default function Dashboard({ user, onLogout }) {
           {showTab('access')              && <AccessManagement />}
           {showTab('products')            && <div className="p-7"><ProductsManagement /></div>}
           {showTab('sales')               && <div className="p-7"><SalesTab user={user} /></div>}
+          {showTab('debts')               && <div className="p-7"><DebtsTab /></div>}
           {showTab('stock-movements')     && <div className="p-7"><StockMovements /></div>}
           {showTab('sales-history')       && <div className="p-7"><SalesHistory user={user} /></div>}
           {showTab('reports')             && <div className="p-7"><ReportsTab /></div>}

@@ -60,6 +60,12 @@ type Sale struct {
 	// resuelve por el vendedor. Lo pone el handler desde el token para poder
 	// estampar las líneas de pago, que sí lo llevan.
 	GymID uuid.UUID `json:"-" gorm:"-" db:"-"`
+
+	// Debtor identifica a quién se le fía cuando una de las líneas de pago es
+	// de tipo credit. Transitorio como GymID: Sale no persiste comprador, y el
+	// fiado es lo primero en necesitarlo — CreateSale lo usa para abrir la
+	// entities.Debt correspondiente, nunca se guarda en la tabla sales.
+	Debtor *DebtorInfo `json:"-" gorm:"-" db:"-"`
 }
 
 // CalculateTotal calculates the total from details

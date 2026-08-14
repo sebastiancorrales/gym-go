@@ -81,6 +81,7 @@ func TestPaymentSummary_CuadraConVentaAnulacionYSuscripcion(t *testing.T) {
 		persistence.NewSQLiteSaleRepository(db),
 		persistence.NewSQLiteSubscriptionRepository(db),
 		persistence.NewSQLiteExpenseRepository(db),
+		persistence.NewSQLiteDebtRepository(db),
 		persistence.NewUnitOfWork(db),
 	)
 

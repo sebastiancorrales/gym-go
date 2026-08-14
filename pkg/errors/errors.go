@@ -34,6 +34,16 @@ var (
 	ErrCashChangeOnNonCash      = errors.New("solo la línea de efectivo admite efectivo recibido")
 	ErrCannotAmendVoidSale      = errors.New("corrige el método en la venta original, no en su contrapartida")
 
+	// Errores de fiado (crédito a clientes). Un fiado es una línea de pago más
+	// (PaymentTypeCredit) que además abre una deuda: estos errores cubren el
+	// ciclo de vida de esa deuda, no la validación de la línea en sí.
+	ErrDebtorRequired          = errors.New("un fiado necesita un nombre o un socio vinculado")
+	ErrDebtNotPending          = errors.New("la deuda no está pendiente de cobro")
+	ErrDebtNotCollected        = errors.New("la deuda no está cobrada")
+	ErrDebtAlreadyCollected    = errors.New("el fiado ya fue cobrado; revierte el cobro antes de anular")
+	ErrCannotPayDebtWithCredit = errors.New("no se puede cobrar un fiado con otro fiado")
+	ErrCannotAmendCreditSale   = errors.New("esta venta tiene un fiado asociado; corrígelo desde el módulo de deudas")
+
 	// ErrDatabaseBusy señala contención de locks en SQLite: es un fallo
 	// transitorio y reintentable, no un error de negocio. La capa HTTP lo
 	// traduce a 503 + Retry-After para que el cliente pueda reintentar.

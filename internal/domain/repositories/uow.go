@@ -29,6 +29,10 @@ type Repos struct {
 	// un cobro corregido sin constancia de quién lo cambió es peor que no poder
 	// corregirlo.
 	ChangeLogs ChangeLogRepository
+	// Debts entra aquí porque fiar es parte de la misma transacción que crea la
+	// venta: una venta con una línea de crédito sin su Debt sería dinero que
+	// nadie sabe a quién cobrarle.
+	Debts DebtRepository
 }
 
 // UnitOfWork ejecuta una función dentro de una única transacción de base de datos.

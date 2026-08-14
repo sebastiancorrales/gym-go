@@ -127,6 +127,21 @@ func TestHotQueriesUseIndexes(t *testing.T) {
 			query: "SELECT * FROM expense_lines WHERE expense_id = ?",
 			args:  []interface{}{"00000000-0000-0000-0000-000000000000"},
 		},
+		{
+			name:  "deuda de una venta (al anularla)",
+			query: "SELECT * FROM debts WHERE sale_id = ?",
+			args:  []interface{}{"00000000-0000-0000-0000-000000000000"},
+		},
+		{
+			name:  "quien debe (GET /debts/summary)",
+			query: "SELECT * FROM debts WHERE gym_id = ? AND status = ?",
+			args:  []interface{}{"00000000-0000-0000-0000-000000000000", "pending"},
+		},
+		{
+			name:  "deudas de un socio vinculado",
+			query: "SELECT * FROM debts WHERE debtor_user_id = ?",
+			args:  []interface{}{"00000000-0000-0000-0000-000000000000"},
+		},
 	}
 
 	for _, tc := range cases {

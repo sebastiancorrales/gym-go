@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,7 +19,13 @@ type SaleUseCase struct {
 	productRepo       repositories.ProductRepository
 	paymentMethodRepo repositories.PaymentMethodRepository
 	paymentLineRepo   repositories.PaymentLineRepository
-	uow               repositories.UnitOfWork
+	// userRepo valida al socio vinculado como deudor de un fiado (opcional: el
+	// deudor también puede ser sólo un nombre libre).
+	userRepo repositories.UserRepository
+	// debtRepo abre la cuenta por cobrar cuando una venta se paga (total o
+	// parcialmente) con el método de tipo credit, y la consulta al anular.
+	debtRepo repositories.DebtRepository
+	uow      repositories.UnitOfWork
 }
 
 // NewSaleUseCase creates a new SaleUseCase
@@ -28,6 +35,8 @@ func NewSaleUseCase(
 	productRepo repositories.ProductRepository,
 	paymentMethodRepo repositories.PaymentMethodRepository,
 	paymentLineRepo repositories.PaymentLineRepository,
+	userRepo repositories.UserRepository,
+	debtRepo repositories.DebtRepository,
 	uow repositories.UnitOfWork,
 ) *SaleUseCase {
 	return &SaleUseCase{
@@ -36,6 +45,8 @@ func NewSaleUseCase(
 		productRepo:       productRepo,
 		paymentMethodRepo: paymentMethodRepo,
 		paymentLineRepo:   paymentLineRepo,
+		userRepo:          userRepo,
+		debtRepo:          debtRepo,
 		uow:               uow,
 	}
 }
@@ -134,6 +145,15 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 	// vieja, que leen cinco sitios de producción y la respuesta de la API.
 	sale.PaymentMethodID = entities.PrimaryPaymentMethod(paymentLines)
 
+	// Si el pago incluye una línea de fiado, se abre la deuda correspondiente en
+	// la MISMA transacción que la venta: una venta fiada sin su Debt sería
+	// dinero que nadie sabe a quién cobrarle. Vuelve nil sin error si no hay
+	// línea de crédito.
+	debt, err := uc.buildDebtForSale(sale)
+	if err != nil {
+		return err
+	}
+
 	// Total quantity per product, computed before the transaction so a retry does
 	// not accumulate: everything inside uow.Do must be idempotent.
 	qtyByProduct := make(map[uuid.UUID]int, len(productMap))
@@ -174,6 +194,12 @@ func (uc *SaleUseCase) CreateSale(ctx context.Context, sale *entities.Sale) erro
 
 		if err := r.PaymentLines.CreateBatch(ctx, sale.PaymentLines); err != nil {
 			return err
+		}
+
+		if debt != nil {
+			if err := r.Debts.Create(ctx, debt); err != nil {
+				return err
+			}
 		}
 
 		if !sale.IsNormal() {
@@ -233,6 +259,19 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 	originalLines, err := uc.paymentLineRepo.GetByPayable(ctx, entities.PayableSale, saleID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Si la venta tiene un fiado asociado: uno pendiente se anula junto con
+	// ella (mismo mecanismo genérico de líneas espejo, sin código extra); uno
+	// ya cobrado bloquea la anulación — el mismo principio que VoidExpense
+	// bloqueando una compra cuya mercancía ya se vendió. Dejar que se anulara
+	// dejaría un espejo de caja por dinero que ya entró en un cierre distinto.
+	debt, err := uc.debtRepo.GetBySaleID(ctx, saleID)
+	if err != nil {
+		return nil, err
+	}
+	if debt != nil && debt.Status == entities.DebtStatusCollected {
+		return nil, errors.ErrDebtAlreadyCollected
 	}
 
 	if loc == nil {
@@ -330,6 +369,14 @@ func (uc *SaleUseCase) VoidSale(ctx context.Context, saleID uuid.UUID, userID uu
 		}
 		if err := r.PaymentLines.CreateBatch(ctx, voidLines); err != nil {
 			return err
+		}
+
+		if debt != nil && debt.CanBeVoided() {
+			debt.Status = entities.DebtStatusVoided
+			debt.UpdatedAt = now
+			if err := r.Debts.Update(ctx, debt); err != nil {
+				return err
+			}
 		}
 
 		// Copy per attempt — see the comment in CreateSale.
@@ -595,4 +642,69 @@ func (uc *SaleUseCase) buildPaymentLines(
 		}
 	}
 	return built, nil
+}
+
+// buildDebtForSale detecta si el pago de una venta incluye una línea de
+// fiado (método de tipo credit) y, si la hay, arma —sin persistir todavía— la
+// entities.Debt correspondiente. Vuelve (nil, nil) si no hay línea de crédito:
+// no toda venta abre una deuda.
+//
+// Se construye ANTES de la transacción, con su ID y timestamps ya fijos, por
+// el mismo motivo que movesTemplate en CreateSale: el Unit of Work reintenta
+// ante contención y exige idempotencia.
+func (uc *SaleUseCase) buildDebtForSale(sale *entities.Sale) (*entities.Debt, error) {
+	var creditLine *entities.PaymentLine
+	for i := range sale.PaymentLines {
+		line := &sale.PaymentLines[i]
+		if line.PaymentMethod != nil && line.PaymentMethod.Type.IsCredit() {
+			if creditLine != nil {
+				// Defensivo: ValidatePaymentLines ya impide dos líneas del
+				// mismo método, así que esto sólo ocurriría si alguien crea un
+				// segundo método de tipo credit en el catálogo.
+				return nil, errors.ErrInvalidInput
+			}
+			creditLine = line
+		}
+	}
+	if creditLine == nil {
+		return nil, nil
+	}
+
+	if !sale.Debtor.Valid() {
+		return nil, errors.ErrDebtorRequired
+	}
+
+	debtorName := strings.TrimSpace(sale.Debtor.Name)
+	var debtorUserID *uuid.UUID
+	if sale.Debtor.UserID != nil {
+		user, err := uc.userRepo.FindByID(*sale.Debtor.UserID)
+		if err != nil {
+			return nil, err
+		}
+		if user == nil {
+			return nil, errors.ErrNotFound
+		}
+		debtorUserID = sale.Debtor.UserID
+		// Un nombre libre además del socio (p. ej. un apodo) se conserva tal
+		// cual lo tecleó el cajero; si no vino ninguno, se usa el del socio.
+		if debtorName == "" {
+			debtorName = strings.TrimSpace(user.FirstName + " " + user.LastName)
+		}
+	}
+
+	now := time.Now().UTC().Round(0)
+	return &entities.Debt{
+		ID:           uuid.New(),
+		SaleID:       sale.ID,
+		GymID:        sale.GymID,
+		Amount:       creditLine.Amount,
+		DebtorUserID: debtorUserID,
+		DebtorName:   debtorName,
+		Status:       entities.DebtStatusPending,
+		Date:         sale.Date,
+		Hour:         sale.Hour,
+		CreatedByID:  sale.UserID,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}, nil
 }

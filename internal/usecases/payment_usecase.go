@@ -26,7 +26,10 @@ type PaymentUseCase struct {
 	saleRepo          repositories.SaleRepository
 	subscriptionRepo  repositories.SubscriptionRepository
 	expenseRepo       repositories.ExpenseRepository
-	uow               repositories.UnitOfWork
+	// debtRepo sólo se usa para la guarda de AmendPayments sobre una venta
+	// fiada: corregir el pago por ahí desincronizaría payment_lines y debts.
+	debtRepo repositories.DebtRepository
+	uow      repositories.UnitOfWork
 }
 
 func NewPaymentUseCase(
@@ -36,6 +39,7 @@ func NewPaymentUseCase(
 	saleRepo repositories.SaleRepository,
 	subscriptionRepo repositories.SubscriptionRepository,
 	expenseRepo repositories.ExpenseRepository,
+	debtRepo repositories.DebtRepository,
 	uow repositories.UnitOfWork,
 ) *PaymentUseCase {
 	return &PaymentUseCase{
@@ -45,6 +49,7 @@ func NewPaymentUseCase(
 		saleRepo:          saleRepo,
 		subscriptionRepo:  subscriptionRepo,
 		expenseRepo:       expenseRepo,
+		debtRepo:          debtRepo,
 		uow:               uow,
 	}
 }
@@ -76,6 +81,20 @@ type payableDoc struct {
 func (uc *PaymentUseCase) AmendPayments(ctx context.Context, in AmendPaymentsInput) ([]entities.PaymentLine, error) {
 	if len(in.Lines) == 0 {
 		return nil, errors.ErrNoPaymentLines
+	}
+
+	// Una venta con un fiado asociado (pendiente, cobrado o anulado) no se
+	// corrige por aquí: reescribir sus líneas dejaría payment_lines y debts
+	// desincronizados — el fiado seguiría existiendo (o no) sin relación con
+	// las líneas reales de la venta. Se corrige desde el módulo de deudas.
+	if in.Kind == entities.PayableSale {
+		debt, err := uc.debtRepo.GetBySaleID(ctx, in.PayableID)
+		if err != nil {
+			return nil, err
+		}
+		if debt != nil {
+			return nil, errors.ErrCannotAmendCreditSale
+		}
 	}
 
 	doc, applyPrimary, err := uc.loadPayable(ctx, in.Kind, in.PayableID)

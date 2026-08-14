@@ -42,3 +42,30 @@
 2026/08/12 18:11:58 📝 Environment: development
 2026/08/12 18:12:23 🛑 Shutting down server...
 2026/08/12 18:12:25 ✅ Server stopped gracefully
+2026/08/13 19:51:26 📝 Log en gym-go.log
+2026/08/13 19:51:26 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=1
+2026/08/13 19:51:26 🔄 Running database migrations...
+2026/08/13 19:51:26 ✅ Database migrations completed successfully
+2026/08/13 19:51:26 🔄 backfillDocumentNumbers: normalizando 9 documento(s)...
+2026/08/13 19:51:26 ✅ backfillDocumentNumbers: 9 documento(s) normalizados, 0 requieren revisión manual
+2026/08/13 19:51:26 🔄 backfillInitialStockMovements: sembrando saldo inicial de 9 producto(s)...
+2026/08/13 19:51:26 ✅ backfillInitialStockMovements: 9 asiento(s) de saldo inicial
+2026/08/13 19:51:26    método de pago creado: Otro
+2026/08/13 19:51:26    método de pago creado: Fiado
+2026/08/13 19:51:26 🔄 backfillPaymentLines: 1548 documento(s) sin línea de pago, migrando...
+2026/08/13 19:51:26 ✅ backfillPaymentLines: 1548 línea(s) de venta y 1144 de suscripción en 115ms
+2026/08/13 19:51:26 🌱 Seeding database...
+2026/08/13 19:51:26 ✅ 7 categorías de gasto creadas
+2026/08/13 19:51:26 ✅ Database seeding completed
+2026/08/13 19:51:26 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=8
+2026/08/13 19:51:26 📁 Serving frontend from disk: frontend/dist
+2026/08/13 19:51:26 ✅ Server running on http://localhost:8080
+2026/08/13 19:51:26 🌐 Frontend: http://localhost:8080/
+2026/08/13 19:51:26 📊 Health check: http://localhost:8080/api/v1/health
+2026/08/13 19:51:26 🔐 Auth endpoint: http://localhost:8080/api/v1/auth/login
+2026/08/13 19:51:26 📝 Environment: development
+2026/08/13 19:52:12 🔍 DEBUG GetSalesReport - startDate: 2026-08-13, endDate: 2026-08-13
+2026/08/13 19:52:12 🔍 DEBUG GetSalesReport - Found 1 reports, error: <nil>
+2026/08/13 19:52:12 🔍 DEBUG GetSalesReport - Report: {TotalSales:0 TotalDiscount:0 NetSales:0 SalesCount:0}
+2026/08/13 20:04:02 🛑 Shutting down server...
+2026/08/13 20:04:02 ✅ Server stopped gracefully

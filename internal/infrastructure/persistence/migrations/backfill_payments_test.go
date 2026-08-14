@@ -302,3 +302,25 @@ func TestBackfillPaymentLinesBaseVacia(t *testing.T) {
 		t.Errorf("líneas = %d, want 0", got)
 	}
 }
+
+// TestMigrate_SiembraElCatalogoAunSinNadaPendiente es la regresión de un bug
+// real, descubierto en verificación en vivo: ensurePaymentMethodCatalog vive
+// DENTRO de backfillPaymentLines, que devuelve temprano si no hay documentos
+// pendientes de migrar. En una instalación nueva (o ya migrada, en régimen
+// estacionario) pending siempre es 0, así que un método agregado a
+// defaultCatalog después de los tres originales — "Otro" primero, "Fiado"
+// después — jamás se sembraba fuera del instante puntual de una migración
+// real. Migrate ahora llama ensurePaymentMethodCatalog aparte, siempre.
+func TestMigrate_SiembraElCatalogoAunSinNadaPendiente(t *testing.T) {
+	db := freshMigratedDB(t) // instalación nueva: cero ventas, cero suscripciones
+
+	for _, name := range []string{"Efectivo", "Tarjeta", "Transferencia", "Otro", "Fiado"} {
+		var count int64
+		if err := db.Table("sale_payment_methods").Where("name = ?", name).Count(&count).Error; err != nil {
+			t.Fatalf("count(%s): %v", name, err)
+		}
+		if count != 1 {
+			t.Errorf("método %q: count = %d, want 1 (debe sembrarse aunque no haya nada pendiente de migrar)", name, count)
+		}
+	}
+}

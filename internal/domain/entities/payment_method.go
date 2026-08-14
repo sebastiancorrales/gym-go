@@ -31,11 +31,20 @@ const (
 	// está cogido por el enum PaymentType de payment.go, que pertenece a la
 	// entidad Payment: una tabla sin repositorio ni uso, muerta desde su creación.
 	PaymentMethodTypeOther PaymentMethodType = "other"
+	// PaymentTypeCredit es el fiado: una línea de este tipo cuenta hacia el total
+	// del pago igual que cualquier otra (ValidatePaymentLines no la distingue),
+	// pero además abre una entities.Debt — es una promesa de pago, no dinero en
+	// caja. IsCash() sigue siendo false para este tipo.
+	PaymentTypeCredit PaymentMethodType = "credit"
 )
 
 // IsCash indica si el método mueve efectivo físico. Es lo que determina si
 // aplica el cálculo del vuelto y qué debe haber en el cajón al cuadrar.
 func (t PaymentMethodType) IsCash() bool { return t == PaymentTypeCash }
+
+// IsCredit indica si el método es fiado: una línea con este tipo no es dinero
+// en caja, es una promesa de pago que abre una entities.Debt.
+func (t PaymentMethodType) IsCredit() bool { return t == PaymentTypeCredit }
 
 // SalePaymentMethod represents a payment method available for sales
 type SalePaymentMethod struct {

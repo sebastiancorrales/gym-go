@@ -24,12 +24,20 @@ type PaymentSummaryMethod struct {
 	// other), no el nombre: el ícono-por-nombre se rompe en cuanto alguien crea
 	// un método nuevo como "Nequi".
 	Type        string  `json:"type"`
-	SubsTotal   float64 `json:"subs_total"`
-	SubsCount   int     `json:"subs_count"`
-	SalesTotal  float64 `json:"sales_total"`
-	SalesCount  int     `json:"sales_count"`
-	Total       float64 `json:"total"`
-	ChangeGiven float64 `json:"change_given"`
+	SubsTotal  float64 `json:"subs_total"`
+	SubsCount  int     `json:"subs_count"`
+	SalesTotal float64 `json:"sales_total"`
+	SalesCount int     `json:"sales_count"`
+	// DebtsCollectedTotal/Count son fiados COBRADOS este rango — dinero real
+	// entrando, aunque el fiado en sí se haya vendido otro día. La línea de
+	// crédito original (la venta fiada) SÍ cae en SalesTotal como cualquier
+	// otra pata de pago: no es dinero en caja, pero sigue siendo parte de esa
+	// venta. Type=="credit" es lo que el frontend usa para distinguir el
+	// renglón de Fiado del resto y no confundirlo con caja.
+	DebtsCollectedTotal float64 `json:"debts_collected_total"`
+	DebtsCollectedCount int     `json:"debts_collected_count"`
+	Total               float64 `json:"total"`
+	ChangeGiven         float64 `json:"change_given"`
 }
 
 // PaymentSummary es el desglose completo del rango: un renglón por método más
@@ -83,6 +91,9 @@ func AggregatePaymentSummary(rows []repositories.PaymentMethodTotal, startDate, 
 		case entities.PayableSubscription:
 			m.SubsTotal += row.Total
 			m.SubsCount += row.Count
+		case entities.PayableDebt:
+			m.DebtsCollectedTotal += row.Total
+			m.DebtsCollectedCount += row.Count
 		}
 		m.Total += row.Total
 		m.ChangeGiven += row.ChangeGiven

@@ -27,6 +27,18 @@ type CreateSaleRequest struct {
 	PaymentMethodID string               `json:"payment_method_id,omitempty" binding:"omitempty,uuid"`
 	Payments        []PaymentLineRequest `json:"payments,omitempty" binding:"omitempty,dive"`
 	Details         []SaleDetailRequest  `json:"details" binding:"required,min=1"`
+	// Debtor identifica a quién se le fía cuando una de las líneas de pago usa
+	// el método Fiado (tipo credit). El use case exige nombre o socio cuando
+	// hay una línea de crédito; en cualquier otro caso este campo se ignora.
+	Debtor *DebtorRequest `json:"debtor,omitempty"`
+}
+
+// DebtorRequest identifica al deudor de un fiado: un nombre libre tecleado en
+// el momento, un socio ya registrado, o los dos (el nombre queda como
+// referencia aunque el socio ya lo tenga guardado).
+type DebtorRequest struct {
+	Name   string `json:"name,omitempty"`
+	UserID string `json:"user_id,omitempty" binding:"omitempty,uuid"`
 }
 
 // VoidSaleRequest representa la solicitud para anular una venta
@@ -133,6 +145,18 @@ func (r *CreateSaleRequest) ToEntity(userID uuid.UUID) (*entities.Sale, error) {
 		}
 	}
 
+	var debtor *entities.DebtorInfo
+	if r.Debtor != nil {
+		debtor = &entities.DebtorInfo{Name: r.Debtor.Name}
+		if r.Debtor.UserID != "" {
+			id, err := uuid.Parse(r.Debtor.UserID)
+			if err != nil {
+				return nil, err
+			}
+			debtor.UserID = &id
+		}
+	}
+
 	return &entities.Sale{
 		UserID:          userID,
 		PaymentMethodID: paymentMethodID,
@@ -140,6 +164,7 @@ func (r *CreateSaleRequest) ToEntity(userID uuid.UUID) (*entities.Sale, error) {
 		Details:         details,
 		Type:            entities.SaleTypeNormal,
 		Status:          entities.SaleStatusCompleted,
+		Debtor:          debtor,
 	}, nil
 }
 
