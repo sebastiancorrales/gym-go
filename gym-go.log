@@ -69,3 +69,21 @@
 2026/08/13 19:52:12 🔍 DEBUG GetSalesReport - Report: {TotalSales:0 TotalDiscount:0 NetSales:0 SalesCount:0}
 2026/08/13 20:04:02 🛑 Shutting down server...
 2026/08/13 20:04:02 ✅ Server stopped gracefully
+2026/08/13 20:04:30 📝 Log en gym-go.log
+2026/08/13 20:04:30 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=1
+2026/08/13 20:04:30 🔄 Running database migrations...
+2026/08/13 20:04:30 ✅ Database migrations completed successfully
+2026/08/13 20:04:30 🌱 Seeding database...
+2026/08/13 20:04:30 ✅ Database seeding completed
+2026/08/13 20:04:30 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=8
+2026/08/13 20:04:30 📁 Serving frontend from disk: frontend/dist
+2026/08/13 20:04:30 ✅ Server running on http://localhost:8080
+2026/08/13 20:04:30 🌐 Frontend: http://localhost:8080/
+2026/08/13 20:04:30 📊 Health check: http://localhost:8080/api/v1/health
+2026/08/13 20:04:30 🔐 Auth endpoint: http://localhost:8080/api/v1/auth/login
+2026/08/13 20:04:30 📝 Environment: development
+2026/08/13 20:04:43 🔍 DEBUG GetSalesReport - startDate: 2026-08-13, endDate: 2026-08-13
+2026/08/13 20:04:43 🔍 DEBUG GetSalesReport - Found 1 reports, error: <nil>
+2026/08/13 20:04:43 🔍 DEBUG GetSalesReport - Report: {TotalSales:17000 TotalDiscount:0 NetSales:17000 SalesCount:1}
+2026/08/13 20:06:40 🛑 Shutting down server...
+2026/08/13 20:06:40 ✅ Server stopped gracefully

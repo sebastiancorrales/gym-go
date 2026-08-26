@@ -163,6 +163,19 @@ export default function SalesTab({ user }) {
     setShowPaymentModal(true);
   };
 
+  // El carrito sólo se puede editar con el modal cerrado (es un overlay que
+  // bloquea el fondo), así que cerrar el modal es el único momento en que el
+  // total puede cambiar antes de la próxima vez que se abra. Sin este reseteo,
+  // PaymentSplitEditor sólo siembra una línea nueva cuando `value` está vacío
+  // (línea 46 de PaymentSplitEditor.jsx) — si ya había una del intento
+  // anterior, se queda con el monto y el efectivo recibido de un total que ya
+  // no existe: "cambio $200" o "faltan $X" sobre una venta distinta.
+  const closePaymentModal = () => {
+    setShowPaymentModal(false);
+    setPaymentLines([]);
+    setPaymentValid(false);
+  };
+
   const completeSale = async () => {
     if (!paymentValid) {
       setToast({ message: 'Revisa las formas de pago', type: 'warning' });
@@ -416,7 +429,7 @@ export default function SalesTab({ user }) {
       {/* Payment Modal */}
       <Modal
         isOpen={showPaymentModal}
-        onClose={() => setShowPaymentModal(false)}
+        onClose={closePaymentModal}
         title="Finalizar Venta"
         maxWidth="md"
       >
@@ -458,7 +471,7 @@ export default function SalesTab({ user }) {
         <div className="flex space-x-3">
           <button
             type="button"
-            onClick={() => setShowPaymentModal(false)}
+            onClick={closePaymentModal}
             disabled={loading}
             className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
           >
