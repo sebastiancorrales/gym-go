@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -119,6 +120,26 @@ func (h *AccessHandler) ListToday(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, logs)
+}
+
+// ListRecent returns the newest access entries with the member's name
+// resolved, for the kiosk's live door feed.
+// GET /api/v1/access/recent?limit=10
+func (h *AccessHandler) ListRecent(c *gin.Context) {
+	gymID, err := uuid.Parse(c.GetString("gym_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid gym ID"})
+		return
+	}
+
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	entries, err := h.accessUseCase.GetRecentEntries(gymID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get recent access"})
+		return
+	}
+
+	c.JSON(http.StatusOK, entries)
 }
 
 func (h *AccessHandler) ListHistory(c *gin.Context) {

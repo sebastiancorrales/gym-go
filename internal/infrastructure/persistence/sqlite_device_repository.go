@@ -42,6 +42,15 @@ func (r *SQLiteDeviceRepository) FindActiveByGymID(gymID uuid.UUID) ([]*entities
 	return devices, nil
 }
 
+func (r *SQLiteDeviceRepository) FindAllActiveByType(deviceType entities.DeviceType) ([]*entities.Device, error) {
+	var devices []*entities.Device
+	if err := r.db.Where("is_active = ? AND device_type = ?", true, deviceType).
+		Order("created_at DESC").Find(&devices).Error; err != nil {
+		return nil, err
+	}
+	return devices, nil
+}
+
 func (r *SQLiteDeviceRepository) Update(device *entities.Device) error {
 	return r.db.Save(device).Error
 }

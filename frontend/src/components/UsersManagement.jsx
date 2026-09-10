@@ -43,6 +43,10 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
   // Fingerprint state
   const [enrollingUser, setEnrollingUser] = useState(null);
   const [fingerIndex, setFingerIndex] = useState('right_index');
+  // 'reader' = lector USB DigitalPersona del mostrador, 'terminal' = equipo
+  // Hikvision de la puerta. Son formatos de plantilla distintos e
+  // incompatibles: una huella sirve en el equipo donde se enroló.
+  const [enrollTarget, setEnrollTarget] = useState('reader');
   const [enrollStatus, setEnrollStatus] = useState('idle');
   const [enrollMessage, setEnrollMessage] = useState('');
   const [userFingerprints, setUserFingerprints] = useState({});
@@ -143,8 +147,41 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
     }
   };
 
+  // Enrolamiento en el terminal Hikvision de la puerta. A diferencia del
+  // lector USB, aquí el equipo captura y compara por su cuenta: el socio debe
+  // tener el dedo puesto ANTES de disparar la captura, porque el equipo no
+  // espera a que lo pongan.
+  const startTerminalEnrollment = async () => {
+    if (!enrollingUser) return;
+    setEnrollStatus('enrolling');
+    setEnrollMessage('Capturando en el terminal... mantén el dedo puesto en el sensor.');
+    try {
+      const res = await api.post('/biometric/terminal/enroll', {
+        user_id: enrollingUser.id,
+        finger_index: fingerIndex,
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setEnrollStatus('success');
+        setEnrollMessage(`Huella registrada en el terminal (Calidad: ${body.data?.quality ?? 'OK'})`);
+        loadUserFingerprints(enrollingUser.id);
+        fetchFingerprintCounts();
+      } else {
+        setEnrollStatus('error');
+        setEnrollMessage(body.error || 'Error al registrar la huella en el terminal');
+      }
+    } catch (error) {
+      setEnrollStatus('error');
+      setEnrollMessage(`Error de conexión: ${error.message}`);
+    }
+  };
+
   const startEnrollment = async () => {
     if (!enrollingUser) return;
+    if (enrollTarget === 'terminal') {
+      startTerminalEnrollment();
+      return;
+    }
     setEnrollStatus('checking');
     setEnrollMessage('Verificando lector biométrico...');
     try {
@@ -184,20 +221,29 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
     }
   };
 
-  const deleteFingerprint = (fingerprintId, userId) => {
+  // Una huella del terminal debe borrarse en el equipo, no solo en la base:
+  // el endpoint genérico solo desactiva la fila local y el socio seguiría
+  // abriendo la puerta.
+  const deleteFingerprint = (fingerprintId, userId, source) => {
+    const isTerminal = source === 'hikvision';
     setConfirmDialog({
       open: true,
       title: 'Eliminar huella',
       confirmText: 'Eliminar',
-      message: '¿Estás seguro de eliminar esta huella?',
+      message: isTerminal
+        ? '¿Eliminar esta huella del terminal de la puerta? El socio dejará de poder abrir con ese dedo.'
+        : '¿Estás seguro de eliminar esta huella?',
       onConfirm: async () => {
         try {
-          const res = await api.delete(`/biometric/${fingerprintId}`);
+          const res = isTerminal
+            ? await api.delete(`/biometric/terminal/user/${userId}/finger/${fingerprintId}`)
+            : await api.delete(`/biometric/${fingerprintId}`);
           if (res.ok) {
             loadUserFingerprints(userId);
             fetchFingerprintCounts();
           } else {
-            setToast({ message: 'Error al eliminar huella', type: 'error' });
+            const err = await res.json().catch(() => ({}));
+            setToast({ message: err.error || 'Error al eliminar huella', type: 'error' });
           }
         } catch {
           setToast({ message: 'Error de conexión', type: 'error' });
@@ -1054,9 +1100,12 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                   <div key={fp.id} className="flex items-center justify-between text-sm py-1">
                     <span className="text-[#059669]">
                       ✅ {FINGER_OPTIONS.find(f => f.value === fp.finger_index)?.label || fp.finger_index}
+                      <span className="ml-2 text-xs text-gray-500">
+                        {fp.source === 'hikvision' ? '(terminal puerta)' : '(lector mostrador)'}
+                      </span>
                     </span>
                     <button
-                      onClick={() => deleteFingerprint(fp.id, enrollingUser.id)}
+                      onClick={() => deleteFingerprint(fp.id, enrollingUser.id, fp.source)}
                       className="text-red-500 hover:text-red-700 text-xs"
                     >
                       Eliminar
@@ -1065,6 +1114,38 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                 ))}
               </div>
             )}
+
+            {/* Dónde enrolar: lector USB del mostrador o terminal de la puerta */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Equipo</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 'reader', label: 'Lector mostrador', hint: 'USB DigitalPersona' },
+                  { value: 'terminal', label: 'Terminal puerta', hint: 'Hikvision' },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setEnrollTarget(opt.value)}
+                    disabled={enrollStatus === 'enrolling'}
+                    className={`px-3 py-2 rounded-lg border text-sm transition ${
+                      enrollTarget === opt.value
+                        ? 'border-[#1272D6] bg-[#EFF6FF] text-[#1272D6] font-medium'
+                        : 'border-[#E2E8EF] text-gray-600 hover:bg-gray-50'
+                    } disabled:opacity-50`}
+                  >
+                    <div>{opt.label}</div>
+                    <div className="text-xs opacity-70">{opt.hint}</div>
+                  </button>
+                ))}
+              </div>
+              {enrollTarget === 'terminal' && (
+                <p className="text-xs text-gray-500 mt-2">
+                  El socio debe tener el dedo puesto en el sensor del terminal <strong>antes</strong> de iniciar
+                  la captura — el equipo no espera a que lo pongan.
+                </p>
+              )}
+            </div>
 
             {/* Finger selector */}
             <div className="mb-4">
@@ -1107,7 +1188,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
               )}
               {enrollStatus === 'enrolling' && (
                 <div className="flex-1 bg-yellow-100 text-yellow-800 py-2 px-4 rounded-lg text-center font-medium animate-pulse">
-                  Capturando... Coloca el dedo en el lector
+                  Capturando... {enrollTarget === 'terminal' ? 'Mantén el dedo en el terminal' : 'Coloca el dedo en el lector'}
                 </div>
               )}
               <button

@@ -181,6 +181,7 @@ func main() {
 	subscriptionMemberRepo := persistence.NewSQLiteSubscriptionMemberRepository(database.DB)
 	subscriptionAuditRepo := persistence.NewSQLiteSubscriptionAuditLogRepository(database.DB)
 	accessLogRepo := persistence.NewSQLiteAccessLogRepository(database.DB)
+	accessEventCursorRepo := persistence.NewSQLiteAccessEventCursorRepository(database.DB)
 	planRepo := persistence.NewSQLitePlanRepository(database.DB)
 	gymRepo := persistence.NewSQLiteGymRepository(database.DB)
 	fingerprintRepo := persistence.NewSQLiteFingerprintRepository(database.DB)
@@ -214,6 +215,14 @@ func main() {
 	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, subscriptionMemberRepo, planRepo, userRepo, subscriptionAuditRepo, paymentMethodRepo, paymentLineRepo, uow)
 	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
 	biometricService := usecases.NewBiometricService(fingerprintRepo, userRepo)
+	hikvisionEnrollment := usecases.NewHikvisionEnrollmentUseCase(deviceRepo, fingerprintRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
+	hikvisionSync := usecases.NewHikvisionSyncUseCase(deviceRepo, fingerprintRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
+	// Vender, renovar, cancelar, congelar o mover fechas cambia quién puede
+	// entrar: el terminal se entera en el momento, no en la próxima pasada
+	// horaria. Es best-effort — un equipo apagado no puede tumbar una venta.
+	subscriptionUseCase.SetAccessSyncHook(hikvisionSync)
+	hikvisionEvents := usecases.NewHikvisionEventUseCase(
+		deviceRepo, accessEventCursorRepo, accessLogRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
 	productUseCase := usecases.NewProductUseCase(productRepo, stockMovementRepo, uow)
 	supplierUseCase := usecases.NewSupplierUseCase(supplierRepo)
 	paymentUseCase := usecases.NewPaymentUseCase(paymentLineRepo, paymentMethodRepo, changeLogRepo, saleRepo, subscriptionRepo, expenseRepo, debtRepo, uow)
@@ -264,6 +273,7 @@ func main() {
 	accessHandler := handlers.NewAccessHandler(accessUseCase)
 	uploadHandler := handlers.NewUploadHandler("./uploads")
 	biometricHandler := handlers.NewBiometricHandler(biometricService)
+	hikvisionBiometricHandler := handlers.NewHikvisionBiometricHandler(hikvisionEnrollment, hikvisionSync)
 	notificationHandler := handlers.NewNotificationHandler(notifUseCase, gymRepo, emailSender)
 	deviceHandler := handlers.NewDeviceHandler(deviceRepo)
 
@@ -446,6 +456,9 @@ func main() {
 		access.Use(middleware.RequirePermission(entities.PermAccessRead))
 		{
 			access.GET("/today", accessHandler.ListToday)
+			// Feed en vivo de la puerta para el kiosco: últimas entradas con
+			// el nombre del socio ya resuelto.
+			access.GET("/recent", accessHandler.ListRecent)
 			access.GET("/history", accessHandler.ListHistory)
 			access.GET("/user/:user_id", accessHandler.ListByUser)
 			access.GET("/stats", accessHandler.GetStats)
@@ -465,6 +478,13 @@ func main() {
 				biometric.GET("/summary", biometricHandler.GetFingerprintSummary)
 				biometric.GET("/user/:user_id", biometricHandler.GetUserFingerprints)
 				biometric.DELETE("/:fingerprint_id", biometricHandler.DeleteFingerprint)
+
+				// Enrolamiento en el terminal Hikvision (ISAPI). Va bajo el
+				// mismo permiso que el lector USB: es el mismo acto de
+				// registrar la huella de un socio, solo cambia el hardware.
+				biometric.POST("/terminal/enroll", hikvisionBiometricHandler.Enroll)
+				biometric.DELETE("/terminal/user/:user_id", hikvisionBiometricHandler.RemoveEnrollment)
+				biometric.DELETE("/terminal/user/:user_id/finger/:fingerprint_id", hikvisionBiometricHandler.RemoveFinger)
 			}
 		}
 
@@ -553,6 +573,10 @@ func main() {
 			devices.PUT("/:id", deviceHandler.Update)
 			devices.DELETE("/:id", deviceHandler.Delete)
 			devices.POST("/:id/trigger", deviceHandler.Trigger)
+			// Reenvía la vigencia de todos los socios enrolados al terminal.
+			// El reconciliador horario ya lo hace solo; esto es para cuando
+			// el equipo estuvo caído y no se quiere esperar al próximo ciclo.
+			devices.POST("/sync-access", hikvisionBiometricHandler.SyncAccess)
 		}
 
 		// Suppliers routes - a quién se le compra. Es información contable
@@ -695,6 +719,31 @@ func main() {
 		} else if n > 0 {
 			log.Printf("🔓 Reactivadas %d suscripciones cuyo congelamiento terminó", n)
 		}
+
+		// Right after the two passes above, because they are exactly what
+		// changes who may come in. This is the reconciler that actually
+		// enforces expiry at the door: a Hikvision terminal decides by
+		// itself and never asks the server, so the rule has to be sitting in
+		// the device before the member arrives. It also repairs whatever a
+		// write-through sync missed while the terminal was unreachable.
+		if report, err := hikvisionSync.SyncAll(rootCtx); err != nil {
+			log.Printf("⚠️ Sincronización de vigencias en terminales: %v", err)
+		} else if report.Checked > 0 {
+			log.Printf("🚪 Vigencias sincronizadas en terminal: %d de %d (%d fallidas)",
+				report.Updated, report.Checked, report.Failed)
+		}
+	})
+
+	// Ingesta de accesos del terminal. Se consulta el log del equipo en vez
+	// de recibir un push: no hay que exponer un puerto ni configurar una URL
+	// en el dispositivo, y si gym-go estuvo apagado un rato el cursor se
+	// pone al día solo al volver.
+	//
+	// Cada 10 segundos: suficiente para que el mostrador vea "suscripción
+	// vencida" mientras el socio sigue parado en la puerta, y trivial para
+	// un equipo que aguanta 100.000 eventos.
+	runEvery(rootCtx, 10*time.Second, func() {
+		hikvisionEvents.IngestAll(rootCtx)
 	})
 
 	// Backup scheduler: copies the DB every day at 02:00 local time, keeps 7 days.
@@ -856,6 +905,28 @@ func runDailyAt(ctx context.Context, hour, minute int, task func()) {
 }
 
 // runHourlyAt runs task every hour at the given minute, until ctx is done.
+// runEvery repeats task on a fixed interval until the context is cancelled,
+// starting with one immediate run.
+func runEvery(ctx context.Context, interval time.Duration, task func()) {
+	backgroundJobs.Add(1)
+	go func() {
+		defer backgroundJobs.Done()
+
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		task()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				task()
+			}
+		}
+	}()
+}
+
 func runHourlyAt(ctx context.Context, minute int, task func()) {
 	backgroundJobs.Add(1)
 	go func() {

@@ -5,8 +5,22 @@ import Toast from './Toast';
 import ConfirmDialog from './ConfirmDialog';
 
 const DEFAULT_BAUD = 9600;
+const DEVICE_TYPE_RELAY = 'RELAY';
+const DEVICE_TYPE_HIKVISION = 'HIKVISION_TERMINAL';
 
-const emptyForm = () => ({ name: '', location: '', com_port: '', baud_rate: DEFAULT_BAUD, notes: '' });
+const emptyForm = () => ({
+  name: '',
+  device_type: DEVICE_TYPE_RELAY,
+  location: '',
+  com_port: '',
+  baud_rate: DEFAULT_BAUD,
+  ip_address: '',
+  http_port: 80,
+  username: 'admin',
+  password: '',
+  door_no: 1,
+  notes: '',
+});
 
 export default function DevicesManagement() {
   const [devices, setDevices] = useState([]);
@@ -38,11 +52,21 @@ export default function DevicesManagement() {
 
   const openEdit = (device) => {
     setEditing(device);
+    let hikvision = {};
+    try { hikvision = device.configuration ? JSON.parse(device.configuration) : {}; } catch { /* ignore malformed config */ }
     setForm({
       name: device.name,
+      device_type: device.device_type || DEVICE_TYPE_RELAY,
       location: device.location || '',
       com_port: device.com_port || '',
       baud_rate: device.baud_rate || DEFAULT_BAUD,
+      ip_address: device.ip_address || '',
+      http_port: hikvision.http_port || 80,
+      username: hikvision.username || 'admin',
+      // The backend never sends the stored password back (see redactDeviceSecret
+      // in device_handler.go) — leave blank to keep the current one.
+      password: '',
+      door_no: hikvision.door_no || 1,
       notes: device.notes || '',
     });
     setShowModal(true);
@@ -52,7 +76,27 @@ export default function DevicesManagement() {
     e.preventDefault();
     setSaving(true);
     try {
-      const body = { ...form, baud_rate: Number(form.baud_rate) };
+      const isHikvision = form.device_type === DEVICE_TYPE_HIKVISION;
+      const body = {
+        name: form.name,
+        device_type: form.device_type,
+        location: form.location,
+        notes: form.notes,
+        ...(isHikvision
+          ? {
+              ip_address: form.ip_address,
+              hikvision: {
+                http_port: Number(form.http_port) || 80,
+                username: form.username,
+                password: form.password, // blank = keep the existing one (merged server-side)
+                door_no: Number(form.door_no) || 1,
+              },
+            }
+          : {
+              com_port: form.com_port,
+              baud_rate: Number(form.baud_rate),
+            }),
+      };
       const res = editing
         ? await api.put(`/devices/${editing.id}`, body)
         : await api.post('/devices', body);
@@ -87,12 +131,15 @@ export default function DevicesManagement() {
     });
   };
 
+  const canTrigger = (device) =>
+    device.device_type === DEVICE_TYPE_HIKVISION ? !!device.ip_address : !!device.com_port;
+
   const handleTrigger = async (device) => {
     setTriggering(prev => ({ ...prev, [device.id]: true }));
     try {
       const res = await api.post(`/devices/${device.id}/trigger`, {});
       if (res.ok) {
-        setToast({ message: `Relé activado: ${device.name}`, type: 'success' });
+        setToast({ message: `Puerta abierta: ${device.name}`, type: 'success' });
       } else {
         const err = await res.json();
         setToast({ message: err.error || 'Error al activar relé', type: 'error' });
@@ -109,7 +156,7 @@ export default function DevicesManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Dispositivos Externos</h2>
-          <p className="text-gray-600 mt-1">Gestiona relés Arduino para control de acceso</p>
+          <p className="text-gray-600 mt-1">Gestiona relés Arduino y terminales Hikvision para control de acceso</p>
         </div>
         <button
           onClick={openCreate}
@@ -131,13 +178,13 @@ export default function DevicesManagement() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" />
             </svg>
             <p className="font-medium">No hay dispositivos registrados</p>
-            <p className="text-sm mt-1">Agrega un Arduino con relé para controlar el acceso</p>
+            <p className="text-sm mt-1">Agrega un relé Arduino o un terminal Hikvision para controlar el acceso</p>
           </div>
         ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {['Nombre', 'Ubicación', 'Puerto COM', 'Baud Rate', 'Estado', 'Acciones'].map(h => (
+                {['Nombre', 'Tipo', 'Ubicación', 'Conexión', 'Estado', 'Acciones'].map(h => (
                   <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
@@ -149,11 +196,17 @@ export default function DevicesManagement() {
                     <div className="font-medium text-gray-900">{device.name}</div>
                     {device.notes && <div className="text-xs text-gray-400">{device.notes}</div>}
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {device.device_type === DEVICE_TYPE_HIKVISION ? 'Terminal Hikvision' : 'Relé (serial)'}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{device.location || '—'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="font-mono text-sm text-gray-900">{device.com_port || '—'}</span>
+                    <span className="font-mono text-sm text-gray-900">
+                      {device.device_type === DEVICE_TYPE_HIKVISION
+                        ? (device.ip_address || '—')
+                        : `${device.com_port || '—'} @ ${device.baud_rate || DEFAULT_BAUD}`}
+                    </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{device.baud_rate || DEFAULT_BAUD}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${device.is_active ? 'bg-[#DCFCE7] text-[#065F46]' : 'bg-gray-100 text-gray-600'}`}>
                       {device.is_active ? 'Activo' : 'Inactivo'}
@@ -162,7 +215,7 @@ export default function DevicesManagement() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm flex gap-3">
                     <button
                       onClick={() => handleTrigger(device)}
-                      disabled={!device.is_active || !device.com_port || triggering[device.id]}
+                      disabled={!device.is_active || !canTrigger(device) || triggering[device.id]}
                       className="text-[#1272D6] hover:text-[#0A4A8F] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {triggering[device.id] ? 'Abriendo...' : 'Abrir'}
@@ -205,30 +258,113 @@ export default function DevicesManagement() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Puerto COM</label>
-              <input
-                type="text"
-                value={form.com_port}
-                onChange={e => setForm({ ...form, com_port: e.target.value })}
-                placeholder="Ej: COM5"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent font-mono"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Baud Rate</label>
-              <select
-                value={form.baud_rate}
-                onChange={e => setForm({ ...form, baud_rate: Number(e.target.value) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
-              >
-                {[9600, 19200, 38400, 57600, 115200].map(b => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de dispositivo</label>
+            <select
+              value={form.device_type}
+              onChange={e => setForm({ ...form, device_type: e.target.value })}
+              disabled={!!editing}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+            >
+              <option value={DEVICE_TYPE_RELAY}>Relé por puerto serial (Arduino)</option>
+              <option value={DEVICE_TYPE_HIKVISION}>Terminal Hikvision (ISAPI, red)</option>
+            </select>
+            {editing && (
+              <p className="text-xs text-gray-400 mt-1">
+                El tipo no se puede cambiar una vez creado — elimina y crea uno nuevo si es necesario.
+              </p>
+            )}
           </div>
+
+          {form.device_type === DEVICE_TYPE_HIKVISION ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Dirección IP *</label>
+                  <input
+                    type="text"
+                    value={form.ip_address}
+                    onChange={e => setForm({ ...form, ip_address: e.target.value })}
+                    required
+                    placeholder="Ej: 192.168.1.149"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Puerto HTTP</label>
+                  <input
+                    type="number"
+                    value={form.http_port}
+                    onChange={e => setForm({ ...form, http_port: e.target.value })}
+                    placeholder="80"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Usuario admin</label>
+                  <input
+                    type="text"
+                    value={form.username}
+                    onChange={e => setForm({ ...form, username: e.target.value })}
+                    placeholder="admin"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Contraseña {editing && <span className="text-gray-400 font-normal">(vacío = no cambiar)</span>}
+                  </label>
+                  <input
+                    type="password"
+                    value={form.password}
+                    onChange={e => setForm({ ...form, password: e.target.value })}
+                    placeholder={editing ? '••••••••' : ''}
+                    required={!editing}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Número de puerta</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={form.door_no}
+                  onChange={e => setForm({ ...form, door_no: e.target.value })}
+                  placeholder="1"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+                />
+                <p className="text-xs text-gray-400 mt-1">Los terminales de una sola puerta (como el DS-K1T8003MF) usan 1.</p>
+              </div>
+            </>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Puerto COM</label>
+                <input
+                  type="text"
+                  value={form.com_port}
+                  onChange={e => setForm({ ...form, com_port: e.target.value })}
+                  placeholder="Ej: COM5"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Baud Rate</label>
+                <select
+                  value={form.baud_rate}
+                  onChange={e => setForm({ ...form, baud_rate: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+                >
+                  {[9600, 19200, 38400, 57600, 115200].map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
             <input

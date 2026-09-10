@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,6 +32,27 @@ func NewAccessUseCase(
 	}
 }
 
+// findActiveSubscription is the single answer to "may this member train
+// today": their own active subscription, or the one they are a member of in
+// a group plan.
+//
+// It is shared rather than repeated because two different things now depend
+// on it — the kiosk/check-in path here, and the validity window pushed to
+// the Hikvision terminals (hikvision_sync_usecase.go). If those two ever
+// disagree, the door and the panel start telling the member different
+// stories about the same subscription.
+func findActiveSubscription(
+	subscriptionRepo repositories.SubscriptionRepository,
+	memberRepo repositories.SubscriptionMemberRepository,
+	userID uuid.UUID,
+) (*entities.Subscription, error) {
+	subscription, err := subscriptionRepo.FindActiveByUserID(userID)
+	if err == nil && subscription != nil {
+		return subscription, nil
+	}
+	return memberRepo.FindActiveSubscriptionByUserID(userID)
+}
+
 // RecordEntry records a gym entry
 func (uc *AccessUseCase) RecordEntry(userID, gymID uuid.UUID, method entities.AccessLogMethod) (*entities.AccessLog, error) {
 	// Verify user exists
@@ -50,11 +72,7 @@ func (uc *AccessUseCase) RecordEntry(userID, gymID uuid.UUID, method entities.Ac
 	}
 
 	// Check if user has active subscription (direct or via group membership)
-	subscription, err := uc.subscriptionRepo.FindActiveByUserID(userID)
-	if err != nil || subscription == nil {
-		// Check if user is a member of an active group subscription
-		subscription, err = uc.memberRepo.FindActiveSubscriptionByUserID(userID)
-	}
+	subscription, err := findActiveSubscription(uc.subscriptionRepo, uc.memberRepo, userID)
 	if err != nil || subscription == nil {
 		accessLog := entities.NewAccessLog(gymID, userID, entities.AccessLogTypeEntry, method)
 		accessLog.Deny("No active subscription")
@@ -101,6 +119,69 @@ func (uc *AccessUseCase) RecordExit(userID, gymID uuid.UUID) (*entities.AccessLo
 func (uc *AccessUseCase) GetTodayAccessByGym(gymID uuid.UUID, loc *time.Location) ([]*entities.AccessLog, error) {
 	start, end := timeutil.TodayRange(loc)
 	return uc.accessLogRepo.FindByDateRange(gymID, start, end)
+}
+
+// RecentEntry is one access log with the member's name already resolved, so
+// a screen can render a live door feed without one lookup per row.
+type RecentEntry struct {
+	ID           uuid.UUID `json:"id"`
+	UserID       uuid.UUID `json:"user_id"`
+	Name         string    `json:"name"`
+	PhotoURL     string    `json:"photo_url,omitempty"`
+	Granted      bool      `json:"granted"`
+	DenialReason string    `json:"denial_reason,omitempty"`
+	AccessTime   time.Time `json:"access_time"`
+	// FromTerminal separates entries made at the access terminal from those
+	// rung up on the kiosk: the kiosk already knows about its own, and only
+	// needs to announce the ones that happened at the door.
+	FromTerminal bool `json:"from_terminal"`
+}
+
+// GetRecentEntries returns the newest access logs for a gym, newest first.
+func (uc *AccessUseCase) GetRecentEntries(gymID uuid.UUID, limit int) ([]RecentEntry, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+
+	logs, err := uc.accessLogRepo.FindByGymID(gymID, limit, 0)
+	if err != nil {
+		return nil, err
+	}
+	if len(logs) == 0 {
+		return nil, nil
+	}
+
+	// One query for every name, instead of one per row.
+	ids := make([]uuid.UUID, 0, len(logs))
+	for _, entry := range logs {
+		ids = append(ids, entry.UserID)
+	}
+	users, err := uc.userRepo.FindByIDs(ids)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[uuid.UUID]*entities.User, len(users))
+	for _, user := range users {
+		byID[user.ID] = user
+	}
+
+	entries := make([]RecentEntry, 0, len(logs))
+	for _, entry := range logs {
+		view := RecentEntry{
+			ID:           entry.ID,
+			UserID:       entry.UserID,
+			Granted:      entry.IsGranted(),
+			DenialReason: entry.DenialReason,
+			AccessTime:   entry.AccessTime,
+			FromTerminal: entry.DeviceID != nil,
+		}
+		if user, ok := byID[entry.UserID]; ok {
+			view.Name = strings.TrimSpace(user.FirstName + " " + user.LastName)
+			view.PhotoURL = user.PhotoURL
+		}
+		entries = append(entries, view)
+	}
+	return entries, nil
 }
 
 // GetAccessHistory gets access history for a gym with pagination

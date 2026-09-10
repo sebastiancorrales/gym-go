@@ -58,9 +58,37 @@ func (r *SQLiteFingerprintRepository) Delete(ctx context.Context, id int) error 
 	}).Error
 }
 
+// GetAllTemplates returns only the DigitalPersona templates, which are the
+// ones the C# matching service can read.
+//
+// The filter is not cosmetic: Hikvision terminals match on the device and
+// store their templates here purely as a backup copy, in a format the
+// DigitalPersona SDK cannot parse. Handing it those rows would make every
+// kiosk verification try to match against garbage. Rows written before the
+// source column existed are empty and are DigitalPersona's.
 func (r *SQLiteFingerprintRepository) GetAllTemplates(ctx context.Context) ([]*entities.Fingerprint, error) {
 	var fingerprints []*entities.Fingerprint
-	err := r.db.WithContext(ctx).Where("is_active = ?", true).Order("user_id, created_at DESC").Find(&fingerprints).Error
+	err := r.db.WithContext(ctx).
+		Where("is_active = ?", true).
+		Where("source IS NULL OR source = '' OR source = ?", entities.FingerprintSourceDigitalPersona).
+		Order("user_id, created_at DESC").
+		Find(&fingerprints).Error
+	return fingerprints, err
+}
+
+// GetActiveByUserAndSource returns a user's active templates from one reader
+// kind, so an enrollment flow can reason about its own device's slots without
+// tripping over the other reader's rows.
+func (r *SQLiteFingerprintRepository) GetActiveByUserAndSource(ctx context.Context, userID, source string) ([]*entities.Fingerprint, error) {
+	query := r.db.WithContext(ctx).Where("user_id = ? AND is_active = ?", userID, true)
+	if source == entities.FingerprintSourceDigitalPersona {
+		query = query.Where("source IS NULL OR source = '' OR source = ?", source)
+	} else {
+		query = query.Where("source = ?", source)
+	}
+
+	var fingerprints []*entities.Fingerprint
+	err := query.Order("created_at DESC").Find(&fingerprints).Error
 	return fingerprints, err
 }
 
@@ -85,6 +113,27 @@ func (r *SQLiteFingerprintRepository) CountActiveByUser(ctx context.Context) (ma
 		counts[row.UserID] = row.Total
 	}
 	return counts, nil
+}
+
+// DistinctUserIDsBySource lists who is enrolled on a given reader kind. The
+// validity sync walks this instead of every member: pushing a window for
+// somebody who never enrolled would create people on the terminal that
+// nobody can use.
+func (r *SQLiteFingerprintRepository) DistinctUserIDsBySource(ctx context.Context, source string) ([]string, error) {
+	query := r.db.WithContext(ctx).
+		Model(&entities.Fingerprint{}).
+		Distinct("user_id").
+		Where("is_active = ?", true)
+
+	if source == entities.FingerprintSourceDigitalPersona {
+		query = query.Where("source IS NULL OR source = '' OR source = ?", source)
+	} else {
+		query = query.Where("source = ?", source)
+	}
+
+	var userIDs []string
+	err := query.Pluck("user_id", &userIDs).Error
+	return userIDs, err
 }
 
 func (r *SQLiteFingerprintRepository) LogVerification(ctx context.Context, verification *entities.FingerprintVerification) error {

@@ -87,3 +87,281 @@
 2026/08/13 20:04:43 🔍 DEBUG GetSalesReport - Report: {TotalSales:17000 TotalDiscount:0 NetSales:17000 SalesCount:1}
 2026/08/13 20:06:40 🛑 Shutting down server...
 2026/08/13 20:06:40 ✅ Server stopped gracefully
+2026/09/09 18:09:31 📝 Log en gym-go.log
+2026/09/09 18:09:31 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=1
+2026/09/09 18:09:31 🔄 Running database migrations...
+2026/09/09 18:09:31 ✅ Database migrations completed successfully
+2026/09/09 18:09:31 🌱 Seeding database...
+2026/09/09 18:09:31 ✅ Database seeding completed
+2026/09/09 18:09:31 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=8
+2026/09/09 18:09:31 📁 Serving frontend from disk: frontend/dist
+2026/09/09 18:09:31 ✅ Server running on http://localhost:8080
+2026/09/09 18:09:31 🌐 Frontend: http://localhost:8080/
+2026/09/09 18:09:31 📊 Health check: http://localhost:8080/api/v1/health
+2026/09/09 18:09:31 🔐 Auth endpoint: http://localhost:8080/api/v1/auth/login
+2026/09/09 18:09:31 📝 Environment: development
+2026/09/09 18:09:49 🔍 DEBUG GetSalesReport - startDate: 2026-09-09, endDate: 2026-09-09
+2026/09/09 18:09:49 🔍 DEBUG GetSalesReport - Found 1 reports, error: <nil>
+2026/09/09 18:09:49 🔍 DEBUG GetSalesReport - Report: {TotalSales:0 TotalDiscount:0 NetSales:0 SalesCount:0}
+2026/09/09 18:17:00 ⏰ Auto-expired 161 subscriptions
+2026/09/09 19:08:26 🛑 Shutting down server...
+2026/09/09 19:08:26 ✅ Server stopped gracefully
+2026/09/09 19:08:40 📝 Log en gym-go.log
+2026/09/09 19:08:40 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=1
+2026/09/09 19:08:40 🔄 Running database migrations...
+2026/09/09 19:08:40 ✅ Database migrations completed successfully
+2026/09/09 19:08:40 🌱 Seeding database...
+2026/09/09 19:08:40 ✅ Database seeding completed
+2026/09/09 19:08:40 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=8
+2026/09/09 19:08:40 📁 Serving frontend from disk: frontend/dist
+2026/09/09 19:08:40 ✅ Server running on http://localhost:8080
+2026/09/09 19:08:40 🌐 Frontend: http://localhost:8080/
+2026/09/09 19:08:40 📊 Health check: http://localhost:8080/api/v1/health
+2026/09/09 19:08:40 🔐 Auth endpoint: http://localhost:8080/api/v1/auth/login
+2026/09/09 19:08:40 📝 Environment: development
+2026/09/09 19:26:08 🛑 Shutting down server...
+2026/09/09 19:26:08 ✅ Server stopped gracefully
+2026/09/09 19:26:21 📝 Log en gym-go.log
+2026/09/09 19:26:21 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=1
+2026/09/09 19:26:21 🔄 Running database migrations...
+2026/09/09 19:26:21 ✅ Database migrations completed successfully
+2026/09/09 19:26:21 🌱 Seeding database...
+2026/09/09 19:26:21 ✅ Database seeding completed
+2026/09/09 19:26:21 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=8
+2026/09/09 19:26:21 📁 Serving frontend from disk: frontend/dist
+2026/09/09 19:26:21 ✅ Server running on http://localhost:8080
+2026/09/09 19:26:21 🌐 Frontend: http://localhost:8080/
+2026/09/09 19:26:21 📊 Health check: http://localhost:8080/api/v1/health
+2026/09/09 19:26:21 🔐 Auth endpoint: http://localhost:8080/api/v1/auth/login
+2026/09/09 19:26:21 📝 Environment: development
+2026/09/09 19:26:48 🛑 Shutting down server...
+2026/09/09 19:26:48 ✅ Server stopped gracefully
+2026/09/09 19:27:00 📝 Log en gym-go.log
+2026/09/09 19:27:00 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=1
+2026/09/09 19:27:00 🔄 Running database migrations...
+2026/09/09 19:27:00 ✅ Database migrations completed successfully
+2026/09/09 19:27:00 🌱 Seeding database...
+2026/09/09 19:27:00 ✅ Database seeding completed
+2026/09/09 19:27:00 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=8
+2026/09/09 19:27:00 📁 Serving frontend from disk: frontend/dist
+2026/09/09 19:27:00 ✅ Server running on http://localhost:8080
+2026/09/09 19:27:00 🌐 Frontend: http://localhost:8080/
+2026/09/09 19:27:00 📊 Health check: http://localhost:8080/api/v1/health
+2026/09/09 19:27:00 🔐 Auth endpoint: http://localhost:8080/api/v1/auth/login
+2026/09/09 19:27:00 📝 Environment: development
+2026/09/09 19:28:02 🔍 DEBUG GetSalesReport - startDate: 2026-09-09, endDate: 2026-09-09
+2026/09/09 19:28:02 🔍 DEBUG GetSalesReport - Found 1 reports, error: <nil>
+2026/09/09 19:28:02 🔍 DEBUG GetSalesReport - Report: {TotalSales:0 TotalDiscount:0 NetSales:0 SalesCount:0}
+2026/09/09 19:35:35 🛑 Shutting down server...
+2026/09/09 19:35:35 ✅ Server stopped gracefully
+2026/09/09 19:35:48 📝 Log en gym-go.log
+2026/09/09 19:35:48 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=1
+2026/09/09 19:35:48 🔄 Running database migrations...
+2026/09/09 19:35:48 ✅ Database migrations completed successfully
+2026/09/09 19:35:48 🌱 Seeding database...
+2026/09/09 19:35:48 ✅ Database seeding completed
+2026/09/09 19:35:48 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=8
+2026/09/09 19:35:48 📁 Serving frontend from disk: frontend/dist
+2026/09/09 19:35:48 ✅ Server running on http://localhost:8080
+2026/09/09 19:35:48 🌐 Frontend: http://localhost:8080/
+2026/09/09 19:35:48 📊 Health check: http://localhost:8080/api/v1/health
+2026/09/09 19:35:48 🔐 Auth endpoint: http://localhost:8080/api/v1/auth/login
+2026/09/09 19:35:48 📝 Environment: development
+2026/09/09 19:50:35 🛑 Shutting down server...
+2026/09/09 19:50:35 ✅ Server stopped gracefully
+2026/09/09 19:50:46 📝 Log en gym-go.log
+2026/09/09 19:50:46 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=1
+2026/09/09 19:50:46 🔄 Running database migrations...
+2026/09/09 19:50:46 ✅ Database migrations completed successfully
+2026/09/09 19:50:46 🌱 Seeding database...
+2026/09/09 19:50:46 ✅ Database seeding completed
+2026/09/09 19:50:46 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=8
+2026/09/09 19:50:46 📁 Serving frontend from disk: frontend/dist
+2026/09/09 19:50:46 ✅ Server running on http://localhost:8080
+2026/09/09 19:50:46 🌐 Frontend: http://localhost:8080/
+2026/09/09 19:50:46 📊 Health check: http://localhost:8080/api/v1/health
+2026/09/09 19:50:46 🔐 Auth endpoint: http://localhost:8080/api/v1/auth/login
+2026/09/09 19:50:46 📝 Environment: development
+2026/09/09 19:53:30 🛑 Shutting down server...
+2026/09/09 19:53:30 ✅ Server stopped gracefully
+2026/09/09 19:53:42 📝 Log en gym-go.log
+2026/09/09 19:53:42 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=1
+2026/09/09 19:53:42 🔄 Running database migrations...
+2026/09/09 19:53:42 ✅ Database migrations completed successfully
+2026/09/09 19:53:42 🌱 Seeding database...
+2026/09/09 19:53:42 ✅ Database seeding completed
+2026/09/09 19:53:42 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=8
+2026/09/09 19:53:42 📁 Serving frontend from disk: frontend/dist
+2026/09/09 19:53:42 ✅ Server running on http://localhost:8080
+2026/09/09 19:53:42 🌐 Frontend: http://localhost:8080/
+2026/09/09 19:53:42 📊 Health check: http://localhost:8080/api/v1/health
+2026/09/09 19:53:42 🔐 Auth endpoint: http://localhost:8080/api/v1/auth/login
+2026/09/09 19:53:42 📝 Environment: development
+2026/09/09 20:03:55 🔍 DEBUG GetSalesReport - startDate: 2026-09-09, endDate: 2026-09-09
+2026/09/09 20:03:55 🔍 DEBUG GetSalesReport - Found 1 reports, error: <nil>
+2026/09/09 20:03:55 🔍 DEBUG GetSalesReport - Report: {TotalSales:0 TotalDiscount:0 NetSales:0 SalesCount:0}
+2026/09/09 20:14:40 🛑 Shutting down server...
+2026/09/09 20:14:40 ✅ Server stopped gracefully
+2026/09/09 20:14:52 📝 Log en gym-go.log
+2026/09/09 20:14:52 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=1
+2026/09/09 20:14:52 🔄 Running database migrations...
+2026/09/09 20:14:52 ✅ Database migrations completed successfully
+2026/09/09 20:14:52 🌱 Seeding database...
+2026/09/09 20:14:52 ✅ Database seeding completed
+2026/09/09 20:14:52 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=8
+2026/09/09 20:14:52 📁 Serving frontend from disk: frontend/dist
+2026/09/09 20:14:52 ✅ Server running on http://localhost:8080
+2026/09/09 20:14:52 🌐 Frontend: http://localhost:8080/
+2026/09/09 20:14:52 📊 Health check: http://localhost:8080/api/v1/health
+2026/09/09 20:14:52 🔐 Auth endpoint: http://localhost:8080/api/v1/auth/login
+2026/09/09 20:14:52 📝 Environment: development
+2026/09/09 20:14:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:14:53 🚪 Hikvision: 0 entradas, 2 rechazos
+2026/09/09 20:15:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:15:02 🚪 Hikvision: 1 entradas, 0 rechazos
+2026/09/09 20:15:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:15:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:15:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:15:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:15:42 🚪 Hikvision: 1 entradas, 0 rechazos
+2026/09/09 20:15:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:15:56 🔍 DEBUG GetSalesReport - startDate: 2026-09-09, endDate: 2026-09-09
+2026/09/09 20:15:56 🔍 DEBUG GetSalesReport - Found 1 reports, error: <nil>
+2026/09/09 20:15:56 🔍 DEBUG GetSalesReport - Report: {TotalSales:0 TotalDiscount:0 NetSales:0 SalesCount:0}
+2026/09/09 20:16:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:16:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:16:12 🚪 Hikvision: 0 entradas, 2 rechazos
+2026/09/09 20:16:18 🔍 DEBUG GetSalesReport - startDate: 2026-09-09, endDate: 2026-09-09
+2026/09/09 20:16:18 🔍 DEBUG GetSalesReport - Found 1 reports, error: <nil>
+2026/09/09 20:16:18 🔍 DEBUG GetSalesReport - Report: {TotalSales:0 TotalDiscount:0 NetSales:0 SalesCount:0}
+2026/09/09 20:16:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:16:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:16:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:16:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:17:00 🚪 Vigencias sincronizadas en terminal: 2 de 2 (0 fallidas)
+2026/09/09 20:17:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:17:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:17:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:17:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:17:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:17:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:18:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:18:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:18:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:18:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:18:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:18:42 🚪 Hikvision: 1 entradas, 0 rechazos
+2026/09/09 20:18:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:19:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:19:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:19:12 🚪 Hikvision: 0 entradas, 1 rechazos
+2026/09/09 20:19:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:19:22 🚪 Hikvision: 1 entradas, 0 rechazos
+2026/09/09 20:19:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:19:32 🚪 Hikvision: 1 entradas, 0 rechazos
+2026/09/09 20:19:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:19:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:20:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:20:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:20:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:20:23 🔍 DEBUG GetSalesReport - startDate: 2026-09-09, endDate: 2026-09-09
+2026/09/09 20:20:23 🔍 DEBUG GetSalesReport - Found 1 reports, error: <nil>
+2026/09/09 20:20:23 🔍 DEBUG GetSalesReport - Report: {TotalSales:0 TotalDiscount:0 NetSales:0 SalesCount:0}
+2026/09/09 20:20:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:20:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:20:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:21:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:21:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:21:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:21:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:21:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:21:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:22:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:22:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:22:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:22:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:22:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:22:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:23:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:23:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:23:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:23:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:23:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:23:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:24:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:24:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:24:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:24:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:24:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:24:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:25:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:25:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:25:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:25:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:25:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:25:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:26:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:26:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:26:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:26:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:26:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:26:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:27:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:27:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:27:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:27:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:27:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:27:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:28:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:28:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:28:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:28:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:28:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:28:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:29:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:29:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:29:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:29:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:29:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:29:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:30:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:30:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:30:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:30:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:30:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:30:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:31:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:31:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:31:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:31:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:31:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:31:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:32:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:32:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:32:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:32:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:32:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:32:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:33:02 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:33:12 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:33:22 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:33:32 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:33:42 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:33:52 ⚠️  List(users) devolvió 500 filas, el tope de la consulta. Hay resultados sin mostrar: usa un filtro por fecha o paginación.
+2026/09/09 20:33:54 🛑 Shutting down server...
+2026/09/09 20:33:54 ✅ Server stopped gracefully
+2026/09/09 20:34:18 📝 Log en gym-go.log
+2026/09/09 20:34:18 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=1
+2026/09/09 20:34:18 🔄 Running database migrations...
+2026/09/09 20:34:18 ✅ Database migrations completed successfully
+2026/09/09 20:34:18 🌱 Seeding database...
+2026/09/09 20:34:18 ✅ Database seeding completed
+2026/09/09 20:34:18 ✅ SQLite: journal_mode=wal busy_timeout=5000ms foreign_keys=1 max_open=8
+2026/09/09 20:34:18 📁 Serving frontend from disk: frontend/dist
+2026/09/09 20:34:18 ✅ Server running on http://localhost:8080
+2026/09/09 20:34:18 🌐 Frontend: http://localhost:8080/
+2026/09/09 20:34:18 📊 Health check: http://localhost:8080/api/v1/health
+2026/09/09 20:34:18 🔐 Auth endpoint: http://localhost:8080/api/v1/auth/login
+2026/09/09 20:34:18 📝 Environment: development
+2026/09/09 20:34:19 🛑 Shutting down server...
+2026/09/09 20:34:19 ✅ Server stopped gracefully

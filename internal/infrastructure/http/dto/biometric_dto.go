@@ -26,9 +26,35 @@ type FingerprintResponse struct {
 	UserID      string `json:"user_id"`
 	FingerIndex string `json:"finger_index"`
 	Quality     int    `json:"quality"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
-	IsActive    bool   `json:"is_active"`
+	// Source tells the UI which reader enrolled this finger
+	// (digitalpersona | hikvision) — they are different formats and are
+	// deleted through different endpoints.
+	Source    string `json:"source"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	IsActive  bool   `json:"is_active"`
+}
+
+// TerminalEnrollRequest asks the Hikvision terminal to capture and enroll the
+// finger currently on its sensor.
+type TerminalEnrollRequest struct {
+	UserID      string `json:"user_id" binding:"required"`
+	FingerIndex string `json:"finger_index" binding:"required"`
+}
+
+// TerminalSyncResponse reports a validity-sync pass over the terminal.
+type TerminalSyncResponse struct {
+	Checked int `json:"checked"`
+	Updated int `json:"updated"`
+	Failed  int `json:"failed"`
+}
+
+// TerminalEnrollResponse reports a successful terminal enrollment.
+type TerminalEnrollResponse struct {
+	Fingerprint FingerprintResponse `json:"fingerprint"`
+	Quality     int                 `json:"quality"`
+	// Slot is the terminal's finger slot (1-10) the template went into.
+	Slot int `json:"slot"`
 }
 
 // FingerprintVerifyResponse represents the result of a fingerprint verification

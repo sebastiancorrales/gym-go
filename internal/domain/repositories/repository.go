@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"context"
 	"time"
 
 	"github.com/google/uuid"
@@ -121,12 +122,25 @@ type AccessLogRepository interface {
 	CountTodayByGymID(gymID uuid.UUID, loc *time.Location) (int64, error)
 }
 
+// AccessEventCursorRepository remembers how far each terminal's event log
+// has been ingested.
+type AccessEventCursorRepository interface {
+	// Get returns nil (with no error) when the device has never been read.
+	Get(ctx context.Context, deviceID uuid.UUID) (*entities.AccessEventCursor, error)
+	Save(ctx context.Context, cursor *entities.AccessEventCursor) error
+}
+
 // DeviceRepository defines device repository interface
 type DeviceRepository interface {
 	Create(device *entities.Device) error
 	FindByID(id uuid.UUID) (*entities.Device, error)
 	FindByGymID(gymID uuid.UUID) ([]*entities.Device, error)
 	FindActiveByGymID(gymID uuid.UUID) ([]*entities.Device, error)
+	// FindAllActiveByType returns every active device of a kind across all
+	// gyms. The event ingester needs "all terminals" and had no way to ask
+	// for it: enumerating gyms first meant scanning the users table on every
+	// pass just to collect gym IDs.
+	FindAllActiveByType(deviceType entities.DeviceType) ([]*entities.Device, error)
 	Update(device *entities.Device) error
 	Delete(id uuid.UUID) error
 }

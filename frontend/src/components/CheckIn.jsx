@@ -87,6 +87,8 @@ export default function CheckIn() {
   const [capturingFingerprint, setCapturingFingerprint] = useState(false);
   const [devices, setDevices]                   = useState([]);
   const [relayDeviceId, setRelayDeviceId]       = useState(() => localStorage.getItem('relay_device_id') || '');
+  // Último acceso ocurrido en el terminal de la puerta (no en este kiosco).
+  const [doorEvent, setDoorEvent]               = useState(null);
 
   // Redirect to login if no session
   useEffect(() => {
@@ -105,6 +107,47 @@ export default function CheckIn() {
     setRelayDeviceId(id);
     localStorage.setItem('relay_device_id', id);
   };
+
+  // ── Feed de la puerta ───────────────────────────────────────────────────────
+  // El terminal Hikvision abre (o niega) por su cuenta, sin pasar por este
+  // kiosco. El backend ingiere su log y lo convierte en accesos; aquí solo se
+  // consulta lo último para poder anunciarlo en pantalla — sobre todo el
+  // "suscripción vencida", que en la pantallita del equipo sale como un error
+  // genérico que el socio no entiende.
+  useEffect(() => {
+    let alive = true;
+    // Al abrir el kiosco no se anuncia lo ya ocurrido: solo lo que pase de
+    // aquí en adelante.
+    let lastSeenId = null;
+    let primed = false;
+
+    const poll = async () => {
+      try {
+        const res = await api.get('/access/recent?limit=5', { noCache: true });
+        if (!res.ok || !alive) return;
+
+        const entries = (await res.json()) || [];
+        const fromDoor = entries.filter(e => e.from_terminal);
+        if (fromDoor.length === 0) return;
+
+        const newest = fromDoor[0];
+        if (!primed) {
+          primed = true;
+          lastSeenId = newest.id;
+          return;
+        }
+        if (newest.id === lastSeenId) return;
+
+        lastSeenId = newest.id;
+        setDoorEvent(newest);
+        setTimeout(() => { if (alive) setDoorEvent(null); }, 7000);
+      } catch { /* el kiosco sigue funcionando aunque el feed falle */ }
+    };
+
+    poll();
+    const timer = setInterval(poll, 3000);
+    return () => { alive = false; clearInterval(timer); };
+  }, []);
 
   // Auto-dismiss countdown (only used for manual mode and brief errors)
   useEffect(() => {
@@ -466,6 +509,33 @@ export default function CheckIn() {
           </div>
         )}
       </div>
+
+      {/* ── Aviso de lo que pasó en la puerta ──────────────────────────────
+          Va como banner inferior y no en el área principal: el terminal es
+          independiente de este kiosco y su aviso no debe tapar lo que esté
+          haciendo quien atiende el mostrador. */}
+      {doorEvent && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-scale-in">
+          <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl backdrop-blur-md border-2 shadow-2xl ${
+            doorEvent.granted
+              ? 'bg-emerald-500/15 border-emerald-400/60'
+              : 'bg-red-500/15 border-red-400/60'
+          }`}>
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
+              doorEvent.granted ? 'bg-emerald-400/20' : 'bg-red-400/20'
+            }`}>
+              {doorEvent.granted ? '🚪' : '⛔'}
+            </div>
+            <div className="text-left">
+              <p className="text-white/60 text-xs uppercase tracking-wide">Terminal de la puerta</p>
+              <p className="text-white font-bold text-lg leading-tight">{doorEvent.name || 'Socio'}</p>
+              <p className={`text-sm font-medium ${doorEvent.granted ? 'text-emerald-300' : 'text-red-300'}`}>
+                {doorEvent.granted ? 'Ingresó' : (doorEvent.denial_reason || 'Acceso denegado')}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -25,6 +25,7 @@ func Migrate(db *gorm.DB) error {
 		&entities.Payment{},
 		&entities.AccessLog{},
 		&entities.Device{},
+		&entities.AccessEventCursor{},
 		&entities.Fingerprint{},
 		&entities.FingerprintVerification{},
 		&entities.Product{},

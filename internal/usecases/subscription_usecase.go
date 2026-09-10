@@ -22,7 +22,53 @@ type SubscriptionUseCase struct {
 	paymentMethodRepo repositories.PaymentMethodRepository
 	paymentLineRepo   repositories.PaymentLineRepository
 	uow               repositories.UnitOfWork
+	// accessSync, when set, is told after anything that can change whether a
+	// member may walk in. Optional: a gym with no access terminal leaves it
+	// nil and nothing else changes.
+	accessSync AccessSyncHook
 }
+
+// AccessSyncHook receives the members whose right to enter may have just
+// changed, so an access terminal can be updated without the subscription
+// flow knowing that terminals exist.
+//
+// It is deliberately fire-and-forget: a door device that is unplugged,
+// unreachable or simply absent must never fail the sale that triggered it.
+// The hourly reconciler (HikvisionSyncUseCase.SyncAll) is what guarantees
+// the device eventually agrees.
+type AccessSyncHook interface {
+	SyncMemberBestEffort(ctx context.Context, gymID, userID uuid.UUID)
+}
+
+// SetAccessSyncHook wires the hook after construction, keeping the
+// constructor signature (already eight arguments) from growing.
+func (uc *SubscriptionUseCase) SetAccessSyncHook(hook AccessSyncHook) {
+	uc.accessSync = hook
+}
+
+// notifyAccessChanged pushes the new state for the subscription's owner and,
+// for a group plan, everyone riding on it — they all lose or gain access
+// together.
+func (uc *SubscriptionUseCase) notifyAccessChanged(sub *entities.Subscription) {
+	if uc.accessSync == nil || sub == nil {
+		return
+	}
+
+	ctx := context.Background()
+	uc.accessSync.SyncMemberBestEffort(ctx, sub.GymID, sub.UserID)
+
+	members, err := uc.memberRepo.FindBySubscriptionID(sub.ID)
+	if err != nil {
+		return
+	}
+	for _, member := range members {
+		uc.accessSync.SyncMemberBestEffort(ctx, sub.GymID, member.UserID)
+	}
+}
+
+// AutoExpireSubscriptions deliberately has no hook: it is a bulk UPDATE that
+// does not surface which rows it touched, and the hourly job runs the
+// terminal reconciler immediately after it (see main.go).
 
 func NewSubscriptionUseCase(
 	subscriptionRepo repositories.SubscriptionRepository,
@@ -127,6 +173,10 @@ func (uc *SubscriptionUseCase) CreateSubscription(userID, planID, gymID uuid.UUI
 		return nil, err
 	}
 
+	// Somebody who just paid walks to the door in seconds, so the terminal is
+	// told now instead of waiting for the hourly reconciler.
+	uc.notifyAccessChanged(subscription)
+
 	return subscription, nil
 }
 
@@ -178,7 +228,14 @@ func (uc *SubscriptionUseCase) CancelSubscription(id uuid.UUID, reason string, c
 	}
 
 	subscription.Cancel(reason, cancelledBy)
-	return uc.subscriptionRepo.Update(subscription)
+	if err := uc.subscriptionRepo.Update(subscription); err != nil {
+		return err
+	}
+
+	// Closing the door on a cancellation is the security-relevant direction:
+	// it must not wait an hour.
+	uc.notifyAccessChanged(subscription)
+	return nil
 }
 
 func (uc *SubscriptionUseCase) UpdateSubscription(sub *entities.Subscription) error {
@@ -269,6 +326,8 @@ func (uc *SubscriptionUseCase) RenewSubscription(currentSubID uuid.UUID, planID 
 		return nil, err
 	}
 
+	uc.notifyAccessChanged(newSub)
+
 	return newSub, nil
 }
 
@@ -280,7 +339,14 @@ func (uc *SubscriptionUseCase) FreezeSubscription(id uuid.UUID, days int, reason
 	// Freeze owns the end-date extension now; doing it here as well was what
 	// double-counted the freeze.
 	sub.Freeze(days, reason)
-	return uc.subscriptionRepo.Update(sub)
+	if err := uc.subscriptionRepo.Update(sub); err != nil {
+		return err
+	}
+
+	// A frozen plan stops counting days, so it must also stop opening the
+	// door — otherwise the freeze would be free training.
+	uc.notifyAccessChanged(sub)
+	return nil
 }
 
 func (uc *SubscriptionUseCase) UnfreezeSubscription(id uuid.UUID) error {
@@ -289,7 +355,12 @@ func (uc *SubscriptionUseCase) UnfreezeSubscription(id uuid.UUID) error {
 		return err
 	}
 	sub.Unfreeze()
-	return uc.subscriptionRepo.Update(sub)
+	if err := uc.subscriptionRepo.Update(sub); err != nil {
+		return err
+	}
+
+	uc.notifyAccessChanged(sub)
+	return nil
 }
 
 func (uc *SubscriptionUseCase) AutoExpireSubscriptions() (int64, error) {
@@ -364,6 +435,16 @@ func (uc *SubscriptionUseCase) GetSubscriptionsAsMember(userID uuid.UUID) ([]*en
 
 // UpdateDates changes start/end dates and records the change in the audit log.
 func (uc *SubscriptionUseCase) UpdateDates(subID uuid.UUID, newStart, newEnd time.Time, changedByID uuid.UUID, changedByName string) error {
+	// An end before the start silently produces a subscription that can never
+	// be active: it shows as ACTIVE in the panel while every "is this member
+	// up to date" check says no. Since the access terminal now follows those
+	// same dates, it also locks the member out of the gym with no explanation
+	// on screen. Caught in production data, where a subscription started
+	// 2026-09-09 and ended 2026-09-02.
+	if !newEnd.After(newStart) {
+		return errors.New("la fecha de fin debe ser posterior a la de inicio")
+	}
+
 	sub, err := uc.subscriptionRepo.FindByID(subID)
 	if err != nil {
 		return err
@@ -393,12 +474,18 @@ func (uc *SubscriptionUseCase) UpdateDates(subID uuid.UUID, newStart, newEnd tim
 	// Atomic: the dates and the audit entry that explains them go together. Before,
 	// a failure writing the log left the dates already changed with no record of
 	// who changed them.
-	return uc.uow.Do(context.Background(), func(r repositories.Repos) error {
+	if err := uc.uow.Do(context.Background(), func(r repositories.Repos) error {
 		if err := r.Subscriptions.Update(sub); err != nil {
 			return err
 		}
 		return r.Audit.Create(log)
-	})
+	}); err != nil {
+		return err
+	}
+
+	// Moving the end date is exactly the value the terminal enforces.
+	uc.notifyAccessChanged(sub)
+	return nil
 }
 
 // GetAuditLog returns the edit history of a subscription.

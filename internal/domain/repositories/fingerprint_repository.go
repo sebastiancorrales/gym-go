@@ -26,8 +26,19 @@ type FingerprintRepository interface {
 	// Delete soft deletes a fingerprint (sets IsActive to false)
 	Delete(ctx context.Context, id int) error
 
-	// GetAllTemplates retrieves all active fingerprint templates for verification
+	// GetAllTemplates retrieves the active templates the DigitalPersona
+	// matcher can read. It deliberately excludes templates captured on a
+	// Hikvision terminal: those are a different, incompatible format that the
+	// device matches by itself.
 	GetAllTemplates(ctx context.Context) ([]*entities.Fingerprint, error)
+
+	// GetActiveByUserAndSource retrieves a user's active templates for one
+	// reader kind (see entities.FingerprintSource*).
+	GetActiveByUserAndSource(ctx context.Context, userID, source string) ([]*entities.Fingerprint, error)
+
+	// DistinctUserIDsBySource lists the users with at least one active
+	// template from a reader kind — i.e. who is actually enrolled on it.
+	DistinctUserIDsBySource(ctx context.Context, source string) ([]string, error)
 
 	// CountActiveByUser returns how many active fingerprints each user has, keyed
 	// by user ID. Users with none are absent from the map. This exists so a list

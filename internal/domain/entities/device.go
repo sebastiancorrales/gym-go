@@ -1,6 +1,8 @@
 package entities
 
 import (
+	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,6 +19,12 @@ const (
 	DeviceTypeTablet      DeviceType = "TABLET"
 	DeviceTypeKiosk       DeviceType = "KIOSK"
 	DeviceTypeRelay       DeviceType = "RELAY"
+	// DeviceTypeHikvisionTerminal is a standalone access-control terminal
+	// (e.g. DS-K1T8003MF) reached over the network via Hikvision's ISAPI —
+	// as opposed to DeviceTypeRelay, which is a serial relay board wired to
+	// a COM port. Its connection details live in Configuration (see
+	// HikvisionConfig), not in COMPort/BaudRate.
+	DeviceTypeHikvisionTerminal DeviceType = "HIKVISION_TERMINAL"
 )
 
 // DeviceStatus represents device status
@@ -107,6 +115,45 @@ func (d *Device) Heartbeat() {
 // IsOnline checks if device is online
 func (d *Device) IsOnline() bool {
 	return d.Status == DeviceStatusOnline && d.IsActive
+}
+
+// HikvisionConfig is the shape stored (as JSON) in Device.Configuration for a
+// DeviceTypeHikvisionTerminal. The IP itself stays in Device.IPAddress —
+// that field already existed for this purpose — this struct only adds what
+// IPAddress can't carry: the HTTP port, the admin credentials ISAPI needs
+// for Digest auth, and which door number to command (single-door terminals
+// like the DS-K1T8003MF use door 1).
+type HikvisionConfig struct {
+	HTTPPort int    `json:"http_port"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	DoorNo   int    `json:"door_no"`
+}
+
+// ErrNotHikvisionTerminal is returned by ParseHikvisionConfig when called on
+// a device that isn't a DeviceTypeHikvisionTerminal.
+var ErrNotHikvisionTerminal = errors.New("device is not a Hikvision terminal")
+
+// ParseHikvisionConfig decodes Device.Configuration into a HikvisionConfig,
+// filling in the documented defaults (HTTP port 80, door 1) when the field
+// is left blank in the request.
+func (d *Device) ParseHikvisionConfig() (HikvisionConfig, error) {
+	if d.DeviceType != DeviceTypeHikvisionTerminal {
+		return HikvisionConfig{}, ErrNotHikvisionTerminal
+	}
+	cfg := HikvisionConfig{HTTPPort: 80, DoorNo: 1}
+	if d.Configuration != "" {
+		if err := json.Unmarshal([]byte(d.Configuration), &cfg); err != nil {
+			return HikvisionConfig{}, err
+		}
+	}
+	if cfg.HTTPPort == 0 {
+		cfg.HTTPPort = 80
+	}
+	if cfg.DoorNo == 0 {
+		cfg.DoorNo = 1
+	}
+	return cfg, nil
 }
 
 
