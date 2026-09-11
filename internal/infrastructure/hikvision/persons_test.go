@@ -22,8 +22,26 @@ func TestValidityIsClampedToDeviceRange(t *testing.T) {
 	if got, want := valid["endTime"].(string), "2037-12-31T23:59:59"; got != want {
 		t.Errorf("endTime = %q, want it clamped to %q", got, want)
 	}
-	if got, want := valid["beginTime"].(string), "2026-01-01T00:00:00"; got != want {
-		t.Errorf("beginTime = %q, want %q untouched", got, want)
+}
+
+// The terminal stores "local" wall clock with no zone, so an instant has to
+// be converted to the gym's zone first. Sending a UTC wall clock as if it
+// were local shifts every window by the UTC offset — five hours in Bogotá —
+// and, because the value then reads back different from the one written,
+// makes the reconciler rewrite the same member on every pass forever.
+func TestValidityIsRenderedInTheGymsLocalTime(t *testing.T) {
+	instant := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+	payload := personPayload(Person{EmployeeNo: "1", Name: "Socio", ValidFrom: instant, ValidTo: instant})
+	valid := payload["UserInfo"].(map[string]any)["Valid"].(map[string]any)
+
+	written, err := time.ParseInLocation(deviceTimeLayout, valid["beginTime"].(string), time.Local)
+	if err != nil {
+		t.Fatalf("el equipo recibió algo que no es una fecha local: %v", err)
+	}
+	if !written.Equal(instant) {
+		t.Errorf("se envió %s, que es el instante %s en vez de %s",
+			valid["beginTime"], written.UTC(), instant)
 	}
 }
 

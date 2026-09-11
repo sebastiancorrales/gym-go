@@ -46,7 +46,10 @@ type TerminalEnrollRequest struct {
 type TerminalSyncResponse struct {
 	Checked int `json:"checked"`
 	Updated int `json:"updated"`
-	Failed  int `json:"failed"`
+	// Unchanged are the members the device already had right, and therefore
+	// was not written to. In steady state this should be almost everybody.
+	Unchanged int `json:"unchanged"`
+	Failed    int `json:"failed"`
 }
 
 // TerminalEnrollResponse reports a successful terminal enrollment.

@@ -62,6 +62,17 @@ func NewHikvisionSyncUseCase(
 var deniedWindowStart = time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
 var deniedWindowEnd = time.Date(2000, time.January, 2, 0, 0, 0, 0, time.UTC)
 
+// staffWindow is the always-open span given to anyone who is not a member.
+//
+// It is two fixed dates rather than "now ± some years" on purpose. A window
+// computed from the current time is different on every pass, so it would
+// never match what the device already holds and the sync would rewrite every
+// staff member every hour — forever, and precisely for the people standing
+// at the desk. The end matches the latest instant the terminal can store, so
+// the client's clamp leaves it untouched.
+var staffWindowStart = time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
+var staffWindowEnd = time.Date(2037, time.December, 31, 23, 59, 59, 0, time.UTC)
+
 // AccessWindow is the span a member may enter during, as gym-go computes it.
 type AccessWindow struct {
 	From    time.Time
@@ -75,7 +86,10 @@ type AccessWindow struct {
 type SyncReport struct {
 	Checked int
 	Updated int
-	Failed  int
+	// Unchanged counts the members the device already had right. In steady
+	// state this is everybody: nothing is written, nothing can collide.
+	Unchanged int
+	Failed    int
 }
 
 // AccessWindowFor computes the window a member should have on the terminal.
@@ -106,8 +120,8 @@ func accessWindowFor(
 
 	if user.Role != entities.RoleMember {
 		return AccessWindow{
-			From:    time.Now().AddDate(-1, 0, 0),
-			To:      time.Now().AddDate(10, 0, 0),
+			From:    staffWindowStart,
+			To:      staffWindowEnd,
 			Allowed: true,
 		}, nil
 	}
@@ -154,7 +168,10 @@ func (uc *HikvisionSyncUseCase) SyncMember(ctx context.Context, gymID, userID uu
 	if err != nil {
 		return err
 	}
-	return uc.pushWindow(client, userID)
+	// A single member: reading the whole roster first would cost more than
+	// the write it might save.
+	_, err = uc.pushWindow(client, userID, nil)
+	return err
 }
 
 // SyncMemberBestEffort is SyncMember for the write-through call sites: a
@@ -213,6 +230,7 @@ func (uc *HikvisionSyncUseCase) SyncAll(ctx context.Context) (SyncReport, error)
 		}
 		report.Checked += gymReport.Checked
 		report.Updated += gymReport.Updated
+		report.Unchanged += gymReport.Unchanged
 		report.Failed += gymReport.Failed
 	}
 	return report, nil
@@ -247,34 +265,68 @@ func (uc *HikvisionSyncUseCase) SyncGym(ctx context.Context, gymID uuid.UUID, me
 		return report, err
 	}
 
+	// Read the device once and skip whoever already matches. Rewriting all
+	// of them every hour is pointless traffic against an embedded database,
+	// and a burst of writes is exactly what collides with the event poller
+	// and comes back as updateDatabaseError.
+	onDevice := map[string]hikvision.Person{}
+	if people, err := client.ListPersons(); err == nil {
+		for _, person := range people {
+			onDevice[person.EmployeeNo] = person
+		}
+	} else {
+		log.Printf("⚠️ No se pudo leer el padrón del terminal, se reescribirá todo: %v", err)
+	}
+
 	for _, userID := range members {
 		report.Checked++
-		if err := uc.pushWindow(client, userID); err != nil {
+		changed, err := uc.pushWindow(client, userID, onDevice)
+		if err != nil {
 			report.Failed++
 			log.Printf("⚠️ Vigencia no sincronizada para %s: %v", userID, err)
 			continue
 		}
-		report.Updated++
+		if changed {
+			report.Updated++
+		} else {
+			report.Unchanged++
+		}
 	}
 	return report, nil
 }
 
-// pushWindow writes the member's computed window onto the device.
-func (uc *HikvisionSyncUseCase) pushWindow(client *hikvision.Client, userID uuid.UUID) error {
+// pushWindow writes the member's computed window onto the device, unless the
+// device already holds exactly that window.
+//
+// onDevice may be nil, in which case the write always happens. It reports
+// whether anything was actually written.
+func (uc *HikvisionSyncUseCase) pushWindow(
+	client *hikvision.Client,
+	userID uuid.UUID,
+	onDevice map[string]hikvision.Person,
+) (bool, error) {
 	user, err := uc.userRepo.FindByID(userID)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	window, err := uc.AccessWindowFor(userID)
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	return client.UpsertPerson(hikvision.Person{
+	wanted := hikvision.Person{
 		EmployeeNo: EmployeeNoForUser(userID),
 		Name:       displayName(user),
 		ValidFrom:  window.From,
 		ValidTo:    window.To,
-	})
+	}
+
+	// Writing a value the device already has costs an embedded-database
+	// transaction and buys nothing — and a burst of those is what collides
+	// with the event poller and comes back as updateDatabaseError.
+	if current, known := onDevice[wanted.EmployeeNo]; known && current.SameWindowAs(wanted) {
+		return false, nil
+	}
+	return true, client.UpsertPerson(wanted)
 }

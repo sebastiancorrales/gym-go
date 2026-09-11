@@ -13,7 +13,7 @@ import (
 // ErrFingerprintBusy is the terminal's "Device Error" on capture. In practice
 // it means no finger was on the sensor when the request arrived: the call is
 // synchronous and the device does not wait for one.
-var ErrFingerprintBusy = errors.New("the reader did not read a finger — place the finger on the sensor before starting the capture")
+var ErrFingerprintBusy = errors.New("the reader saw no finger within its wait window")
 
 // DuplicateFingerprintError is returned when the terminal refuses to enroll a
 // template because that same finger already belongs to somebody else. The
@@ -46,20 +46,72 @@ type captureFingerPrintResponse struct {
 	Quality    int      `xml:"fingerPrintQuality"`
 }
 
-// CaptureFingerprint asks the terminal to read the finger currently on its
-// sensor and hand back the template.
+// deviceFingerWait is how long the terminal itself waits for a finger before
+// answering "Device Error", measured against a DS-K1T8003MF: about eleven
+// seconds. It cannot be configured, which is why covering a longer window
+// means chaining attempts rather than asking the device to wait.
+const deviceFingerWait = 11 * time.Second
+
+// CaptureFingerprintWithin keeps asking the terminal to read a finger until
+// somebody presents one or the window runs out.
 //
-// Two quirks, both found the hard way against a DS-K1T8003MF (V1.4.1):
+// The window exists because of where these readers get installed. At the
+// first gym the terminal sits three metres from the desk, out of sight of
+// the screen, so the member has to walk over after the receptionist starts
+// the capture — and the device gives up on its own after ~11 seconds.
+// Chaining attempts turns that into as long as the caller is willing to
+// wait. Each attempt is one request per 11 seconds, gentler than the event
+// poller, so this does not stress the device.
+//
+// Note the reader is busy enrolling for the whole window: keep it to the
+// time a person actually needs to walk over, not minutes.
+func (c *Client) CaptureFingerprintWithin(fingerNo int, window time.Duration) (*CapturedFingerprint, error) {
+	deadline := time.Now().Add(window)
+
+	for {
+		captured, err := c.CaptureFingerprint(fingerNo)
+		if err == nil {
+			return captured, nil
+		}
+		// Only "nobody put a finger down" is worth waiting through. A real
+		// fault should surface at once instead of being retried for a minute.
+		if !errors.Is(err, ErrFingerprintBusy) {
+			return nil, err
+		}
+		if !time.Now().Before(deadline) {
+			return nil, err
+		}
+
+		// A healthy device paces this loop by itself, since each attempt
+		// blocks for its own wait. The pause is for the case where it stops
+		// doing that — a sensor fault answering instantly would otherwise
+		// turn this into thousands of requests over the window.
+		time.Sleep(captureRetryPause)
+	}
+}
+
+// captureRetryPause is negligible next to the device's own wait and bounds
+// the loop if that wait ever collapses.
+const captureRetryPause = 500 * time.Millisecond
+
+// CaptureFingerprint asks the terminal to read a finger, once.
+//
+// Three quirks, all found the hard way against a DS-K1T8003MF (V1.4.1):
 //
 //   - This endpoint speaks XML only. Sending the same request as JSON with
 //     ?format=json is rejected with "MessageParametersLack", even though the
 //     neighbouring person and fingerprint endpoints are JSON.
-//   - The call is synchronous and does not wait: whoever is enrolling must
-//     already have their finger down, or the device answers "Device Error".
+//   - The device blocks for about eleven seconds waiting for a finger and
+//     then answers "Device Error". An HTTP timeout shorter than that never
+//     sees the answer and reports a connection failure instead — which is
+//     how "no finger was presented" reached the gym disguised as "error de
+//     comunicación con el huellero".
+//   - Eleven seconds is the device's own limit; use CaptureFingerprintWithin
+//     when the person needs longer to reach the reader.
 func (c *Client) CaptureFingerprint(fingerNo int) (*CapturedFingerprint, error) {
 	body := []byte(fmt.Sprintf("<CaptureFingerPrintCond><fingerNo>%d</fingerNo></CaptureFingerPrintCond>", fingerNo))
 
-	respBody, status, err := c.do("POST", "/ISAPI/AccessControl/CaptureFingerPrint", "application/xml", body)
+	respBody, status, err := c.doUsing(c.waitClient, "POST", "/ISAPI/AccessControl/CaptureFingerPrint", "application/xml", body)
 	if err != nil {
 		return nil, err
 	}

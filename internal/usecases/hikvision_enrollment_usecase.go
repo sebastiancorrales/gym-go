@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
@@ -16,6 +17,16 @@ var (
 	ErrNoHikvisionTerminal = errors.New("no active Hikvision terminal is configured for this gym")
 	ErrUnknownFingerIndex  = errors.New("unknown finger index")
 )
+
+// enrollmentCaptureWindow is how long the terminal keeps asking for a finger
+// during an enrollment.
+//
+// The device gives up after ~11 seconds on its own, which is not enough when
+// the reader is across the room from whoever clicked the button — the first
+// real installation has it three metres away and out of sight of the screen.
+// The reader is busy for this whole window, so it is sized for a walk, not
+// for somebody who wandered off.
+const enrollmentCaptureWindow = 45 * time.Second
 
 // fingerSlots maps gym-go's finger names onto the terminal's ten fingerprint
 // slots. The mapping is fixed rather than "next free slot" so that
@@ -102,8 +113,8 @@ func (e *DuplicateFingerprintError) Error() string {
 
 // EnrollFinger runs the whole enrollment for one finger of one member.
 //
-// The terminal must already have the member's finger on its sensor when this
-// is called: the capture step does not wait for one.
+// It blocks while the terminal waits for a finger — up to
+// enrollmentCaptureWindow — so the member has time to reach the reader.
 func (uc *HikvisionEnrollmentUseCase) EnrollFinger(
 	ctx context.Context,
 	gymID uuid.UUID,
@@ -145,7 +156,9 @@ func (uc *HikvisionEnrollmentUseCase) EnrollFinger(
 		return nil, fmt.Errorf("no se pudo registrar al socio en el equipo: %w", err)
 	}
 
-	captured, err := client.CaptureFingerprint(slot)
+	// El socio tiene que caminar hasta el lector: en el primer gimnasio está
+	// a tres metros del mostrador y fuera de vista de la pantalla.
+	captured, err := client.CaptureFingerprintWithin(slot, enrollmentCaptureWindow)
 	if err != nil {
 		return nil, err
 	}

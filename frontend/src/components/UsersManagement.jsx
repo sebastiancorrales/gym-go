@@ -148,13 +148,29 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
   };
 
   // Enrolamiento en el terminal Hikvision de la puerta. A diferencia del
-  // lector USB, aquí el equipo captura y compara por su cuenta: el socio debe
-  // tener el dedo puesto ANTES de disparar la captura, porque el equipo no
-  // espera a que lo pongan.
+  // lector USB, aquí el equipo captura y compara por su cuenta, y el socio
+  // tiene que caminar hasta él: el backend encadena intentos durante toda la
+  // ventana, porque el equipo por su cuenta sólo espera ~11 segundos.
+
+  // Ventana de captura, en segundos. Debe coincidir con
+  // enrollmentCaptureWindow del backend: aquí sólo sirve para mostrar la
+  // cuenta regresiva, el que manda es el servidor.
+  const TERMINAL_CAPTURE_SECONDS = 45;
+
   const startTerminalEnrollment = async () => {
     if (!enrollingUser) return;
     setEnrollStatus('enrolling');
-    setEnrollMessage('Capturando en el terminal... mantén el dedo puesto en el sensor.');
+
+    // El lector suele estar lejos del mostrador — en el primer gimnasio, a
+    // tres metros y sin ver esta pantalla. Sin una cuenta regresiva, quien
+    // atiende no sabe cuánto tiempo le queda al socio para llegar.
+    let left = TERMINAL_CAPTURE_SECONDS;
+    setEnrollMessage(`El socio debe poner el dedo en el lector — quedan ${left}s`);
+    const countdown = setInterval(() => {
+      left -= 1;
+      if (left > 0) setEnrollMessage(`El socio debe poner el dedo en el lector — quedan ${left}s`);
+    }, 1000);
+
     try {
       const res = await api.post('/biometric/terminal/enroll', {
         user_id: enrollingUser.id,
@@ -173,6 +189,8 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
     } catch (error) {
       setEnrollStatus('error');
       setEnrollMessage(`Error de conexión: ${error.message}`);
+    } finally {
+      clearInterval(countdown);
     }
   };
 
@@ -1141,8 +1159,8 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
               </div>
               {enrollTarget === 'terminal' && (
                 <p className="text-xs text-gray-500 mt-2">
-                  El socio debe tener el dedo puesto en el sensor del terminal <strong>antes</strong> de iniciar
-                  la captura — el equipo no espera a que lo pongan.
+                  Al iniciar la captura, el socio tiene <strong>45 segundos</strong> para llegar al lector y poner
+                  el dedo. El lector queda ocupado durante ese tiempo, así que no lo inicies antes de que vaya.
                 </p>
               )}
             </div>

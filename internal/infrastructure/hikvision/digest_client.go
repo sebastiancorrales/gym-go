@@ -22,10 +22,16 @@ import (
 // intentionally narrow — one device, one credential pair — matching how a
 // Device row's HikvisionConfig is scoped.
 type Client struct {
-	baseURL    string
-	username   string
-	password   string
+	baseURL  string
+	username string
+	password string
+	// httpClient serves the ordinary calls, which the device answers at once.
 	httpClient *http.Client
+	// waitClient serves the one call that blocks: capturing a fingerprint,
+	// where the terminal holds the connection open while it waits for a
+	// finger. Its timeout must exceed the device own wait or the answer is
+	// cut off just before it arrives.
+	waitClient *http.Client
 }
 
 // NewClient builds a client for the terminal at ip:port.
@@ -35,6 +41,7 @@ func NewClient(ip string, port int, username, password string) *Client {
 		username:   username,
 		password:   password,
 		httpClient: &http.Client{Timeout: 10 * time.Second},
+		waitClient: &http.Client{Timeout: deviceFingerWait + 5*time.Second},
 	}
 }
 
@@ -43,13 +50,19 @@ func NewClient(ip string, port int, username, password string) *Client {
 // WWW-Authenticate header (the standard RFC 2617 handshake — Hikvision
 // devices reject ISAPI requests sent without it with a 401).
 func (c *Client) do(method, path, contentType string, body []byte) ([]byte, int, error) {
+	return c.doUsing(c.httpClient, method, path, contentType, body)
+}
+
+// doUsing is do with an explicit client, so the blocking capture call can be
+// given a longer patience than everything else.
+func (c *Client) doUsing(hc *http.Client, method, path, contentType string, body []byte) ([]byte, int, error) {
 	url := c.baseURL + path
 
 	req, err := newRequest(method, url, contentType, body)
 	if err != nil {
 		return nil, 0, err
 	}
-	resp, err := c.httpClient.Do(req)
+	resp, err := hc.Do(req)
 	if err != nil {
 		return nil, 0, fmt.Errorf("cannot reach device: %w", err)
 	}
@@ -77,7 +90,7 @@ func (c *Client) do(method, path, contentType string, body []byte) ([]byte, int,
 	}
 	req2.Header.Set("Authorization", authHeader)
 
-	resp2, err := c.httpClient.Do(req2)
+	resp2, err := hc.Do(req2)
 	if err != nil {
 		return nil, 0, fmt.Errorf("cannot reach device: %w", err)
 	}

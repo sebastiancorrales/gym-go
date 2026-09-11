@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -54,9 +55,10 @@ func (h *HikvisionBiometricHandler) SyncAccess(c *gin.Context) {
 		Success: true,
 		Message: "Vigencias sincronizadas con el terminal",
 		Data: dto.TerminalSyncResponse{
-			Checked: report.Checked,
-			Updated: report.Updated,
-			Failed:  report.Failed,
+			Checked:   report.Checked,
+			Updated:   report.Updated,
+			Unchanged: report.Unchanged,
+			Failed:    report.Failed,
 		},
 	})
 }
@@ -183,11 +185,20 @@ func (h *HikvisionBiometricHandler) writeEnrollError(c *gin.Context, err error) 
 	case errors.Is(err, hikvision.ErrFingerprintBusy):
 		c.JSON(http.StatusBadRequest, dto.APIResponse{
 			Success: false,
-			Error:   "El equipo no leyó ninguna huella. Coloca el dedo en el sensor antes de iniciar la captura.",
+			Error:   "El equipo no leyó ninguna huella. Pide al socio que ponga el dedo en el lector y vuelve a intentar.",
 		})
 	case errors.Is(err, usecases.ErrUnknownFingerIndex):
 		c.JSON(http.StatusBadRequest, dto.APIResponse{Success: false, Error: "Dedo inválido"})
 	default:
-		c.JSON(http.StatusServiceUnavailable, dto.APIResponse{Success: false, Error: err.Error()})
+		// Anything else is the terminal misbehaving, and it must leave a
+		// trace: a failure the receptionist sees on screen used to be
+		// invisible on the server, so diagnosing "sometimes it fails" meant
+		// inferring it from the sync job's log instead of reading it.
+		log.Printf("⚠️ Enrolamiento en terminal falló (%s %s): %v",
+			c.Request.Method, c.Request.URL.Path, err)
+		c.JSON(http.StatusServiceUnavailable, dto.APIResponse{
+			Success: false,
+			Error:   "El terminal rechazó la operación: " + err.Error(),
+		})
 	}
 }

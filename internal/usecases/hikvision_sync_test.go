@@ -163,3 +163,34 @@ func TestAccessWindow_Personal_EntraSinSuscripcion(t *testing.T) {
 		}
 	}
 }
+
+// La ventana del personal tiene que ser estable entre pasadas. Si se
+// calculara como "ahora ± años", cada pasada produciría un valor distinto,
+// nunca coincidiría con lo que el equipo ya tiene y el reconciliador
+// reescribiría a todo el personal cada hora — escrituras inútiles sobre la
+// base embebida del equipo, que son justo las que chocan con el ingestor de
+// eventos y devuelven updateDatabaseError.
+func TestAccessWindow_PersonalEsEstableEntrePasadas(t *testing.T) {
+	db := newTestDB(t)
+	uc := newSyncUC(t, db)
+
+	userID := seedPerson(t, db, entities.RoleRecepcionista, "estable@test.local")
+
+	primera, err := uc.AccessWindowFor(userID)
+	if err != nil {
+		t.Fatalf("AccessWindowFor: %v", err)
+	}
+	time.Sleep(1100 * time.Millisecond) // el reloj avanza entre pasadas reales
+	segunda, err := uc.AccessWindowFor(userID)
+	if err != nil {
+		t.Fatalf("AccessWindowFor: %v", err)
+	}
+
+	if !primera.From.Equal(segunda.From) || !primera.To.Equal(segunda.To) {
+		t.Errorf("la ventana del personal cambió entre pasadas: %s→%s vs %s→%s",
+			primera.From, primera.To, segunda.From, segunda.To)
+	}
+	if !primera.Allowed {
+		t.Error("el personal debe poder entrar")
+	}
+}

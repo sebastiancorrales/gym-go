@@ -55,10 +55,15 @@ type IngestReport struct {
 	Skipped int
 }
 
-// eventPageSize is how many events are pulled per request. The device pages
-// with an absolute offset and holds up to 100k events, so this only bounds
-// the size of one HTTP round trip.
-const eventPageSize = 50
+// eventPageSize is how many events are pulled per request. The device caps a
+// page at ten whatever this says, so it matches that cap to keep the walk
+// honest.
+const eventPageSize = 10
+
+// maxEventPages bounds one ingestion pass. At ten events per page this reads
+// up to a thousand events per run, far beyond a busy day at a gym, and stops
+// a device that keeps answering "there are more" from spinning the loop.
+const maxEventPages = 100
 
 // firstRunLookback bounds the very first ingestion of a terminal. Without it
 // a device that has been in use for months would import its whole history
@@ -116,7 +121,11 @@ func (uc *HikvisionEventUseCase) IngestDevice(ctx context.Context, device *entit
 	highestSerial := lastSerial
 	var highestAt time.Time
 
-	for position := 0; ; position += eventPageSize {
+	// The position advances by what the device actually returned, never by
+	// what was asked for: it caps a page at ten records whatever maxResults
+	// says, so stepping by the requested size skips everything in between —
+	// silently losing attendance whenever more than ten events are pending.
+	for position, pages := 0, 0; pages < maxEventPages; pages++ {
 		events, total, err := client.SearchEvents(from, to, position, eventPageSize)
 		if err != nil {
 			return report, err
@@ -124,6 +133,7 @@ func (uc *HikvisionEventUseCase) IngestDevice(ctx context.Context, device *entit
 		if len(events) == 0 {
 			break
 		}
+		position += len(events)
 
 		for _, event := range events {
 			report.Read++
@@ -149,7 +159,7 @@ func (uc *HikvisionEventUseCase) IngestDevice(ctx context.Context, device *entit
 			}
 		}
 
-		if position+len(events) >= total {
+		if position >= total {
 			break
 		}
 	}
