@@ -9,6 +9,8 @@ import MemberProfile from './MemberProfile';
 import PlanSelectorGrid from './PlanSelectorGrid';
 import Pagination from './Pagination';
 import DocumentNumberInput from './DocumentNumberInput';
+import PaymentSplitEditor from './shared/PaymentSplitEditor';
+import { toPaymentsPayload } from '../utils/payments';
 import { DOCUMENT_TYPES } from '../utils/document';
 
 const USERS_PAGE_SIZE = 25;
@@ -36,7 +38,14 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
   const [planStep, setPlanStep] = useState(1); // 1: select plan, 2: group members
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [assigningPlan, setAssigningPlan] = useState(false);
-  const [planPaymentMethod, setPlanPaymentMethod] = useState('EFECTIVO');
+  // El alta rapida cobra con el mismo editor que el alta normal y el punto de
+  // venta: antes tenia tres botones con los nombres de los metodos quemados, lo
+  // que dejaba fuera cualquier metodo creado por el admin (Nequi, datafono) y
+  // caia en la rama legacy `payment_method` del backend.
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [planPaymentLines, setPlanPaymentLines] = useState([]);
+  const [planPaymentValid, setPlanPaymentValid] = useState(false);
+  const [planDiscount, setPlanDiscount] = useState(0);
   const [planAdditionalMembers, setPlanAdditionalMembers] = useState([]);
   const [planMemberSearch, setPlanMemberSearch] = useState('');
 
@@ -107,6 +116,10 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
     fetchUsers();
     fetchPlans();
     fetchFingerprintCounts();
+    api.get('/payment-methods?status=active')
+      .then(r => (r.ok ? r.json() : []))
+      .then(d => setPaymentMethods(Array.isArray(d) ? d : (d?.data ?? [])))
+      .catch(() => {});
   }, []);
 
   const fetchPlans = async () => {
@@ -343,6 +356,9 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
         setSelectedPlan(null);
         setPlanStep(1);
         setPlanAdditionalMembers([]);
+        setPlanPaymentLines([]);
+        setPlanPaymentValid(false);
+        setPlanDiscount(0);
         setShowPlanStep(true);
       } else {
         const err = await response.json();
@@ -362,7 +378,9 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
     setPlanStep(1);
     setPlanAdditionalMembers([]);
     setPlanMemberSearch('');
-    setPlanPaymentMethod('EFECTIVO');
+    setPlanPaymentLines([]);
+    setPlanPaymentValid(false);
+    setPlanDiscount(0);
   };
 
   const handleAssignPlan = async () => {
@@ -372,8 +390,8 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
       const res = await api.post('/subscriptions', {
         user_id: createdUser.id,
         plan_id: selectedPlan.id,
-        discount: 0,
-        payment_method: planPaymentMethod,
+        discount: parseFloat(planDiscount) || 0,
+        payments: toPaymentsPayload(planPaymentLines),
         additional_members: planAdditionalMembers.map(m => m.id),
       });
       if (!res.ok) {
@@ -635,6 +653,12 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
       {/* ── Modal opcional: asignar plan tras registro ── */}
       {showPlanStep && createdUser && (() => {
         const maxAdditional = selectedPlan ? (selectedPlan.max_members || 1) - 1 : 0;
+        // Mismo calculo que el alta normal. Aqui la matricula siempre se cobra:
+        // el socio se acaba de crear, asi que no tiene suscripciones previas que
+        // la exoneren (la regla vive en CreateSubscription).
+        const planTotalToPay = selectedPlan
+          ? Math.max(0, (selectedPlan.price + (selectedPlan.enrollment_fee || 0)) - (parseFloat(planDiscount) || 0))
+          : 0;
         const filteredPlanMembers = planMemberSearch.trim().length >= 2
           ? users.filter(u =>
               u.id !== createdUser.id &&
@@ -663,7 +687,7 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
               {planStep === 1 && (
                 <>
                   <div className="max-h-[50vh] overflow-y-auto pr-1">
-                    <PlanSelectorGrid plans={plans} selectedPlan={selectedPlan} onSelect={p => { setSelectedPlan(p); setPlanAdditionalMembers([]); }} />
+                    <PlanSelectorGrid plans={plans} selectedPlan={selectedPlan} onSelect={p => { setSelectedPlan(p); setPlanAdditionalMembers([]); setPlanPaymentLines([]); }} />
                   </div>
                   <div className="flex gap-2 pt-4">
                     <button onClick={closePlanStep}
@@ -769,18 +793,54 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                         <p className="text-sm font-bold text-gray-900">{selectedPlan.name}</p>
                         <p className="text-xs text-gray-400">{selectedPlan.duration_days} días · {selectedPlan.max_members > 1 ? `${planAdditionalMembers.length + 1} personas` : '1 persona'}</p>
                       </div>
-                      <p className="text-lg font-extrabold text-gray-900">${selectedPlan.price?.toLocaleString('es-CO')}</p>
+                      <p className="text-lg font-extrabold text-gray-900">{fmt(selectedPlan.price)}</p>
                     </div>
 
                     <div>
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Método de pago</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[['EFECTIVO','💵','Efectivo'],['TRANSFERENCIA','📲','Transferencia'],['OTRO','💳','Otro']].map(([val, icon, label]) => (
-                          <button key={val} type="button" onClick={() => setPlanPaymentMethod(val)}
-                            className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all text-xs font-medium ${planPaymentMethod === val ? 'border-[#1272D6] bg-[#EBF3FF] text-[#1272D6]' : 'border-[#E2E8EF] text-[#4B5778] hover:border-[#C5DEFA]'}`}>
-                            <span className="text-base">{icon}</span>{label}
-                          </button>
-                        ))}
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Forma de pago</p>
+                      <PaymentSplitEditor
+                        total={planTotalToPay}
+                        methods={paymentMethods}
+                        value={planPaymentLines}
+                        onChange={setPlanPaymentLines}
+                        onValidityChange={setPlanPaymentValid}
+                        disabled={assigningPlan}
+                      />
+                    </div>
+
+                    <div className="space-y-2 p-4 bg-white rounded-xl border border-gray-200">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Precio del plan</span>
+                        <span className="font-medium text-gray-900">{fmt(selectedPlan.price)}</span>
+                      </div>
+                      {selectedPlan.enrollment_fee > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Cuota de inscripción</span>
+                          <span className="font-medium text-gray-900">{fmt(selectedPlan.enrollment_fee)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm items-center">
+                        <span className="text-gray-500">Descuento</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="100"
+                          value={planDiscount}
+                          disabled={assigningPlan}
+                          onChange={e => setPlanDiscount(e.target.value)}
+                          className="w-28 text-right px-3 py-1.5 border border-[#E2E8EF] rounded-lg text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+                          placeholder="0"
+                        />
+                      </div>
+                      {parseFloat(planDiscount) > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span />
+                          <span className="text-red-500 font-medium">-{fmt(parseFloat(planDiscount))}</span>
+                        </div>
+                      )}
+                      <div className="border-t border-gray-100 pt-2 flex justify-between items-center">
+                        <span className="text-sm font-bold text-gray-900">Total a pagar</span>
+                        <span className="text-xl font-extrabold text-[#1272D6]">{fmt(planTotalToPay)}</span>
                       </div>
                     </div>
                   </div>
@@ -790,8 +850,8 @@ export default function UsersManagement({ initialProfileUserId = null, onDeepLin
                       className="flex-1 px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50">
                       Atrás
                     </button>
-                    <button onClick={handleAssignPlan} disabled={assigningPlan}
-                      className="flex-1 px-4 py-2 bg-[#1272D6] text-white text-sm font-medium rounded-lg disabled:opacity-40 hover:bg-[#0D5BAD]">
+                    <button onClick={handleAssignPlan} disabled={assigningPlan || !planPaymentValid}
+                      className="flex-1 px-4 py-2 bg-[#1272D6] text-white text-sm font-medium rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#0D5BAD]">
                       {assigningPlan ? 'Asignando...' : 'Confirmar y asignar'}
                     </button>
                   </div>

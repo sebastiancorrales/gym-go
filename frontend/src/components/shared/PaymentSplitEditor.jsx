@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { fmt } from '../../utils/currency';
 
 // Editor de las patas de un pago, compartido por el punto de venta, el alta de
@@ -9,7 +9,8 @@ import { fmt } from '../../utils/currency';
 // de un solo método: "+ Dividir pago" añade la segunda sólo cuando hace falta.
 //
 // El invariante (las líneas suman el total) se mantiene por construcción, no a
-// base de regañar: al teclear un monto, la última línea absorbe el resto.
+// base de regañar: al teclear un monto —o al cambiar el total desde el padre—
+// la última línea absorbe el resto.
 
 const CHIPS = [10000, 20000, 50000, 100000];
 
@@ -52,6 +53,37 @@ export default function PaymentSplitEditor({
       onChange([{ payment_method_id: defaultMethodId, amount: total, cash_received: '' }]);
     }
   }, [active.length, defaultMethodId, value.length, total, onChange]);
+
+  // El total puede cambiar DESPUÉS de sembrar las líneas: un descuento tecleado
+  // en el desglose del alta de suscripción está en la misma pantalla que este
+  // editor. La última línea absorbe la diferencia, igual que al teclear un
+  // monto; sin esto el editor se queda con el total viejo, marca "Sobran/Faltan"
+  // y deshabilita Confirmar sin que el cajero tenga cómo cuadrarlo — con una
+  // sola línea ni siquiera se dibuja el campo de monto.
+  //
+  // Se compara contra el total anterior en vez de depender de `value`: editar a
+  // mano el monto de la última línea sigue siendo posible (y sigue mostrando el
+  // descuadre), esto sólo reacciona a que el padre cambie el total.
+  //
+  // El ref arranca en null a propósito, para que la primera pasada también
+  // cuadre: los asistentes desmontan este editor al volver "Atrás" y conservan
+  // las líneas en el padre, así que al cambiar de plan y regresar se remonta con
+  // el monto del plan anterior — el mismo bloqueo, por otro camino.
+  const prevTotal = useRef(null);
+  useEffect(() => {
+    if (prevTotal.current === total) return;
+    prevTotal.current = total;
+    if (value.length === 0) return;
+    const others = value
+      .slice(0, -1)
+      .reduce((acc, l) => acc + (parseFloat(l.amount) || 0), 0);
+    const last = round(total - others);
+    const current = parseFloat(value[value.length - 1].amount) || 0;
+    if (Math.abs(current - last) < 0.01) return;
+    const next = [...value];
+    next[next.length - 1] = { ...next[next.length - 1], amount: last };
+    onChange(next);
+  }, [total, value, onChange]);
 
   const methodById = useMemo(
     () => Object.fromEntries(methods.map(m => [m.id, m])), [methods]);
