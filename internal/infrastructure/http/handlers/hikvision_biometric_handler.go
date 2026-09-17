@@ -202,3 +202,26 @@ func (h *HikvisionBiometricHandler) writeEnrollError(c *gin.Context, err error) 
 		})
 	}
 }
+
+// BlockedMembers lists members who have paid but whose access has not started
+// yet, so the desk can act before they turn up and are refused.
+// GET /api/v1/devices/blocked-members
+//
+// Deliberately a report and not an automatic correction: shifting the dates
+// of something already paid is a decision about money, and the existing
+// PATCH /subscriptions/:id/dates records who made it.
+func (h *HikvisionBiometricHandler) BlockedMembers(c *gin.Context) {
+	gymID, ok := gymIDFromContext(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, dto.APIResponse{Success: false, Error: "gym not found in context"})
+		return
+	}
+
+	blocked, err := h.sync.MembersUnableToEnter(c.Request.Context(), gymID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.APIResponse{Success: false, Error: err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.APIResponse{Success: true, Data: blocked})
+}

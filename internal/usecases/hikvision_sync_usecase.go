@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -94,12 +96,17 @@ type SyncReport struct {
 
 // AccessWindowFor computes the window a member should have on the terminal.
 //
-// It leans on findActiveSubscription, the same lookup the kiosk uses, so the
-// door and the check-in screen cannot disagree about who is up to date.
-// Staff and admins are not members and are never gated by a subscription.
-// A frozen subscription is not "active" and therefore closes the window:
+// Staff and admins are not members and are never gated by a subscription. A
+// frozen subscription is not "active" and therefore closes the window:
 // freezing stops the plan's clock, so it would be incoherent for the member
 // to keep training for free meanwhile.
+//
+// Unlike the kiosk, this has to get the *span* right and not merely "is
+// there an active subscription". The kiosk asks the second question and so
+// never looks at a start date; the terminal enforces the window it is given,
+// start included. That difference is what let a member with next month
+// already paid be refused at the door while the kiosk waved her through —
+// see paidCoverageFor.
 func (uc *HikvisionSyncUseCase) AccessWindowFor(userID uuid.UUID) (AccessWindow, error) {
 	return accessWindowFor(uc.userRepo, uc.subscriptionRepo, uc.memberRepo, userID)
 }
@@ -126,8 +133,8 @@ func accessWindowFor(
 		}, nil
 	}
 
-	subscription, err := findActiveSubscription(subscriptionRepo, memberRepo, userID)
-	if err != nil || subscription == nil {
+	coverage := paidCoverageFor(subscriptionRepo, memberRepo, userID)
+	if coverage == nil {
 		return AccessWindow{
 			From:    deniedWindowStart,
 			To:      deniedWindowEnd,
@@ -135,20 +142,83 @@ func accessWindowFor(
 			Allowed: false,
 		}, nil
 	}
-	if !subscription.IsActive() {
-		return AccessWindow{
-			From:    deniedWindowStart,
-			To:      deniedWindowEnd,
-			Reason:  fmt.Sprintf("suscripción en estado %s", subscription.Status),
-			Allowed: false,
-		}, nil
-	}
 
 	return AccessWindow{
-		From:    subscription.StartDate,
-		To:      subscription.EndDate,
-		Allowed: true,
+		From:    coverage.From,
+		To:      coverage.To,
+		Allowed: !coverage.From.After(time.Now()),
 	}, nil
+}
+
+// coverageSpan is a stretch of time a member has paid for, possibly made of
+// several subscriptions that run one into the next.
+type coverageSpan struct {
+	From time.Time
+	To   time.Time
+}
+
+// paidCoverageFor returns the span the member has paid for around today, or
+// nil when they have paid for nothing that is still running.
+//
+// It looks at every active subscription — their own and the group plans they
+// ride on — instead of picking one, because a member can hold more than one
+// at a time and picking the wrong one locks them out. That is not
+// hypothetical: somebody who paid next month in advance ends up with two
+// active rows, and the repositories resolve "the" active one with First()
+// and no ORDER BY, so SQLite hands back whichever UUID sorts first. A member
+// paid up until October was handed her November renewal and the terminal
+// refused her for the sixteen days in between — the door honours the start
+// date even though the kiosk never looks at it.
+//
+// Runs that touch are merged, so a renewal bought early extends the window
+// rather than replacing it, and the terminal needs no sync on the changeover
+// day. A genuine gap is not bridged: a span that starts after today is
+// reported as it is, which lets the device open by itself when it arrives.
+func paidCoverageFor(
+	subscriptionRepo repositories.SubscriptionRepository,
+	memberRepo repositories.SubscriptionMemberRepository,
+	userID uuid.UUID,
+) *coverageSpan {
+	var candidates []*entities.Subscription
+	if own, err := subscriptionRepo.FindByUserID(userID); err == nil {
+		candidates = append(candidates, own...)
+	}
+	if group, err := memberRepo.FindSubscriptionsByMemberUserID(userID); err == nil {
+		candidates = append(candidates, group...)
+	}
+
+	now := time.Now()
+	var spans []coverageSpan
+	for _, sub := range candidates {
+		// A cancelled or frozen plan buys no time, and one that already ended
+		// is history.
+		if sub.Status != entities.SubscriptionStatusActive || !sub.EndDate.After(now) {
+			continue
+		}
+		spans = append(spans, coverageSpan{From: sub.StartDate, To: sub.EndDate})
+	}
+	if len(spans) == 0 {
+		return nil
+	}
+
+	sort.Slice(spans, func(i, j int) bool { return spans[i].From.Before(spans[j].From) })
+
+	merged := spans[0]
+	for _, span := range spans[1:] {
+		if span.From.After(merged.To) {
+			// A real gap. Keep whichever run covers today; otherwise the
+			// earliest one, which is the next the member may enter on.
+			if !merged.From.After(now) {
+				break
+			}
+			merged = span
+			continue
+		}
+		if span.To.After(merged.To) {
+			merged.To = span.To
+		}
+	}
+	return &merged
 }
 
 // SyncMember pushes one member's current window to the gym's terminal.
@@ -329,4 +399,71 @@ func (uc *HikvisionSyncUseCase) pushWindow(
 		return false, nil
 	}
 	return true, client.UpsertPerson(wanted)
+}
+
+// BlockedMember is somebody who has paid but cannot get through the door
+// today.
+type BlockedMember struct {
+	UserID uuid.UUID `json:"user_id"`
+	Name   string    `json:"name"`
+	Phone  string    `json:"phone,omitempty"`
+	// StartsOn is when their paid coverage begins. It is in the future —
+	// that is the whole point of the report.
+	StartsOn time.Time `json:"starts_on"`
+	// DaysLocked is how many days they are shut out for.
+	DaysLocked int `json:"days_locked"`
+}
+
+// MembersUnableToEnter lists the members whose paid time has not started yet,
+// so the desk can act instead of waiting for a complaint.
+//
+// This exists because of how the two halves fail apart. The panel shows such
+// a member as up to date and the kiosk waves them through — neither looks at
+// a start date — while the terminal, which does, refuses them. Nobody at the
+// gym can see that contradiction from any screen, and the last time it
+// happened a trio went unnoticed for days: they had moved from an individual
+// plan to a combo, the combo was chained to start when the individual one
+// ended, and then the individual one was cancelled. The chaining was right
+// when it was made; cancelling what it hung from is what stranded it.
+//
+// Moving those dates is deliberately left to a person: it is money, the right
+// answer depends on what was actually agreed, and PATCH /subscriptions/:id/dates
+// already records who changed them and why.
+func (uc *HikvisionSyncUseCase) MembersUnableToEnter(ctx context.Context, gymID uuid.UUID) ([]BlockedMember, error) {
+	userIDs, err := uc.fingerprintRepo.DistinctUserIDsBySource(ctx, entities.FingerprintSourceHikvision)
+	if err != nil {
+		return nil, err
+	}
+
+	var blocked []BlockedMember
+	now := time.Now()
+	for _, raw := range userIDs {
+		userID, err := uuid.Parse(raw)
+		if err != nil {
+			continue
+		}
+		user, err := uc.userRepo.FindByID(userID)
+		if err != nil || user.GymID != gymID {
+			continue
+		}
+
+		// Only people who have actually paid for something count. Somebody
+		// with no subscription at all is not blocked, they are simply not a
+		// member right now.
+		coverage := paidCoverageFor(uc.subscriptionRepo, uc.memberRepo, userID)
+		if coverage == nil || !coverage.From.After(now) {
+			continue
+		}
+
+		blocked = append(blocked, BlockedMember{
+			UserID:     userID,
+			Name:       strings.TrimSpace(user.FirstName + " " + user.LastName),
+			Phone:      user.Phone,
+			StartsOn:   coverage.From,
+			DaysLocked: int(coverage.From.Sub(now).Hours()/24) + 1,
+		})
+	}
+
+	sort.Slice(blocked, func(i, j int) bool { return blocked[i].StartsOn.Before(blocked[j].StartsOn) })
+	return blocked, nil
 }

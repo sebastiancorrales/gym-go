@@ -577,6 +577,10 @@ func main() {
 			// El reconciliador horario ya lo hace solo; esto es para cuando
 			// el equipo estuvo caído y no se quiere esperar al próximo ciclo.
 			devices.POST("/sync-access", hikvisionBiometricHandler.SyncAccess)
+			// Socios que pagaron y que el terminal no dejará entrar todavía,
+			// porque su vigencia empieza más adelante. Es un aviso: mover esas
+			// fechas lo decide quien atiende, no el sistema.
+			devices.GET("/blocked-members", hikvisionBiometricHandler.BlockedMembers)
 		}
 
 		// Suppliers routes - a quién se le compra. Es información contable
