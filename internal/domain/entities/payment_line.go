@@ -38,6 +38,9 @@ const (
 	// La fecha de esta línea es la del día en que se cobra, no la de la venta,
 	// así que el dinero aparece en el cuadre del día correcto.
 	PayableDebt PayableKind = "debt"
+	// PayableGiftCard es el pago de una tarjeta regalo, fechado el día de la
+	// venta: el dinero entra cuando se vende, no cuando se redime.
+	PayableGiftCard PayableKind = "gift_card"
 )
 
 // PaymentLine es una pata (método, monto) de un pago.

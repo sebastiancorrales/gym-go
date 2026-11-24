@@ -28,6 +28,9 @@ type DailyCloseReport struct {
 	SalesDiscount     float64 // total discounts applied
 	TotalSubsAmount   float64
 	TotalSubsCount    int
+	// TotalGiftCardsAmount: tarjetas regalo vendidas en el periodo, netas de
+	// anulaciones. Ya está incluido en TotalRevenue.
+	TotalGiftCardsAmount float64
 	TotalRevenue      float64
 	// Egresos del periodo. TotalExpensesAmount ya viene neteado (VoidExpense
 	// escribe un espejo negativo, así que anular una compra o un gasto se resta
@@ -302,6 +305,11 @@ func BuildExcelReport(report *DailyCloseReport) ([]byte, error) {
 
 	// Ingresos brutos (antes "TOTAL GENERAL" a secas: con la fila de utilidad
 	// neta más abajo, el nombre tiene que decir de qué cifra se trata).
+	if report.TotalGiftCardsAmount != 0 {
+		f.SetCellValue(sh, xlCell(9, row), "Tarjetas regalo vendidas")
+		f.SetCellValue(sh, xlCell(10, row), report.TotalGiftCardsAmount)
+		row++
+	}
 	f.SetCellValue(sh, xlCell(9, row), "INGRESOS BRUTOS")
 	f.SetCellValue(sh, xlCell(10, row), report.TotalRevenue)
 	f.SetCellStyle(sh, xlCell(9, row), xlCell(10, row), totalSt)
@@ -402,10 +410,14 @@ func BuildPDFReport(report *DailyCloseReport) ([]byte, error) {
 		r, g, b           int
 	}
 	boxW := (cw - 6) / 3
+	totalSub := "Suscripciones + Ventas"
+	if report.TotalGiftCardsAmount != 0 {
+		totalSub = "Incluye tarjetas regalo " + fmtAmt(report.TotalGiftCardsAmount)
+	}
 	boxes := []summaryBox{
 		{"SUSCRIPCIONES", fmtAmt(report.TotalSubsAmount), fmt.Sprintf("%d registro(s)", report.TotalSubsCount), greenR, greenG, greenB},
 		{"VENTAS INVENTARIO", fmtAmt(report.TotalSalesAmount), fmt.Sprintf("%d transaccion(es)", report.TotalSalesCount), blueR, blueG, blueB},
-		{"TOTAL GENERAL", fmtAmt(report.TotalRevenue), "Suscripciones + Ventas", darkR, darkG, darkB},
+		{"TOTAL GENERAL", fmtAmt(report.TotalRevenue), totalSub, darkR, darkG, darkB},
 	}
 	for i, b := range boxes {
 		bx := 14 + float64(i)*(boxW+3)

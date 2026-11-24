@@ -1,9 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import api from '../utils/api';
 import Toast from './Toast';
+import Pagination from './Pagination';
+import { SkeletonKpi } from './SkeletonTable';
+import { todayStr, addDays } from '../utils/dateUtils';
+
+// recharts va en su propio chunk: la tabla aparece sin esperar la gráfica.
+const PeakHours = lazy(() => import('./shared/PeakHours'));
+
+const PAGE_SIZE = 25;
+// El backend rechaza rangos de más de un año (parseAccessRange).
+const MAX_RANGE_DAYS = 366;
+
+const PRESETS = [
+  { label: 'Hoy', days: 1 },
+  { label: '7 días', days: 7 },
+  { label: '30 días', days: 30 },
+  { label: '90 días', days: 90 },
+];
+
+const shortDate = (iso) =>
+  new Date(`${iso}T12:00:00`).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+
+const daysBetween = (a, b) =>
+  Math.round((new Date(`${b}T12:00:00`) - new Date(`${a}T12:00:00`)) / 86400000) + 1;
 
 export default function AccessManagement() {
-  const [todayAccess, setTodayAccess] = useState([]);
+  const [accessLogs, setAccessLogs] = useState([]);
+  const [range, setRange] = useState(() => ({ start_date: todayStr(), end_date: todayStr() }));
+  const [page, setPage] = useState(1);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -13,24 +38,45 @@ export default function AccessManagement() {
     method: 'MANUAL'
   });
 
+  const today = todayStr();
+  const span = daysBetween(range.start_date, range.end_date);
+  const rangeError = !range.start_date || !range.end_date
+    ? 'Elige ambas fechas'
+    : span < 1
+      ? 'La fecha final es anterior a la inicial'
+      : span > MAX_RANGE_DAYS
+        ? `El rango no puede superar ${MAX_RANGE_DAYS} días`
+        : '';
+  const isToday = range.start_date === today && range.end_date === today;
+  const multiDay = span > 1;
+
   useEffect(() => {
-    fetchTodayAccess();
     fetchUsers();
   }, []);
 
-  const fetchTodayAccess = async () => {
+  useEffect(() => {
+    if (!rangeError) fetchAccess();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range.start_date, range.end_date]);
+
+  const fetchAccess = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/access/today');
+      const response = await api.get(`/access/history?start_date=${range.start_date}&end_date=${range.end_date}`);
       if (response.ok) {
         const data = await response.json();
-        setTodayAccess(data || []);
+        setAccessLogs(data || []);
+        setPage(1);
       }
     } catch (error) {
-      console.error('Error fetching today access:', error);
+      console.error('Error fetching access logs:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyPreset = (days) => {
+    setRange({ start_date: addDays(today, -(days - 1)), end_date: today });
   };
 
   const fetchUsers = async () => {
@@ -53,7 +99,7 @@ export default function AccessManagement() {
       if (response.ok) {
         setShowForm(false);
         setFormData({ user_id: '', method: 'MANUAL' });
-        fetchTodayAccess();
+        fetchAccess();
         setToast({ message: 'Check-in registrado exitosamente', type: 'success' });
       } else {
         const error = await response.json();
@@ -66,6 +112,9 @@ export default function AccessManagement() {
       setLoading(false);
     }
   };
+
+  const formatDate = (timestamp) =>
+    new Date(timestamp).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString('es-MX', {
@@ -117,14 +166,55 @@ export default function AccessManagement() {
         </button>
       </div>
 
+      {/* Rango de fechas */}
+      <div className="bg-white rounded-xl shadow-md p-4 mb-6 flex flex-wrap items-end gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Desde</label>
+          <input
+            type="date"
+            value={range.start_date}
+            max={today}
+            onChange={(e) => setRange({ ...range, start_date: e.target.value })}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Hasta</label>
+          <input
+            type="date"
+            value={range.end_date}
+            max={today}
+            onChange={(e) => setRange({ ...range, end_date: e.target.value })}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1272D6] focus:border-transparent"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {PRESETS.map(p => {
+            const active = range.end_date === today && span === p.days;
+            return (
+              <button
+                key={p.days}
+                onClick={() => applyPreset(p.days)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                  active ? 'bg-[#EBF3FF] border-[#1272D6] text-[#1272D6]' : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+        {rangeError && <p className="text-sm text-red-600 w-full">{rangeError}</p>}
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white rounded-xl shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 mb-1">Entradas Hoy</p>
+              <p className="text-sm text-gray-600 mb-1">{isToday ? 'Entradas Hoy' : 'Entradas'}</p>
               <p className="text-3xl font-bold text-[#059669]">
-                {todayAccess.filter(a => a.access_type === 'ENTRY' && a.status === 'GRANTED').length}
+                {accessLogs.filter(a => a.access_type === 'ENTRY' && a.status === 'GRANTED').length}
               </p>
             </div>
             <div className="w-12 h-12 bg-[#DCFCE7] rounded-lg flex items-center justify-center">
@@ -140,7 +230,7 @@ export default function AccessManagement() {
             <div>
               <p className="text-sm text-gray-600 mb-1">Accesos Denegados</p>
               <p className="text-3xl font-bold text-red-600">
-                {todayAccess.filter(a => a.status === 'DENIED').length}
+                {accessLogs.filter(a => a.status === 'DENIED').length}
               </p>
             </div>
             <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
@@ -156,7 +246,7 @@ export default function AccessManagement() {
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Registros</p>
               <p className="text-3xl font-bold text-[#1272D6]">
-                {todayAccess.length}
+                {accessLogs.length}
               </p>
             </div>
             <div className="w-12 h-12 bg-[#DCFCE7] rounded-lg flex items-center justify-center">
@@ -220,15 +310,33 @@ export default function AccessManagement() {
         </div>
       )}
 
+      {/* Horas pico del mismo rango */}
+      {!rangeError && (
+        <Suspense fallback={<div className="mb-6"><SkeletonKpi /></div>}>
+          <PeakHours startDate={range.start_date} endDate={range.end_date} />
+        </Suspense>
+      )}
+
       {/* Access List */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Accesos de Hoy</h3>
+          <h3 className="text-lg font-semibold text-gray-900">
+            {isToday
+              ? 'Accesos de Hoy'
+              : multiDay
+                ? `Accesos del ${shortDate(range.start_date)} al ${shortDate(range.end_date)}`
+                : `Accesos del ${shortDate(range.start_date)}`}
+          </h3>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                {multiDay && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Fecha
+                  </th>
+                )}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Hora
                 </th>
@@ -252,21 +360,26 @@ export default function AccessManagement() {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan={multiDay ? 7 : 6} className="px-6 py-4 text-center text-gray-500">
                     Cargando accesos...
                   </td>
                 </tr>
-              ) : todayAccess.length === 0 ? (
+              ) : accessLogs.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                    No hay registros de acceso hoy
+                  <td colSpan={multiDay ? 7 : 6} className="px-6 py-4 text-center text-gray-500">
+                    {isToday ? 'No hay registros de acceso hoy' : 'No hay registros de acceso en este rango'}
                   </td>
                 </tr>
               ) : (
-                todayAccess.map((access) => {
+                accessLogs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((access) => {
                   const user = getUserInfo(access.user_id);
                   return (
                     <tr key={access.id} className="hover:bg-gray-50">
+                      {multiDay && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(access.access_time)}
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatTime(access.access_time)}
                       </td>
@@ -303,6 +416,9 @@ export default function AccessManagement() {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="px-6 py-3">
+          <Pagination total={accessLogs.length} page={page} pageSize={PAGE_SIZE} onChange={setPage} itemLabel="accesos" />
         </div>
       </div>
 

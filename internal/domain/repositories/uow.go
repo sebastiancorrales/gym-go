@@ -33,6 +33,10 @@ type Repos struct {
 	// venta: una venta con una línea de crédito sin su Debt sería dinero que
 	// nadie sabe a quién cobrarle.
 	Debts DebtRepository
+	// GiftCards entra aquí porque vender una tarjeta escribe sus líneas de
+	// pago, y redimirla crea la suscripción: en los dos casos la tarjeta y lo
+	// que la acompaña entran juntos o no entran.
+	GiftCards GiftCardRepository
 }
 
 // UnitOfWork ejecuta una función dentro de una única transacción de base de datos.

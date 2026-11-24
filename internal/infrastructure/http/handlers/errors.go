@@ -71,13 +71,20 @@ func RespondError(c *gin.Context, err error, fallbackMessage string) {
 		errors.Is(err, apperrors.ErrDebtNotPending),
 		errors.Is(err, apperrors.ErrDebtNotCollected),
 		errors.Is(err, apperrors.ErrCannotPayDebtWithCredit),
-		errors.Is(err, apperrors.ErrCannotAmendCreditSale):
+		errors.Is(err, apperrors.ErrCannotAmendCreditSale),
+		errors.Is(err, apperrors.ErrPlanNotGiftable),
+		errors.Is(err, apperrors.ErrGiftCardRecipientRequired),
+		errors.Is(err, apperrors.ErrCannotPayGiftCardWithCredit),
+		errors.Is(err, apperrors.ErrGiftCardExpired),
+		errors.Is(err, apperrors.ErrCannotAmendGiftPayment):
 		status = http.StatusBadRequest
 		message = err.Error()
 
 	// Un conflicto de ESTADO, no de entrada inválida: el fiado existe y la
 	// operación es válida en general, sólo que ya lo cobraron. 409, no 400.
-	case errors.Is(err, apperrors.ErrDebtAlreadyCollected):
+	// Lo mismo una tarjeta regalo que otra recepción acaba de redimir.
+	case errors.Is(err, apperrors.ErrDebtAlreadyCollected),
+		errors.Is(err, apperrors.ErrGiftCardNotPending):
 		status = http.StatusConflict
 		message = err.Error()
 

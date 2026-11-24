@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -9,7 +10,6 @@ import (
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"github.com/sebastiancorrales/gym-go/internal/usecases"
 )
-
 
 type PlanHandler struct {
 	planUseCase *usecases.PlanUseCase
@@ -29,6 +29,10 @@ type CreatePlanRequest struct {
 	EnrollmentFee float64 `json:"enrollment_fee"`
 	MaxMembers    int     `json:"max_members"`
 	BillingMode   string  `json:"billing_mode"`
+	// AccessSchedule is optional; omitted means unrestricted hours.
+	AccessSchedule *entities.AccessSchedule `json:"access_schedule"`
+	// GiftEnabled: el plan se puede vender como tarjeta regalo.
+	GiftEnabled bool `json:"gift_enabled"`
 }
 
 func (h *PlanHandler) Create(c *gin.Context) {
@@ -54,10 +58,22 @@ func (h *PlanHandler) Create(c *gin.Context) {
 		req.EnrollmentFee,
 		req.MaxMembers,
 		req.BillingMode,
+		req.AccessSchedule,
 	)
 	if err != nil {
+		if isScheduleError(err) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create plan"})
 		return
+	}
+	if req.GiftEnabled {
+		plan.GiftEnabled = true
+		if err := h.planUseCase.UpdatePlan(plan); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create plan"})
+			return
+		}
 	}
 
 	c.JSON(http.StatusCreated, plan)
@@ -104,6 +120,11 @@ type UpdatePlanRequest struct {
 	EnrollmentFee float64 `json:"enrollment_fee"`
 	MaxMembers    int     `json:"max_members"`
 	BillingMode   string  `json:"billing_mode"`
+	// AccessSchedule: omitted leaves the hours as they are; {"rules": []}
+	// removes the restriction.
+	AccessSchedule *entities.AccessSchedule `json:"access_schedule"`
+	// GiftEnabled: puntero para distinguir "no lo mandó" de "lo apagó".
+	GiftEnabled *bool `json:"gift_enabled"`
 }
 
 func (h *PlanHandler) Update(c *gin.Context) {
@@ -146,7 +167,23 @@ func (h *PlanHandler) Update(c *gin.Context) {
 	if req.BillingMode == "30_DAYS" || req.BillingMode == "CALENDAR_MONTH" {
 		plan.BillingMode = entities.BillingMode(req.BillingMode)
 	}
+	if req.GiftEnabled != nil {
+		plan.GiftEnabled = *req.GiftEnabled
+	}
 	plan.UpdatedAt = time.Now()
+
+	if req.AccessSchedule != nil {
+		// Validated before anything is saved, so a bad schedule does not
+		// leave the rest of the edit half-applied.
+		if err := req.AccessSchedule.Validate(); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if err := h.planUseCase.SetAccessSchedule(plan, req.AccessSchedule); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
 
 	if err := h.planUseCase.UpdatePlan(plan); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update plan"})
@@ -169,4 +206,21 @@ func (h *PlanHandler) Deactivate(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "Plan deactivated"})
+}
+
+// isScheduleError reports a rejected access schedule, which is the client's
+// mistake (400) rather than the server's.
+func isScheduleError(err error) bool {
+	for _, known := range []error{
+		entities.ErrScheduleInvalidDay,
+		entities.ErrScheduleInvalidTime,
+		entities.ErrScheduleEmptySpan,
+		entities.ErrScheduleNoDays,
+		entities.ErrScheduleTooMany,
+	} {
+		if errors.Is(err, known) {
+			return true
+		}
+	}
+	return false
 }

@@ -40,6 +40,7 @@ func Migrate(db *gorm.DB) error {
 		&entities.PaymentLine{},
 		&entities.ChangeLog{},
 		&entities.Debt{},
+		&entities.GiftCard{},
 		&entities.Class{},
 		&entities.Attendance{},
 		&entities.SubscriptionMember{},

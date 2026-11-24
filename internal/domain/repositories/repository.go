@@ -120,6 +120,10 @@ type AccessLogRepository interface {
 	// CountTodayByGymID cuenta registros de hoy usando la zona horaria loc para
 	// determinar los límites del día.
 	CountTodayByGymID(gymID uuid.UUID, loc *time.Location) (int64, error)
+	// ListGrantedEntries devuelve solo quién entró y cuándo (entradas concedidas
+	// en [from, to] UTC), sin el resto de la fila: alimenta las horas pico, que
+	// recorren meses de registros y no necesitan nada más.
+	ListGrantedEntries(gymID uuid.UUID, from, to time.Time) ([]entities.AccessInstant, error)
 }
 
 // AccessEventCursorRepository remembers how far each terminal's event log

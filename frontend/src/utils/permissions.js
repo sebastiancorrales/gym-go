@@ -42,6 +42,10 @@ export const PERMS = {
   PAYMENTS_AMEND: 'payments:amend',
   DEBTS_READ: 'debts:read',
   DEBTS_COLLECT: 'debts:collect',
+  GIFTCARDS_READ: 'giftcards:read',
+  GIFTCARDS_SELL: 'giftcards:sell',
+  GIFTCARDS_REDEEM: 'giftcards:redeem',
+  GIFTCARDS_MANAGE: 'giftcards:manage',
 
   SUPPLIERS_READ: 'suppliers:read',
   SUPPLIERS_WRITE: 'suppliers:write',

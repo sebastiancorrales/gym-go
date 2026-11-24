@@ -49,6 +49,12 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      // Logos y fotos: la tarjeta regalo dibuja el logo en un <canvas>, y una
+      // imagen de otro origen lo "contamina" (no se puede copiar ni descargar).
+      '/uploads': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
   },
 })

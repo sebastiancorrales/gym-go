@@ -36,6 +36,12 @@ import (
 //go:embed all:frontend/dist
 var webFS embed.FS
 
+// uploadsDir es donde se guardan logos y fotos. En desarrollo es ./uploads; en
+// una instalación bajo Program Files pasa a %PROGRAMDATA%\Gym-Go\uploads, junto a
+// la base: la carpeta de trabajo del acceso directo cae dentro de Program Files,
+// donde un usuario sin privilegios no puede escribir, y subir el logo fallaba.
+var uploadsDir = "./uploads"
+
 // adjustDatabasePath adjusts the database path for production installations
 func adjustDatabasePath(cfg *config.Config) {
 	// If running in Program Files, use ProgramData for database
@@ -55,6 +61,7 @@ func adjustDatabasePath(cfg *config.Config) {
 				log.Printf("⚠️ Warning: Could not create data directory: %v", err)
 			} else {
 				cfg.Database.DatabasePath = dbDir + "\\gym-go.db"
+				uploadsDir = dbDir + "\\uploads"
 				log.Printf("📁 Using database path: %s", cfg.Database.DatabasePath)
 			}
 		}
@@ -213,14 +220,20 @@ func main() {
 	userUseCase := usecases.NewUserUseCase(userRepo)
 	planUseCase := usecases.NewPlanUseCase(planRepo)
 	subscriptionUseCase := usecases.NewSubscriptionUseCase(subscriptionRepo, subscriptionMemberRepo, planRepo, userRepo, subscriptionAuditRepo, paymentMethodRepo, paymentLineRepo, uow)
-	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
+	accessUseCase := usecases.NewAccessUseCase(accessLogRepo, userRepo, subscriptionRepo, subscriptionMemberRepo, planRepo)
 	biometricService := usecases.NewBiometricService(fingerprintRepo, userRepo)
-	hikvisionEnrollment := usecases.NewHikvisionEnrollmentUseCase(deviceRepo, fingerprintRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
-	hikvisionSync := usecases.NewHikvisionSyncUseCase(deviceRepo, fingerprintRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
+	hikvisionEnrollment := usecases.NewHikvisionEnrollmentUseCase(deviceRepo, fingerprintRepo, userRepo, subscriptionRepo, subscriptionMemberRepo, planRepo)
+	hikvisionSync := usecases.NewHikvisionSyncUseCase(deviceRepo, fingerprintRepo, userRepo, subscriptionRepo, subscriptionMemberRepo, planRepo)
 	// Vender, renovar, cancelar, congelar o mover fechas cambia quién puede
 	// entrar: el terminal se entera en el momento, no en la próxima pasada
 	// horaria. Es best-effort — un equipo apagado no puede tumbar una venta.
 	subscriptionUseCase.SetAccessSyncHook(hikvisionSync)
+	// Cambiar el horario de un plan cambia la puerta de todos sus socios a la
+	// vez: se sincroniza el gimnasio entero en segundo plano. Solo se escriben
+	// el plan semanal nuevo y quien haya cambiado de plantilla.
+	planUseCase.SetScheduleSyncHook(func(gymID uuid.UUID) {
+		go hikvisionSync.SyncGymBestEffort(rootCtx, gymID)
+	})
 	hikvisionEvents := usecases.NewHikvisionEventUseCase(
 		deviceRepo, accessEventCursorRepo, accessLogRepo, userRepo, subscriptionRepo, subscriptionMemberRepo)
 	productUseCase := usecases.NewProductUseCase(productRepo, stockMovementRepo, uow)
@@ -230,6 +243,8 @@ func main() {
 	paymentMethodUseCase := usecases.NewPaymentMethodUseCase(paymentMethodRepo)
 	saleUseCase := usecases.NewSaleUseCase(saleRepo, saleDetailRepo, productRepo, paymentMethodRepo, paymentLineRepo, userRepo, debtRepo, uow)
 	debtUseCase := usecases.NewDebtUseCase(debtRepo, paymentMethodRepo, paymentLineRepo, userRepo, saleDetailRepo, productRepo, uow)
+	giftCardRepo := persistence.NewSQLiteGiftCardRepository(database.DB)
+	giftCardUseCase := usecases.NewGiftCardUseCase(giftCardRepo, planRepo, gymRepo, userRepo, subscriptionRepo, paymentMethodRepo, paymentLineRepo, uow, subscriptionUseCase)
 	classUseCase := usecases.NewClassUseCase(classRepo, instructorRepo)
 	attendanceUseCase := usecases.NewAttendanceUseCase(attendanceRepo, memberRepo, classRepo)
 
@@ -267,11 +282,12 @@ func main() {
 	paymentMethodHandler := handlers.NewPaymentMethodHandler(paymentMethodUseCase)
 	saleHandler := handlers.NewSaleHandler(saleUseCase)
 	debtHandler := handlers.NewDebtHandler(debtUseCase)
+	giftCardHandler := handlers.NewGiftCardHandler(giftCardUseCase)
 	gymHandler := handlers.NewGymHandler(gymRepo)
 	classHandler := handlers.NewClassHandler(classUseCase)
 	attendanceHandler := handlers.NewAttendanceHandler(attendanceUseCase)
 	accessHandler := handlers.NewAccessHandler(accessUseCase)
-	uploadHandler := handlers.NewUploadHandler("./uploads")
+	uploadHandler := handlers.NewUploadHandler(uploadsDir)
 	biometricHandler := handlers.NewBiometricHandler(biometricService)
 	hikvisionBiometricHandler := handlers.NewHikvisionBiometricHandler(hikvisionEnrollment, hikvisionSync)
 	notificationHandler := handlers.NewNotificationHandler(notifUseCase, gymRepo, emailSender)
@@ -292,7 +308,7 @@ func main() {
 	router.Use(corsMiddleware())
 
 	// Serve static files (uploaded images)
-	router.Static("/uploads", "./uploads")
+	router.Static("/uploads", uploadsDir)
 
 	// Public routes
 	public := router.Group("/api/v1")
@@ -462,6 +478,7 @@ func main() {
 			access.GET("/history", accessHandler.ListHistory)
 			access.GET("/user/:user_id", accessHandler.ListByUser)
 			access.GET("/stats", accessHandler.GetStats)
+			access.GET("/peak-hours", accessHandler.GetPeakHours)
 
 			access.POST("/checkin", middleware.RequirePermission(entities.PermAccessWrite), accessHandler.CheckIn)
 			access.POST("/checkout", middleware.RequirePermission(entities.PermAccessWrite), accessHandler.CheckOut)
@@ -666,6 +683,24 @@ func main() {
 			// Revertir un cobro es la misma operación de confianza que corregir
 			// cualquier otro pago ya registrado: sólo administración.
 			debts.POST("/:id/uncollect", middleware.RequirePermission(entities.PermPaymentsAmend), debtHandler.Uncollect)
+		}
+
+		// Gift cards - tarjetas regalo. El dinero entra al VENDER (payment_lines
+		// con PayableGiftCard); redimir crea la suscripción sin cobro.
+		giftCards := protected.Group("/gift-cards")
+		giftCards.Use(middleware.RequirePermission(entities.PermGiftCardsRead))
+		{
+			giftCards.GET("/config", giftCardHandler.Config)
+			giftCards.GET("/code/:code", giftCardHandler.FindByCode)
+			// El listado expone dinero por rango: mismo trato que los reportes.
+			giftCards.GET("", middleware.RestrictReportRange(), giftCardHandler.List)
+			// El saldo por redimir es información contable, no de mostrador.
+			giftCards.GET("/outstanding", middleware.RequirePermission(entities.PermReportsAccounting), giftCardHandler.Outstanding)
+			giftCards.GET("/:id", giftCardHandler.Get)
+
+			giftCards.POST("", middleware.RequirePermission(entities.PermGiftCardsSell), giftCardHandler.Sell)
+			giftCards.POST("/:id/redeem", middleware.RequirePermission(entities.PermGiftCardsRedeem), giftCardHandler.Redeem)
+			giftCards.POST("/:id/void", middleware.RequirePermission(entities.PermGiftCardsManage), giftCardHandler.Void)
 		}
 	}
 

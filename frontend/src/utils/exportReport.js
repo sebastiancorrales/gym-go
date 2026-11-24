@@ -76,7 +76,8 @@ async function exportConsolidadoPDFImpl(data, dateRange, gymName = 'Gimnasio') {
   const boxes = [
     { label: 'Suscripciones', value: fmt(data.subsRevenue),   sub: `${data.subs.length} registro${data.subs.length !== 1 ? 's' : ''}`, color: GREEN },
     { label: 'Ventas inventario', value: fmt(data.salesRevenue), sub: `${data.salesReport?.total_sales ?? data.salesList?.length ?? 0} transacción(es)`, color: BLUE },
-    { label: 'TOTAL GENERAL',  value: fmt(data.grandTotal),   sub: 'Suscripciones + Ventas', color: DARK },
+    { label: 'TOTAL GENERAL',  value: fmt(data.grandTotal),
+      sub: data.giftRevenue ? `Incluye tarjetas regalo ${fmt(data.giftRevenue)}` : 'Suscripciones + Ventas', color: DARK },
   ];
 
   boxes.forEach((b, i) => {
@@ -180,23 +181,27 @@ async function exportConsolidadoPDFImpl(data, dateRange, gymName = 'Gimnasio') {
   if (y > 220) { doc.addPage(); y = 20; }
   sectionTitle('3. DESGLOSE POR MÉTODO DE PAGO');
 
+  // La columna de tarjetas regalo sólo aparece si hubo alguna: sin ella, las
+  // filas no sumarían el total del período, que sí las incluye.
+  const withGift = !!data.giftRevenue;
   const methodRows = Object.entries(data.grandByMethod)
     .sort((a, b) => b[1].total - a[1].total)
     .map(([m, v]) => [
       pmLabel(m),
       v.subsCount  > 0 ? `${fmt(v.subsTotal)} (${v.subsCount})` : '—',
       v.salesCount > 0 ? `${fmt(v.salesTotal)} (${v.salesCount})` : '—',
+      ...(withGift ? [v.giftTotal ? fmt(v.giftTotal) : '—'] : []),
       fmt(v.total),
     ]);
 
   autoTable(doc, {
-    head: [['Método de pago', 'Suscripciones', 'Ventas inventario', 'Total']],
+    head: [['Método de pago', 'Suscripciones', 'Ventas inventario', ...(withGift ? ['Tarjetas regalo'] : []), 'Total']],
     body: methodRows,
     startY: y,
     margin: { left: 14, right: 14 },
     styles:       { fontSize: 8, cellPadding: 3, textColor: BLACK },
     headStyles:   { fillColor: [55, 65, 81], textColor: 255, fontStyle: 'bold', fontSize: 8 },
-    columnStyles: { 3: { halign: 'right', fontStyle: 'bold' } },
+    columnStyles: { [withGift ? 4 : 3]: { halign: 'right', fontStyle: 'bold' } },
     alternateRowStyles: { fillColor: [249, 250, 251] },
     didDrawPage: (d) => { y = d.cursor.y + 6; },
   });

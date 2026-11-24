@@ -89,6 +89,9 @@ const CACHE_TTL = [
   ['/products', 60 * 1000],
   ['/users', 30 * 1000],
   ['/subscriptions', 20 * 1000],
+  // Un promedio de 30 días no cambia en cinco minutos, y el dashboard se
+  // vuelve a montar cada vez que se regresa a él.
+  ['/access/peak-hours', 5 * 60 * 1000],
 ];
 
 // Efectos colaterales entre entidades: una venta descuenta stock, así que

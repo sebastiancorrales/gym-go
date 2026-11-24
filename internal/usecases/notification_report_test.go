@@ -143,6 +143,15 @@ func TestBuildDailyCloseReport_SumaMetodosGastosYNeto(t *testing.T) {
 		t.Fatalf("creando gasto: %v", err)
 	}
 
+	// Tarjeta regalo vendida por transferencia (70.000): entra en el desglose
+	// por método, así que también tiene que entrar en los ingresos brutos o el
+	// correo descuadra.
+	if err := lineRepo.CreateBatch(ctx, []entities.PaymentLine{
+		{ID: uuid.New(), PaymentMethodID: transferencia.ID, Amount: 70000, PayableKind: entities.PayableGiftCard, PayableID: uuid.New(), Date: today},
+	}); err != nil {
+		t.Fatalf("sembrando línea de tarjeta regalo: %v", err)
+	}
+
 	// Construir el use case de notificaciones con los mismos repos, y llamar
 	// directamente a buildDailyCloseReport (sin pasar por SMTP).
 	notifUC := NewNotificationUseCase(
@@ -164,8 +173,11 @@ func TestBuildDailyCloseReport_SumaMetodosGastosYNeto(t *testing.T) {
 	if sumMethods != report.TotalRevenue {
 		t.Errorf("sum(métodos) = %v, TotalRevenue = %v — deben coincidir siempre", sumMethods, report.TotalRevenue)
 	}
-	if report.TotalRevenue != 125000 {
-		t.Errorf("TotalRevenue = %v, want 125000 (45000 transferencia + 80000 efectivo; la venta anulada neta a cero)", report.TotalRevenue)
+	if report.TotalRevenue != 195000 {
+		t.Errorf("TotalRevenue = %v, want 195000 (45000 venta + 80000 suscripción + 70000 tarjeta regalo; la venta anulada neta a cero)", report.TotalRevenue)
+	}
+	if report.TotalGiftCardsAmount != 70000 {
+		t.Errorf("TotalGiftCardsAmount = %v, want 70000", report.TotalGiftCardsAmount)
 	}
 	if report.TotalExpensesAmount != 15000 {
 		t.Errorf("TotalExpensesAmount = %v, want 15000", report.TotalExpensesAmount)
@@ -173,7 +185,7 @@ func TestBuildDailyCloseReport_SumaMetodosGastosYNeto(t *testing.T) {
 	if report.TotalExpensesCount != 1 {
 		t.Errorf("TotalExpensesCount = %v, want 1", report.TotalExpensesCount)
 	}
-	wantNet := 125000.0 - 15000.0
+	wantNet := 195000.0 - 15000.0
 	if report.NetRevenue != wantNet {
 		t.Errorf("NetRevenue = %v, want %v (ingresos brutos - egresos)", report.NetRevenue, wantNet)
 	}

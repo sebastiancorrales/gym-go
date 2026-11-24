@@ -52,8 +52,14 @@ type Subscription struct {
 	// Se conserva porque lo leen nueve sitios entre frontend, correo y reportes;
 	// mantenerlo relleno permite migrarlos por partes en vez de en un único
 	// commit gigante.
-	PaymentMethod       string             `json:"payment_method,omitempty"`
-	Status              SubscriptionStatus `json:"status" gorm:"index:idx_subs_user_status_end,priority:2;index:idx_subs_gym_status_end,priority:2;index:idx_subs_status_end,priority:1"`
+	PaymentMethod string `json:"payment_method,omitempty"`
+	// GiftCardID marca una suscripción nacida de redimir una tarjeta regalo.
+	// Esas suscripciones van con TotalPaid = 0 y SIN payment_lines: el dinero
+	// ya entró el día en que se vendió la tarjeta. Por eso el backfill de pagos
+	// y la corrección de pagos las excluyen — "sin líneas" aquí no es un dato
+	// faltante, es lo correcto.
+	GiftCardID          *uuid.UUID         `json:"gift_card_id,omitempty" gorm:"index"`
+	Status           SubscriptionStatus `json:"status" gorm:"index:idx_subs_user_status_end,priority:2;index:idx_subs_gym_status_end,priority:2;index:idx_subs_status_end,priority:1"`
 	FrozenUntil         *time.Time         `json:"frozen_until,omitempty"`
 	FreezeReason        string             `json:"freeze_reason,omitempty"`
 	TotalFreezeDays     int                `json:"total_freeze_days"`

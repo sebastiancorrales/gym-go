@@ -34,6 +34,7 @@ type HikvisionSyncUseCase struct {
 	userRepo         repositories.UserRepository
 	subscriptionRepo repositories.SubscriptionRepository
 	memberRepo       repositories.SubscriptionMemberRepository
+	planRepo         repositories.PlanRepository
 }
 
 func NewHikvisionSyncUseCase(
@@ -42,6 +43,7 @@ func NewHikvisionSyncUseCase(
 	userRepo repositories.UserRepository,
 	subscriptionRepo repositories.SubscriptionRepository,
 	memberRepo repositories.SubscriptionMemberRepository,
+	planRepo repositories.PlanRepository,
 ) *HikvisionSyncUseCase {
 	return &HikvisionSyncUseCase{
 		deviceRepo:       deviceRepo,
@@ -49,6 +51,7 @@ func NewHikvisionSyncUseCase(
 		userRepo:         userRepo,
 		subscriptionRepo: subscriptionRepo,
 		memberRepo:       memberRepo,
+		planRepo:         planRepo,
 	}
 }
 
@@ -82,7 +85,14 @@ type AccessWindow struct {
 	Allowed bool
 	// Reason describes a closed window, for the sync log.
 	Reason string
+	// Hours is the plan's hour restriction within the window. The device
+	// enforces it through a plan template (PlanTemplates); the schedules of
+	// Hours.Plans must be on the device before the person is written.
+	Hours hourRule
 }
+
+// PlanTemplates is the terminal's planTemplateNo for this window.
+func (w AccessWindow) PlanTemplates() string { return w.Hours.DeviceTemplates() }
 
 // SyncReport summarizes a full pass.
 type SyncReport struct {
@@ -108,7 +118,7 @@ type SyncReport struct {
 // already paid be refused at the door while the kiosk waved her through —
 // see paidCoverageFor.
 func (uc *HikvisionSyncUseCase) AccessWindowFor(userID uuid.UUID) (AccessWindow, error) {
-	return accessWindowFor(uc.userRepo, uc.subscriptionRepo, uc.memberRepo, userID)
+	return accessWindowFor(uc.userRepo, uc.subscriptionRepo, uc.memberRepo, uc.planRepo, userID)
 }
 
 // accessWindowFor is the shared computation. Enrollment needs it too: a
@@ -118,6 +128,7 @@ func accessWindowFor(
 	userRepo repositories.UserRepository,
 	subscriptionRepo repositories.SubscriptionRepository,
 	memberRepo repositories.SubscriptionMemberRepository,
+	planRepo repositories.PlanRepository,
 	userID uuid.UUID,
 ) (AccessWindow, error) {
 	user, err := userRepo.FindByID(userID)
@@ -130,23 +141,36 @@ func accessWindowFor(
 			From:    staffWindowStart,
 			To:      staffWindowEnd,
 			Allowed: true,
+			Hours:   hourRule{Unrestricted: true},
 		}, nil
 	}
 
-	coverage := paidCoverageFor(subscriptionRepo, memberRepo, userID)
+	now := time.Now()
+	running := runningSubscriptionsFor(subscriptionRepo, memberRepo, userID, now)
+	coverage := coverageOf(running, now)
 	if coverage == nil {
 		return AccessWindow{
 			From:    deniedWindowStart,
 			To:      deniedWindowEnd,
 			Reason:  "sin suscripción activa",
 			Allowed: false,
+			Hours:   hourRule{Unrestricted: true},
 		}, nil
+	}
+
+	// The hours are those of whatever is in force today, or — for coverage
+	// that starts later — of whatever it starts with, so the device already
+	// holds the right template the moment the window opens.
+	reference := now
+	if coverage.From.After(now) {
+		reference = coverage.From
 	}
 
 	return AccessWindow{
 		From:    coverage.From,
 		To:      coverage.To,
-		Allowed: !coverage.From.After(time.Now()),
+		Allowed: !coverage.From.After(now),
+		Hours:   hourRuleAt(running, planRepo, reference),
 	}, nil
 }
 
@@ -179,22 +203,14 @@ func paidCoverageFor(
 	memberRepo repositories.SubscriptionMemberRepository,
 	userID uuid.UUID,
 ) *coverageSpan {
-	var candidates []*entities.Subscription
-	if own, err := subscriptionRepo.FindByUserID(userID); err == nil {
-		candidates = append(candidates, own...)
-	}
-	if group, err := memberRepo.FindSubscriptionsByMemberUserID(userID); err == nil {
-		candidates = append(candidates, group...)
-	}
-
 	now := time.Now()
+	return coverageOf(runningSubscriptionsFor(subscriptionRepo, memberRepo, userID, now), now)
+}
+
+// coverageOf merges running subscriptions into the span around now.
+func coverageOf(running []*entities.Subscription, now time.Time) *coverageSpan {
 	var spans []coverageSpan
-	for _, sub := range candidates {
-		// A cancelled or frozen plan buys no time, and one that already ended
-		// is history.
-		if sub.Status != entities.SubscriptionStatusActive || !sub.EndDate.After(now) {
-			continue
-		}
+	for _, sub := range running {
 		spans = append(spans, coverageSpan{From: sub.StartDate, To: sub.EndDate})
 	}
 	if len(spans) == 0 {
@@ -254,6 +270,22 @@ func (uc *HikvisionSyncUseCase) SyncMemberBestEffort(ctx context.Context, gymID,
 			return // no terminal configured: nothing to keep in step
 		}
 		log.Printf("⚠️ No se pudo actualizar la vigencia del socio %s en el terminal: %v", userID, err)
+	}
+}
+
+// SyncGymBestEffort is SyncGym for background call sites, such as a plan's
+// hours having changed: nothing waits on it, so it only logs.
+func (uc *HikvisionSyncUseCase) SyncGymBestEffort(ctx context.Context, gymID uuid.UUID) {
+	report, err := uc.SyncGym(ctx, gymID, nil)
+	if err != nil {
+		if !errors.Is(err, ErrNoHikvisionTerminal) {
+			log.Printf("⚠️ No se pudo sincronizar el terminal del gimnasio %s: %v", gymID, err)
+		}
+		return
+	}
+	if report.Checked > 0 {
+		log.Printf("🚪 Horarios sincronizados en terminal: %d actualizadas, %d ya estaban al día, %d fallidas",
+			report.Updated, report.Unchanged, report.Failed)
 	}
 }
 
@@ -386,10 +418,17 @@ func (uc *HikvisionSyncUseCase) pushWindow(
 	}
 
 	wanted := hikvision.Person{
-		EmployeeNo: EmployeeNoForUser(userID),
-		Name:       displayName(user),
-		ValidFrom:  window.From,
-		ValidTo:    window.To,
+		EmployeeNo:    EmployeeNoForUser(userID),
+		Name:          displayName(user),
+		ValidFrom:     window.From,
+		ValidTo:       window.To,
+		PlanTemplates: window.PlanTemplates(),
+	}
+
+	// Before the person: a template the device does not have yet cannot be
+	// pointed at. Cached, so in steady state this writes nothing either.
+	if err := pushedSchedules.ensure(client, window.Hours.Plans); err != nil {
+		return false, err
 	}
 
 	// Writing a value the device already has costs an embedded-database

@@ -20,6 +20,7 @@ func newSyncUC(t *testing.T, db *gorm.DB) *usecases.HikvisionSyncUseCase {
 		persistence.NewSQLiteUserRepository(db),
 		persistence.NewSQLiteSubscriptionRepository(db),
 		persistence.NewSQLiteSubscriptionMemberRepository(db),
+		persistence.NewSQLitePlanRepository(db),
 	)
 }
 

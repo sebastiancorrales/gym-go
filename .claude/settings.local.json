@@ -82,7 +82,10 @@
       "Bash(curl -s http://localhost:8098/api/v1/payment-methods -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
       "Bash(curl -s http://localhost:8098/api/v1/sales -X POST -H 'Authorization: Bearer __TRACKED_VAR__' -H 'Content-Type: application/json' -d '{\"details\":[{\"product_id\":\"__TRACKED_VAR__\",\"quantity\":3,\"unit_price\":1500}],\"payments\":[{\"payment_method_id\":\"__TRACKED_VAR__\",\"amount\":4500}],\"debtor\":{\"name\":\"Luisa Fernanda\"}}')",
       "Bash(curl -s http://localhost:8098/api/v1/debts?status=pending -H 'Authorization: Bearer __TRACKED_VAR__')",
-      "Bash(curl -s http://localhost:8098/api/v1/debts/18d7cc5f-03d3-4edb-8c0a-b31bb2da39f0 -H 'Authorization: Bearer __TRACKED_VAR__')"
+      "Bash(curl -s http://localhost:8098/api/v1/debts/18d7cc5f-03d3-4edb-8c0a-b31bb2da39f0 -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(curl -s -m 15 --digest -u admin:A3215841916 -H 'Content-Type: application/json' -X POST http://192.168.0.31/ISAPI/AccessControl/AcsEvent?format=json -d '{\"AcsEventCond\":{\"searchID\":\"f\",\"searchResultPosition\":0,\"maxResults\":2,\"major\":0,\"minor\":8,\"startTime\":\"2026-09-16T00:00:00-05:00\",\"endTime\":\"2026-09-16T23:59:59-05:00\"}}')",
+      "Bash(sed -i 's|^\\\\t\"log\"$|\\\\t\"log\"\\\\n\\\\t\"sort\"|' internal/usecases/hikvision_sync_usecase.go)",
+      "Bash(gofmt -w internal/usecases/hikvision_sync_usecase.go)"
     ],
     "additionalDirectories": [
       "C:\\Proyectos\\gym-go\\scratch"

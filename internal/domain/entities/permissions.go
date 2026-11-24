@@ -59,6 +59,13 @@ const (
 	// PermSalesCreate, porque es una venta más con un método de pago más.
 	PermDebtsRead    Permission = "debts:read"
 	PermDebtsCollect Permission = "debts:collect"
+	// Tarjetas regalo. Vender una es cobrar (tramo de PermSalesCreate);
+	// redimirla crea una suscripción (tramo de PermSubscriptionsWrite).
+	// Anular una tarjeta y aceptar una vencida son decisiones de administración.
+	PermGiftCardsRead   Permission = "giftcards:read"
+	PermGiftCardsSell   Permission = "giftcards:sell"
+	PermGiftCardsRedeem Permission = "giftcards:redeem"
+	PermGiftCardsManage Permission = "giftcards:manage"
 
 	// Compras y egresos. Son información contable —revelan a quién se le compra,
 	// a qué precio y cuánto cuesta operar—, así que no se conceden a los roles de
@@ -93,6 +100,7 @@ var allPermissions = []Permission{
 	PermPaymentMethodsRead, PermPaymentMethods,
 	PermSalesRead, PermSalesCreate, PermSalesVoid, PermPaymentsAmend,
 	PermDebtsRead, PermDebtsCollect,
+	PermGiftCardsRead, PermGiftCardsSell, PermGiftCardsRedeem, PermGiftCardsManage,
 	PermSuppliersRead, PermSuppliersWrite,
 	PermExpensesRead, PermExpensesWrite, PermExpensesVoid,
 	PermReportsDaily, PermReportsHistory, PermReportsAccounting, PermReportsInventory,
@@ -131,6 +139,7 @@ var rolePermissions = map[UserRole]map[Permission]bool{
 		PermPaymentMethodsRead,
 		PermSalesRead, PermSalesCreate, PermSalesVoid,
 		PermDebtsRead, PermDebtsCollect,
+		PermGiftCardsRead, PermGiftCardsSell, PermGiftCardsRedeem,
 		PermReportsDaily,
 	),
 
@@ -143,6 +152,9 @@ var rolePermissions = map[UserRole]map[Permission]bool{
 		PermPaymentMethodsRead,
 		PermSalesRead, PermSalesCreate,
 		PermDebtsRead, PermDebtsCollect,
+		// Vende tarjetas (es cobrar) pero no las redime: redimir crea una
+		// suscripción, y STAFF no tiene PermSubscriptionsWrite.
+		PermGiftCardsRead, PermGiftCardsSell,
 		PermReportsDaily,
 	),
 

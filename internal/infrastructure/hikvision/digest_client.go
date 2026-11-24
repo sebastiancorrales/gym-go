@@ -45,6 +45,9 @@ func NewClient(ip string, port int, username, password string) *Client {
 	}
 }
 
+// Address identifies the terminal this client talks to, for keying caches.
+func (c *Client) Address() string { return c.baseURL }
+
 // do performs method+path with body, retrying once with a Digest
 // Authorization header computed from the challenge in the first response's
 // WWW-Authenticate header (the standard RFC 2617 handshake — Hikvision

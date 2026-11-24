@@ -1,6 +1,8 @@
 package persistence
 
 import (
+	"encoding/json"
+
 	"github.com/google/uuid"
 	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"gorm.io/gorm"
@@ -28,16 +30,29 @@ func (r *SQLiteGymRepository) FindByID(id uuid.UUID) (*entities.Gym, error) {
 }
 
 func (r *SQLiteGymRepository) Update(gym *entities.Gym) error {
+	// Exec crudo no pasa por el serializer:json de GORM, así que la
+	// configuración de tarjetas regalo se serializa aquí. nil se guarda como
+	// NULL ("usar los valores por defecto").
+	var giftSettings interface{}
+	if gym.GiftCardSettings != nil {
+		raw, err := json.Marshal(gym.GiftCardSettings)
+		if err != nil {
+			return err
+		}
+		giftSettings = string(raw)
+	}
 	return r.db.Exec(`
 		UPDATE gyms SET
 			name=?, legal_name=?, tax_id=?, address=?, city=?, state=?, country=?,
 			postal_code=?, phone=?, email=?, logo_url=?, timezone=?, locale=?, currency=?,
 			status=?, smtp_host=?, smtp_port=?, smtp_username=?, smtp_password=?, smtp_from=?,
+			instagram=?, gift_card_settings=?,
 			updated_at=?
 		WHERE id=?`,
 		gym.Name, gym.LegalName, gym.TaxID, gym.Address, gym.City, gym.State, gym.Country,
 		gym.PostalCode, gym.Phone, gym.Email, gym.LogoURL, gym.Timezone, gym.Locale, gym.Currency,
 		gym.Status, gym.SMTPHost, gym.SMTPPort, gym.SMTPUsername, gym.SMTPPassword, gym.SMTPFrom,
+		gym.Instagram, giftSettings,
 		gym.UpdatedAt, gym.ID.String(),
 	).Error
 }

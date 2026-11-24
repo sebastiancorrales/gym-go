@@ -36,7 +36,11 @@ type PaymentSummaryMethod struct {
 	// renglón de Fiado del resto y no confundirlo con caja.
 	DebtsCollectedTotal float64 `json:"debts_collected_total"`
 	DebtsCollectedCount int     `json:"debts_collected_count"`
-	Total               float64 `json:"total"`
+	// GiftCardsTotal/Count son tarjetas regalo VENDIDAS en el rango (netas de
+	// anulaciones). Redimir una no mueve dinero, así que no aparece aquí.
+	GiftCardsTotal float64 `json:"gift_cards_total"`
+	GiftCardsCount int     `json:"gift_cards_count"`
+	Total          float64 `json:"total"`
 	ChangeGiven         float64 `json:"change_given"`
 }
 
@@ -94,6 +98,9 @@ func AggregatePaymentSummary(rows []repositories.PaymentMethodTotal, startDate, 
 		case entities.PayableDebt:
 			m.DebtsCollectedTotal += row.Total
 			m.DebtsCollectedCount += row.Count
+		case entities.PayableGiftCard:
+			m.GiftCardsTotal += row.Total
+			m.GiftCardsCount += row.Count
 		}
 		m.Total += row.Total
 		m.ChangeGiven += row.ChangeGiven

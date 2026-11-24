@@ -58,6 +58,7 @@ type HikvisionEnrollmentUseCase struct {
 	// the new person is created with — see EnrollFinger.
 	subscriptionRepo repositories.SubscriptionRepository
 	memberRepo       repositories.SubscriptionMemberRepository
+	planRepo         repositories.PlanRepository
 }
 
 func NewHikvisionEnrollmentUseCase(
@@ -66,6 +67,7 @@ func NewHikvisionEnrollmentUseCase(
 	userRepo repositories.UserRepository,
 	subscriptionRepo repositories.SubscriptionRepository,
 	memberRepo repositories.SubscriptionMemberRepository,
+	planRepo repositories.PlanRepository,
 ) *HikvisionEnrollmentUseCase {
 	return &HikvisionEnrollmentUseCase{
 		deviceRepo:       deviceRepo,
@@ -73,6 +75,7 @@ func NewHikvisionEnrollmentUseCase(
 		userRepo:         userRepo,
 		subscriptionRepo: subscriptionRepo,
 		memberRepo:       memberRepo,
+		planRepo:         planRepo,
 	}
 }
 
@@ -143,15 +146,21 @@ func (uc *HikvisionEnrollmentUseCase) EnrollFinger(
 	// The validity window is the member's real one, not a blanket span:
 	// enrolling somebody whose plan has lapsed must not hand them access
 	// until the hourly reconciler happens to correct it.
-	window, err := accessWindowFor(uc.userRepo, uc.subscriptionRepo, uc.memberRepo, userID)
+	// Same for the hours: a student enrolled at 18:00 must not get in until
+	// the reconciler notices their plan has a schedule.
+	window, err := accessWindowFor(uc.userRepo, uc.subscriptionRepo, uc.memberRepo, uc.planRepo, userID)
 	if err != nil {
 		return nil, err
 	}
+	if err := pushedSchedules.ensure(client, window.Hours.Plans); err != nil {
+		return nil, fmt.Errorf("no se pudo cargar el horario del plan en el equipo: %w", err)
+	}
 	if err := client.UpsertPerson(hikvision.Person{
-		EmployeeNo: EmployeeNoForUser(userID),
-		Name:       displayName(user),
-		ValidFrom:  window.From,
-		ValidTo:    window.To,
+		EmployeeNo:    EmployeeNoForUser(userID),
+		Name:          displayName(user),
+		ValidFrom:     window.From,
+		ValidTo:       window.To,
+		PlanTemplates: window.PlanTemplates(),
 	}); err != nil {
 		return nil, fmt.Errorf("no se pudo registrar al socio en el equipo: %w", err)
 	}

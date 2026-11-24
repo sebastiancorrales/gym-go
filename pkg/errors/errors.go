@@ -44,6 +44,16 @@ var (
 	ErrCannotPayDebtWithCredit = errors.New("no se puede cobrar un fiado con otro fiado")
 	ErrCannotAmendCreditSale   = errors.New("esta venta tiene un fiado asociado; corrígelo desde el módulo de deudas")
 
+	// Errores de tarjetas regalo.
+	ErrPlanNotGiftable             = errors.New("este plan no está habilitado para tarjetas regalo")
+	ErrGiftCardRecipientRequired   = errors.New("escribe el nombre de quien recibe y de quien compra")
+	ErrCannotPayGiftCardWithCredit = errors.New("una tarjeta regalo se paga de contado, no se puede fiar")
+	ErrGiftCardExpired             = errors.New("la tarjeta regalo está vencida")
+	// Conflictos de estado (409): la tarjeta existe, pero ya la redimieron o
+	// anularon — típicamente otra recepción se adelantó.
+	ErrGiftCardNotPending     = errors.New("la tarjeta regalo ya fue redimida o anulada")
+	ErrCannotAmendGiftPayment = errors.New("esta suscripción se pagó con tarjeta regalo; no tiene pagos que corregir")
+
 	// ErrDatabaseBusy señala contención de locks en SQLite: es un fallo
 	// transitorio y reintentable, no un error de negocio. La capa HTTP lo
 	// traduce a 503 + Retry-After para que el cliente pueda reintentar.

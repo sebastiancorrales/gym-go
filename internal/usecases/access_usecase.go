@@ -16,6 +16,7 @@ type AccessUseCase struct {
 	userRepo         repositories.UserRepository
 	subscriptionRepo repositories.SubscriptionRepository
 	memberRepo       repositories.SubscriptionMemberRepository
+	planRepo         repositories.PlanRepository
 }
 
 func NewAccessUseCase(
@@ -23,12 +24,14 @@ func NewAccessUseCase(
 	userRepo repositories.UserRepository,
 	subscriptionRepo repositories.SubscriptionRepository,
 	memberRepo repositories.SubscriptionMemberRepository,
+	planRepo repositories.PlanRepository,
 ) *AccessUseCase {
 	return &AccessUseCase{
 		accessLogRepo:    accessLogRepo,
 		userRepo:         userRepo,
 		subscriptionRepo: subscriptionRepo,
 		memberRepo:       memberRepo,
+		planRepo:         planRepo,
 	}
 }
 
@@ -53,8 +56,9 @@ func findActiveSubscription(
 	return memberRepo.FindActiveSubscriptionByUserID(userID)
 }
 
-// RecordEntry records a gym entry
-func (uc *AccessUseCase) RecordEntry(userID, gymID uuid.UUID, method entities.AccessLogMethod) (*entities.AccessLog, error) {
+// RecordEntry records a gym entry. loc is the gym's timezone, against which a
+// plan's hours are read.
+func (uc *AccessUseCase) RecordEntry(userID, gymID uuid.UUID, method entities.AccessLogMethod, loc *time.Location) (*entities.AccessLog, error) {
 	// Verify user exists
 	user, err := uc.userRepo.FindByID(userID)
 	if err != nil {
@@ -86,6 +90,21 @@ func (uc *AccessUseCase) RecordEntry(userID, gymID uuid.UUID, method entities.Ac
 		accessLog.Deny("Subscription expired or inactive")
 		uc.accessLogRepo.Create(accessLog)
 		return accessLog, errors.New("subscription expired or inactive")
+	}
+
+	// The plan's hours, computed exactly as the terminal receives them
+	// (hourRuleAt): if the kiosk waved a student in at 18:00 while the door
+	// refused them, the two would be telling the member different stories.
+	now := time.Now()
+	if loc == nil {
+		loc = time.Local
+	}
+	running := runningSubscriptionsFor(uc.subscriptionRepo, uc.memberRepo, userID, now)
+	if !hourRuleAt(running, uc.planRepo, now).Allows(now.In(loc)) {
+		accessLog := entities.NewAccessLog(gymID, userID, entities.AccessLogTypeEntry, method)
+		accessLog.Deny(ReasonOutsideSchedule)
+		uc.accessLogRepo.Create(accessLog)
+		return accessLog, errors.New("outside the plan's hours")
 	}
 
 	// Grant access
@@ -187,6 +206,12 @@ func (uc *AccessUseCase) GetRecentEntries(gymID uuid.UUID, limit int) ([]RecentE
 // GetAccessHistory gets access history for a gym with pagination
 func (uc *AccessUseCase) GetAccessHistory(gymID uuid.UUID, limit, offset int) ([]*entities.AccessLog, error) {
 	return uc.accessLogRepo.FindByGymID(gymID, limit, offset)
+}
+
+// GetAccessHistoryBetween returns every access log in [from, to] (UTC
+// instants), newest first.
+func (uc *AccessUseCase) GetAccessHistoryBetween(gymID uuid.UUID, from, to time.Time) ([]*entities.AccessLog, error) {
+	return uc.accessLogRepo.FindByDateRange(gymID, from, to)
 }
 
 // GetUserAccessHistory gets access history for a specific user

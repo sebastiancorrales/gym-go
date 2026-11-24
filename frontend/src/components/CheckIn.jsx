@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import api from '../utils/api';
 import { filterDocumentInput, normalizeDocument } from '../utils/document';
 
+// Debe coincidir con usecases.ReasonOutsideSchedule en el backend.
+const OUTSIDE_SCHEDULE_REASON = 'Fuera del horario del plan';
+
 const FINGERPRINT_PATH = 'M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4';
 const BOLT_PATH = 'M13 10V3L4 14h7v7l9-11h-7z';
 const CHECK_PATH = 'M5 13l4 4L19 7';
@@ -230,7 +233,7 @@ export default function CheckIn() {
               setResult({ success: true, user, subscription: sub, message: '¡Bienvenido!', byFingerprint: true });
             } else {
               const d = await ciRes.json();
-              setResult({ success: false, user, message: 'Acceso Denegado', reason: d.reason || 'Sin suscripción activa' });
+              setResult({ success: false, user, message: 'Acceso Denegado', reason: d.reason || 'Sin suscripción activa', outsideSchedule: d.reason === OUTSIDE_SCHEDULE_REASON });
             }
             await sleep(5500);
             setResult(null);
@@ -293,8 +296,9 @@ export default function CheckIn() {
         triggerRelay();
         setResult({ success: true, user, subscription: sub, message: '¡Bienvenido!' });
       } else {
-        const expired = [...userSubs].sort((a, b) => new Date(b.end_date) - new Date(a.end_date))[0] || null;
-        setResult({ success: false, user, message: 'Acceso Denegado', reason: ciData.reason || 'Sin suscripción activa', expiredSubscription: expired });
+        const outsideSchedule = ciData.reason === OUTSIDE_SCHEDULE_REASON;
+        const expired = outsideSchedule ? null : ([...userSubs].sort((a, b) => new Date(b.end_date) - new Date(a.end_date))[0] || null);
+        setResult({ success: false, user, message: 'Acceso Denegado', reason: ciData.reason || 'Sin suscripción activa', expiredSubscription: expired, outsideSchedule });
       }
     } catch {
       setError({ message: 'Error del sistema', detail: 'Por favor contacte al administrador' });
@@ -484,13 +488,19 @@ export default function CheckIn() {
             </div>
             <div className="bg-red-500/10 border border-red-400/30 rounded-2xl px-5 py-3">
               <p className="text-red-400 text-xs mb-0.5">
-                {result.expiredSubscription ? 'Suscripción vencida el' : 'Sin suscripción activa'}
+                {result.outsideSchedule
+                  ? 'Fuera del horario de tu plan'
+                  : result.expiredSubscription ? 'Suscripción vencida el' : 'Sin suscripción activa'}
               </p>
               {result.expiredSubscription && (
                 <p className="text-white font-semibold">{formatDate(result.expiredSubscription.end_date)}</p>
               )}
             </div>
-            <p className="text-white/70 text-sm">Acércate a recepción para renovar 📋</p>
+            <p className="text-white/70 text-sm">
+              {result.outsideSchedule
+                ? 'Tu plan solo permite entrar en su horario. Pregunta en recepción 🕒'
+                : 'Acércate a recepción para renovar 📋'}
+            </p>
             <p className="text-white/40 text-xs">Cerrando en {countdown}s</p>
           </div>
         )}

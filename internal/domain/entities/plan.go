@@ -31,9 +31,22 @@ type Plan struct {
 	IsFeatured    bool        `json:"is_featured"`
 	MaxMembers    int         `json:"max_members"`
 	BillingMode   BillingMode `json:"billing_mode"`
-	Status        string      `json:"status" gorm:"index:idx_plans_gym_status,priority:2"`
-	CreatedAt     time.Time   `json:"created_at"`
-	UpdatedAt     time.Time   `json:"updated_at"`
+	// AccessSchedule limits the days and hours this plan's members may enter.
+	// nil means unrestricted. See access_schedule.go.
+	AccessSchedule *AccessSchedule `json:"access_schedule,omitempty" gorm:"serializer:json"`
+	// AccessSlot is the week-plan/plan-template number this plan's schedule
+	// occupies on the gym's Hikvision terminal. Assigned once, the first time
+	// the plan gets a schedule, and never reused by another plan: renumbering
+	// would move every member of every restricted plan at once. 1 is the
+	// device's built-in all-day template, so slots start at 2. Zero means the
+	// plan never had a schedule.
+	AccessSlot int `json:"-"`
+	// GiftEnabled: el plan aparece en la venta de tarjetas regalo. Lo decide
+	// el administrador plan por plan; por defecto ninguno se puede regalar.
+	GiftEnabled bool      `json:"gift_enabled" gorm:"not null;default:false"`
+	Status     string    `json:"status" gorm:"index:idx_plans_gym_status,priority:2"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 // NewPlan creates a new plan
@@ -59,6 +72,3 @@ func NewPlan(gymID uuid.UUID, name string, durationDays int, price float64) *Pla
 func (p *Plan) IsActive() bool {
 	return p.Status == "ACTIVE"
 }
-
-
-

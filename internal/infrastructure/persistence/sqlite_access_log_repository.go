@@ -71,3 +71,16 @@ func (r *SQLiteAccessLogRepository) CountTodayByGymID(gymID uuid.UUID, loc *time
 
 
 
+
+// ListGrantedEntries no lleva el tope de maxAccessLogRows: son dos columnas por
+// fila, y un tope aquí recortaría en silencio las semanas más antiguas del
+// promedio en un gimnasio concurrido.
+func (r *SQLiteAccessLogRepository) ListGrantedEntries(gymID uuid.UUID, from, to time.Time) ([]entities.AccessInstant, error) {
+	var rows []entities.AccessInstant
+	err := r.db.Model(&entities.AccessLog{}).
+		Select("user_id, access_time").
+		Where("gym_id = ? AND access_type = ? AND status = ? AND access_time >= ? AND access_time <= ?",
+			gymID, entities.AccessLogTypeEntry, entities.AccessLogStatusGranted, from, to).
+		Scan(&rows).Error
+	return rows, err
+}

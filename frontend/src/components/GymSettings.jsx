@@ -19,6 +19,7 @@ export default function GymSettings() {
     phone: '', email: '', logo_url: '',
     timezone: '', locale: '', currency: '',
     smtp_host: '', smtp_port: 587, smtp_username: '', smtp_password: '', smtp_from: '',
+    instagram: '', gift_prefix: '', gift_validity_days: 60, gift_phrase: '',
   });
 
   useEffect(() => { fetchGym(); }, []);
@@ -50,6 +51,10 @@ export default function GymSettings() {
           smtp_username: data.smtp_username || '',
           smtp_password: data.smtp_password || '',
           smtp_from: data.smtp_from || '',
+          instagram: data.instagram || '',
+          gift_prefix: data.gift_card_settings?.code_prefix || '',
+          gift_validity_days: data.gift_card_settings?.validity_days || 60,
+          gift_phrase: data.gift_card_settings?.phrase || '',
         });
       }
     } catch (error) {
@@ -95,7 +100,15 @@ export default function GymSettings() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await api.put('/gym', formData);
+      const { gift_prefix, gift_validity_days, gift_phrase, ...gymFields } = formData;
+      const res = await api.put('/gym', {
+        ...gymFields,
+        gift_card_settings: {
+          code_prefix: gift_prefix,
+          validity_days: parseInt(gift_validity_days) || 60,
+          phrase: gift_phrase,
+        },
+      });
       if (res.ok) {
         const updated = await res.json();
         setGym(updated);
@@ -276,6 +289,42 @@ export default function GymSettings() {
               className="px-4 py-2.5 text-sm font-semibold text-[#1272D6] border border-[#A7F3D0] rounded-xl hover:bg-[#EBF3FF] transition disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap">
               {smtpTesting ? 'Enviando...' : 'Probar conexion'}
             </button>
+          </div>
+        </div>
+
+        {/* Tarjetas regalo */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-base font-bold text-gray-900 mb-1">Tarjetas regalo</h3>
+          <p className="text-xs text-gray-400 mb-4">Lo que sale impreso en la tarjeta. El teléfono, la dirección y el logo son los de arriba. Los planes que se pueden regalar se eligen en Planes.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Instagram</label>
+              <input type="text" value={formData.instagram}
+                onChange={e => setFormData({ ...formData, instagram: e.target.value })}
+                placeholder="@tugimnasio"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Prefijo del código</label>
+              <input type="text" value={formData.gift_prefix} maxLength={3}
+                onChange={e => setFormData({ ...formData, gift_prefix: e.target.value.toUpperCase().replace(/[^A-Z]/g, '') })}
+                placeholder="Ej. OLI (por defecto, las 3 primeras letras del gimnasio)"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Días para redimir</label>
+              <input type="number" min="1" max="365" value={formData.gift_validity_days}
+                onChange={e => setFormData({ ...formData, gift_validity_days: e.target.value })}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
+              <p className="text-xs text-gray-400 mt-1">Aplica a las tarjetas que se vendan desde ahora.</p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">Frase de la tarjeta</label>
+              <input type="text" value={formData.gift_phrase} maxLength={70}
+                onChange={e => setFormData({ ...formData, gift_phrase: e.target.value })}
+                placeholder="El mejor regalo es una versión más fuerte de ti"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1272D6] focus:border-transparent" />
+            </div>
           </div>
         </div>
 

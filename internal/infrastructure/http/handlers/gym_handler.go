@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/sebastiancorrales/gym-go/internal/domain/entities"
 	"github.com/sebastiancorrales/gym-go/internal/domain/repositories"
 )
 
@@ -39,6 +40,9 @@ type UpdateGymRequest struct {
 	SMTPUsername *string `json:"smtp_username"`
 	SMTPPassword *string `json:"smtp_password"`
 	SMTPFrom     *string `json:"smtp_from"`
+	// Tarjetas regalo
+	Instagram        *string                    `json:"instagram"`
+	GiftCardSettings *entities.GiftCardSettings `json:"gift_card_settings"`
 }
 
 func (h *GymHandler) Get(c *gin.Context) {
@@ -134,6 +138,18 @@ func (h *GymHandler) Update(c *gin.Context) {
 	}
 	if req.SMTPFrom != nil {
 		gym.SMTPFrom = *req.SMTPFrom
+	}
+	if req.Instagram != nil {
+		gym.Instagram = *req.Instagram
+	}
+	if req.GiftCardSettings != nil {
+		cfg := *req.GiftCardSettings
+		cfg.CodePrefix = entities.SanitizeGiftCardPrefix(cfg.CodePrefix)
+		if cfg.ValidityDays < 0 || cfg.ValidityDays > 365 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Los días para redimir deben estar entre 1 y 365"})
+			return
+		}
+		gym.GiftCardSettings = &cfg
 	}
 
 	gym.UpdatedAt = time.Now()

@@ -145,6 +145,8 @@ func (uc *NotificationUseCase) SendDailyClose(gymID uuid.UUID, startDate, endDat
 		TotalSalesCount:     report.TotalSalesCount,
 		TotalSubsAmount:     email.FmtAmt(report.TotalSubsAmount),
 		TotalSubsCount:      report.TotalSubsCount,
+		HasGiftCards:         report.TotalGiftCardsAmount != 0,
+		TotalGiftCardsAmount: email.FmtAmt(report.TotalGiftCardsAmount),
 		TotalRevenue:        email.FmtAmt(report.TotalRevenue),
 		HasExpenses:         report.TotalExpensesCount > 0,
 		TotalExpensesAmount: email.FmtAmt(report.TotalExpensesAmount),
@@ -392,7 +394,13 @@ func (uc *NotificationUseCase) buildDailyCloseReport(
 			SalesTotal: m.SalesTotal,
 			SalesCount: m.SalesCount,
 		})
+		report.TotalGiftCardsAmount += m.GiftCardsTotal
 	}
+	// Las tarjetas regalo se cobran el día de la venta y no son ni una venta del
+	// POS ni una suscripción (la suscripción que nace al redimirlas va en $0).
+	// Sin sumarlas aquí, el desglose por método —que sí las trae— no cuadraría
+	// con los ingresos brutos del correo.
+	report.TotalRevenue += report.TotalGiftCardsAmount
 	// Orden alfabético para que la salida sea estable entre envíos.
 	sort.Slice(report.PaymentMethods, func(i, j int) bool {
 		return report.PaymentMethods[i].Name < report.PaymentMethods[j].Name

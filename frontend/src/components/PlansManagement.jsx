@@ -12,7 +12,52 @@ const emptyForm = {
   enrollment_fee: 0,
   max_members: 1,
   billing_mode: 'CALENDAR_MONTH',
+  gift_enabled: false,
+  schedule_enabled: false,
+  schedule_rules: [],
 };
+
+// Días en el orden de la semana colombiana; el valor es el de getDay()
+// (0 = domingo), que es lo que espera el backend.
+const WEEK_DAYS = [
+  { value: 1, short: 'L', long: 'Lun' },
+  { value: 2, short: 'M', long: 'Mar' },
+  { value: 3, short: 'X', long: 'Mié' },
+  { value: 4, short: 'J', long: 'Jue' },
+  { value: 5, short: 'V', long: 'Vie' },
+  { value: 6, short: 'S', long: 'Sáb' },
+  { value: 0, short: 'D', long: 'Dom' },
+];
+
+const SCHEDULE_PRESETS = [
+  { label: 'Lun–Vie 12:00–15:00', rule: { days: [1, 2, 3, 4, 5], from: '12:00', to: '15:00' } },
+  { label: 'Vie–Dom todo el día', rule: { days: [5, 6, 0], from: '00:00', to: '24:00' } },
+];
+
+const newRule = () => ({ days: [1, 2, 3, 4, 5], from: '06:00', to: '22:00' });
+
+// "Lun, Mar, Mié" → rangos consecutivos cuando se puede: "Lun–Vie".
+function describeDays(days) {
+  const order = WEEK_DAYS.filter((d) => days.includes(d.value));
+  if (order.length === 7) return 'Todos los días';
+  const indexes = order.map((d) => WEEK_DAYS.indexOf(d));
+  const consecutive = indexes.every((idx, i) => i === 0 || idx === indexes[i - 1] + 1);
+  if (consecutive && order.length > 2) return `${order[0].long}–${order[order.length - 1].long}`;
+  return order.map((d) => d.long).join(', ');
+}
+
+function describeRule(rule) {
+  const hours = rule.from === '00:00' && rule.to === '24:00' ? 'todo el día' : `${rule.from}–${rule.to}`;
+  return `${describeDays(rule.days)} · ${hours}`;
+}
+
+function validateRules(rules) {
+  for (const rule of rules) {
+    if (rule.days.length === 0) return 'Cada franja necesita al menos un día';
+    if (!rule.from || !rule.to || rule.from >= rule.to) return 'En cada franja, la hora de inicio debe ser anterior a la de fin';
+  }
+  return null;
+}
 
 export default function PlansManagement() {
   const [plans, setPlans] = useState([]);
@@ -58,6 +103,9 @@ export default function PlansManagement() {
       enrollment_fee: plan.enrollment_fee || 0,
       max_members: plan.max_members || 1,
       billing_mode: plan.billing_mode || 'CALENDAR_MONTH',
+      gift_enabled: !!plan.gift_enabled,
+      schedule_enabled: (plan.access_schedule?.rules?.length || 0) > 0,
+      schedule_rules: plan.access_schedule?.rules || [],
     });
     setShowForm(true);
   };
@@ -70,13 +118,23 @@ export default function PlansManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const { schedule_enabled, schedule_rules, ...fields } = formData;
+    if (schedule_enabled) {
+      const problem = schedule_rules.length === 0 ? 'Agrega al menos una franja horaria' : validateRules(schedule_rules);
+      if (problem) {
+        setToast({ message: problem, type: 'error' });
+        return;
+      }
+    }
     setLoading(true);
     const payload = {
-      ...formData,
+      ...fields,
       duration_days: parseInt(formData.duration_days),
       price: parseFloat(formData.price),
       enrollment_fee: parseFloat(formData.enrollment_fee),
       max_members: parseInt(formData.max_members) || 1,
+      // Al editar se manda siempre: { rules: [] } es lo que quita la restricción.
+      access_schedule: { rules: schedule_enabled ? schedule_rules : [] },
     };
 
     try {
@@ -122,6 +180,14 @@ export default function PlansManagement() {
         }
       },
     });
+  };
+
+  const setRules = (rules) => setFormData((prev) => ({ ...prev, schedule_rules: rules }));
+  const updateRule = (index, patch) =>
+    setRules(formData.schedule_rules.map((rule, i) => (i === index ? { ...rule, ...patch } : rule)));
+  const toggleDay = (index, day) => {
+    const days = formData.schedule_rules[index].days;
+    updateRule(index, { days: days.includes(day) ? days.filter((d) => d !== day) : [...days, day] });
   };
 
   const isActive = (plan) => plan.status !== 'INACTIVE' && plan.active !== false;
@@ -266,6 +332,126 @@ export default function PlansManagement() {
               </div>
             )}
 
+            <div className="col-span-2 border border-gray-200 rounded-xl p-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.gift_enabled}
+                  onChange={(e) => setFormData({ ...formData, gift_enabled: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Se puede regalar</p>
+                  <p className="text-xs text-gray-500">El plan aparece en Tarjetas Regalo para venderlo como regalo.</p>
+                </div>
+              </label>
+            </div>
+
+            <div className="col-span-2 border border-gray-200 rounded-xl p-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.schedule_enabled}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      schedule_enabled: e.target.checked,
+                      schedule_rules:
+                        e.target.checked && formData.schedule_rules.length === 0 ? [newRule()] : formData.schedule_rules,
+                    })
+                  }
+                  className="w-4 h-4 accent-[#1272D6]"
+                />
+                <span>
+                  <span className="block text-sm font-semibold text-gray-800">Restringir días y horario de acceso</span>
+                  <span className="block text-xs text-gray-500">
+                    Fuera de estas franjas el terminal de huella y el kiosco no dejan entrar a los socios de este plan.
+                  </span>
+                </span>
+              </label>
+
+              {formData.schedule_enabled && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    <span className="text-xs text-gray-500 self-center">Plantillas:</span>
+                    {SCHEDULE_PRESETS.map((preset) => (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setRules([{ ...preset.rule, days: [...preset.rule.days] }])}
+                        className="px-2 py-1 text-xs rounded-full border border-gray-300 text-gray-700 hover:border-[#1272D6] hover:text-[#1272D6]"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {formData.schedule_rules.map((rule, index) => (
+                    <div key={index} className="flex flex-wrap items-center gap-3 bg-gray-50 rounded-lg p-3">
+                      <div className="flex gap-1">
+                        {WEEK_DAYS.map((day) => (
+                          <button
+                            key={day.value}
+                            type="button"
+                            title={day.long}
+                            onClick={() => toggleDay(index, day.value)}
+                            className={`w-8 h-8 rounded-full text-xs font-semibold transition ${
+                              rule.days.includes(day.value)
+                                ? 'bg-[#1272D6] text-white'
+                                : 'bg-white border border-gray-300 text-gray-500 hover:border-[#1272D6]'
+                            }`}
+                          >
+                            {day.short}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <input
+                          type="time"
+                          value={rule.from}
+                          onChange={(e) => updateRule(index, { from: e.target.value })}
+                          className="px-2 py-1 border border-gray-300 rounded-lg"
+                        />
+                        <span className="text-gray-500">a</span>
+                        <input
+                          type="time"
+                          value={rule.to === '24:00' ? '23:59' : rule.to}
+                          onChange={(e) => updateRule(index, { to: e.target.value === '23:59' ? '24:00' : e.target.value })}
+                          className="px-2 py-1 border border-gray-300 rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateRule(index, { from: '00:00', to: '24:00' })}
+                          className="text-xs text-[#1272D6] hover:underline"
+                        >
+                          Todo el día
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setRules(formData.schedule_rules.filter((_, i) => i !== index))}
+                        className="ml-auto text-xs text-red-500 hover:text-red-700"
+                      >
+                        Quitar
+                      </button>
+                    </div>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => setRules([...formData.schedule_rules, newRule()])}
+                    className="text-sm text-[#1272D6] hover:underline"
+                  >
+                    + Agregar franja
+                  </button>
+                  <p className="text-xs text-gray-400">
+                    Una franja no puede cruzar la medianoche: para 22:00–02:00 crea dos. Los cambios se aplican
+                    también a quienes ya tienen el plan.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="col-span-2 flex gap-3">
               <button
                 type="button"
@@ -310,7 +496,14 @@ export default function PlansManagement() {
                 }`}
               >
                 <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-xl font-bold text-gray-900 pr-2">{plan.name}</h3>
+                  <h3 className="text-xl font-bold text-gray-900 pr-2">
+                    {plan.name}
+                    {plan.gift_enabled && (
+                      <span className="ml-2 align-middle text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                        Regalable
+                      </span>
+                    )}
+                  </h3>
                   <span
                     className={`flex-shrink-0 px-2 py-1 text-xs font-semibold rounded-full ${
                       active
@@ -339,6 +532,16 @@ export default function PlansManagement() {
                       {fmt(plan.price)}
                     </span>
                   </div>
+                  {plan.access_schedule?.rules?.length > 0 && (
+                    <div className="flex justify-between items-start gap-3">
+                      <span className="text-sm text-gray-600">Horario:</span>
+                      <span className="text-sm font-semibold text-gray-900 text-right">
+                        {plan.access_schedule.rules.map((rule, i) => (
+                          <span key={i} className="block">{describeRule(rule)}</span>
+                        ))}
+                      </span>
+                    </div>
+                  )}
                   {plan.enrollment_fee > 0 && (
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Inscripción:</span>

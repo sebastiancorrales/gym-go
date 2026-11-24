@@ -335,6 +335,12 @@ func (uc *PaymentUseCase) loadPayable(ctx context.Context, kind entities.Payable
 		if sub == nil {
 			return payableDoc{}, nil, errors.ErrNotFound
 		}
+		// Una suscripción redimida con tarjeta regalo no tiene pagos: el dinero
+		// es de la tarjeta. "Corregirla" crearía líneas por $0 o, peor, por un
+		// monto que nunca entró.
+		if sub.GiftCardID != nil {
+			return payableDoc{}, nil, errors.ErrCannotAmendGiftPayment
+		}
 		// Se permite aunque esté cancelada: el dinero existió, y corregir con qué
 		// se cobró es justo lo que un admin necesita poder hacer.
 		doc := payableDoc{total: sub.TotalPaid, date: sub.Date, hour: sub.Hour, gymID: sub.GymID}

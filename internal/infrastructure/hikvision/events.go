@@ -18,6 +18,14 @@ const (
 	// because their validity window has closed — which, since gym-go drives
 	// that window from the subscription, means "membership not current".
 	MinorValidityExpired = 8
+	// MinorOutsideSchedule is the refusal of somebody recognised and within
+	// their validity window, but outside the hours of their plan template.
+	//
+	// NOT yet confirmed on the DS-K1T8003MF: it is Hikvision's documented
+	// "invalid period" code, the neighbour of the confirmed 8 in the same
+	// family. Confirm it with TestLiveAccessSchedule by scanning outside the
+	// test schedule; if the device answers another code, change it here.
+	MinorOutsideSchedule = 7
 )
 
 // AcsEvent is one row of the terminal's access log.
@@ -38,6 +46,9 @@ func (e AcsEvent) Granted() bool { return e.Minor == MinorFingerprintGranted }
 
 // DeniedForExpiry reports the "recognised, but not current" refusal.
 func (e AcsEvent) DeniedForExpiry() bool { return e.Minor == MinorValidityExpired }
+
+// DeniedForSchedule reports the "recognised, but not at this hour" refusal.
+func (e AcsEvent) DeniedForSchedule() bool { return e.Minor == MinorOutsideSchedule }
 
 // AboutAPerson filters out the events that carry no identity.
 func (e AcsEvent) AboutAPerson() bool { return e.EmployeeNo != "" }

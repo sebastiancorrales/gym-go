@@ -116,8 +116,13 @@ export default function DailyClose({ user }) {
         type: m.type,
         subsTotal: m.subs_total,
         salesTotal: m.sales_total,
+        // Tarjetas regalo vendidas hoy: dinero que entró, pero no es ni una
+        // suscripción ni una venta del punto de venta.
+        giftTotal: m.gift_cards_total || 0,
         total: m.total,
       }));
+      const giftTotal = methods.reduce((sum, m) => sum + m.giftTotal, 0);
+      const giftCount = (summary.methods || []).reduce((sum, m) => sum + (m.gift_cards_count || 0), 0);
 
       let expenses = [];
       let expensesTotal = 0;
@@ -150,6 +155,8 @@ export default function DailyClose({ user }) {
         sales,
         salesTotal,
         salesCount: salesReport?.sales_count ?? sales.length,
+        giftTotal,
+        giftCount,
         methods: methodsNet,
         grandTotal: summary.total,
         changeGiven: summary.change_given || 0,
@@ -276,6 +283,7 @@ export default function DailyClose({ user }) {
                       <th className="px-6 py-2.5">Método</th>
                       <th className="px-6 py-2.5 text-right">Suscripciones</th>
                       <th className="px-6 py-2.5 text-right">Ventas</th>
+                      {data.giftCount > 0 && <th className="px-6 py-2.5 text-right">Tarjetas regalo</th>}
                       {data.canSeeExpenses && <th className="px-6 py-2.5 text-right">Egresos</th>}
                       <th className="px-6 py-2.5 text-right">{data.canSeeExpenses ? 'Neto' : 'Total'}</th>
                     </tr>
@@ -299,6 +307,7 @@ export default function DailyClose({ user }) {
                         </td>
                         <td className="px-6 py-3 text-right text-[#4B5778]">{fmt(m.subsTotal)}</td>
                         <td className="px-6 py-3 text-right text-[#4B5778]">{fmt(m.salesTotal)}</td>
+                        {data.giftCount > 0 && <td className="px-6 py-3 text-right text-[#4B5778]">{fmt(m.giftTotal)}</td>}
                         {data.canSeeExpenses && (
                           <td className="px-6 py-3 text-right text-red-600">
                             {m.expensesTotal > 0 ? `-${fmt(m.expensesTotal)}` : '—'}
@@ -313,6 +322,7 @@ export default function DailyClose({ user }) {
                       <td className="px-6 py-3 font-bold text-[#0F1C35]">TOTAL</td>
                       <td className="px-6 py-3 text-right font-semibold text-[#4B5778]">{fmt(data.subsTotal)}</td>
                       <td className="px-6 py-3 text-right font-semibold text-[#4B5778]">{fmt(data.salesTotal)}</td>
+                      {data.giftCount > 0 && <td className="px-6 py-3 text-right font-semibold text-[#4B5778]">{fmt(data.giftTotal)}</td>}
                       {data.canSeeExpenses && (
                         <td className="px-6 py-3 text-right font-semibold text-red-600">
                           {data.expensesTotal > 0 ? `-${fmt(data.expensesTotal)}` : '—'}

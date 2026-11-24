@@ -83,3 +83,24 @@ export const diffDays = (start, end) => {
   const e = new Date(end   + 'T00:00:00');
   return Math.round((e - s) / 86400000) + 1;
 };
+
+/**
+ * Convierte un instante del backend (ISO con zona, p. ej. "2026-11-13T01:56:32Z")
+ * al día "YYYY-MM-DD" en el timezone del gym.
+ *
+ * ❌ ts.slice(0, 10) toma el día en UTC: en Bogotá, cualquier cosa hecha
+ *    después de las 7 p. m. aparecería con fecha de mañana.
+ *
+ * @param {string} ts
+ * @returns {string}
+ */
+export const gymDateOf = (ts) => {
+  if (!ts) return '';
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: gymTimezone(), year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(new Date(ts));
+  } catch {
+    return String(ts).slice(0, 10);
+  }
+};

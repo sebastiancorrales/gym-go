@@ -20,6 +20,9 @@ type DailyCloseEmailData struct {
 	TotalSalesCount  int
 	TotalSubsAmount  string
 	TotalSubsCount   int
+	// HasGiftCards oculta la fila de tarjetas regalo en un día sin ninguna.
+	HasGiftCards         bool
+	TotalGiftCardsAmount string
 	TotalRevenue     string
 	// HasExpenses controla si se muestran las filas de egresos: un periodo sin
 	// gastos no necesita una fila de "$0" que sólo añade ruido.
@@ -76,6 +79,13 @@ const dailyCloseTpl = `<!DOCTYPE html>
           <td style="padding:10px 14px;text-align:center">{{.TotalSubsCount}}</td>
           <td style="padding:10px 14px;text-align:right">{{.TotalSubsAmount}}</td>
         </tr>
+        {{if .HasGiftCards}}
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:10px 14px">Tarjetas regalo vendidas</td>
+          <td style="padding:10px 14px;text-align:center">&mdash;</td>
+          <td style="padding:10px 14px;text-align:right">{{.TotalGiftCardsAmount}}</td>
+        </tr>
+        {{end}}
         <tr style="border-top:2px solid #e5e7eb;font-weight:600">
           <td style="padding:10px 14px;color:#374151">{{if .IsRange}}INGRESOS BRUTOS DEL PERIODO{{else}}INGRESOS BRUTOS DEL DIA{{end}}</td>
           <td style="padding:10px 14px;text-align:center;color:#374151">{{totalCount .TotalSalesCount .TotalSubsCount}}</td>

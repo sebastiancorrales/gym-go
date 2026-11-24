@@ -141,8 +141,12 @@ func paymentLinesPending(db *gorm.DB) (int64, error) {
 		return pending, nil
 	}
 
+	// gift_card_id IS NULL: una suscripción redimida con tarjeta regalo no
+	// tiene líneas A PROPÓSITO (el dinero entró al vender la tarjeta). Sin este
+	// filtro el backfill le inventaría una línea "Otro" en cada arranque.
 	if err := db.Raw(`SELECT COUNT(*) FROM subscriptions su
-	                   WHERE NOT EXISTS (SELECT 1 FROM payment_lines pl
+	                   WHERE su.gift_card_id IS NULL
+	                     AND NOT EXISTS (SELECT 1 FROM payment_lines pl
 	                                      WHERE pl.payable_kind = 'subscription' AND pl.payable_id = su.id)`).
 		Scan(&pending).Error; err != nil {
 		return 0, err
@@ -318,7 +322,7 @@ func backfillSubscriptionLines(tx *gorm.DB, index map[string]uuid.UUID) (int, er
 	var subs []subRow
 	if err := tx.Table("subscriptions su").
 		Select("su.id, su.gym_id, su.total_paid, su.payment_method, su.date, su.hour, su.created_at").
-		Where(`NOT EXISTS (SELECT 1 FROM payment_lines pl
+		Where(`su.gift_card_id IS NULL AND NOT EXISTS (SELECT 1 FROM payment_lines pl
 		                    WHERE pl.payable_kind = 'subscription' AND pl.payable_id = su.id)`).
 		Order("su.created_at ASC, su.id ASC").
 		Scan(&subs).Error; err != nil {

@@ -184,13 +184,13 @@ const (
 	outcomeDenied
 )
 
-// record turns one device event into an access log, if it is one of the two
-// kinds that concern a member.
+// record turns one device event into an access log, if it is one of the
+// three kinds that concern a member: granted, expired, outside the plan's hours.
 func (uc *HikvisionEventUseCase) record(ctx context.Context, device *entities.Device, event hikvision.AcsEvent) ingestOutcome {
 	if !event.AboutAPerson() {
 		return outcomeSkipped // door buttons, remote opens, tamper alarms
 	}
-	if !event.Granted() && !event.DeniedForExpiry() {
+	if !event.Granted() && !event.DeniedForExpiry() && !event.DeniedForSchedule() {
 		return outcomeSkipped
 	}
 
@@ -214,8 +214,12 @@ func (uc *HikvisionEventUseCase) record(ctx context.Context, device *entities.De
 	accessLog.AccessTime = at.UTC()
 	accessLog.DeviceID = &device.ID
 
-	if event.DeniedForExpiry() {
-		accessLog.Deny("Suscripción vencida")
+	if event.DeniedForExpiry() || event.DeniedForSchedule() {
+		reason := "Suscripción vencida"
+		if event.DeniedForSchedule() {
+			reason = ReasonOutsideSchedule
+		}
+		accessLog.Deny(reason)
 		if err := uc.accessLogRepo.Create(accessLog); err != nil {
 			log.Printf("⚠️ No se pudo registrar el rechazo de %s: %v", userID, err)
 			return outcomeSkipped

@@ -55,6 +55,12 @@ type AccessLog struct {
 	CreatedAt      time.Time       `json:"created_at"`
 }
 
+// AccessInstant is the minimal projection of an AccessLog: who came in and when.
+type AccessInstant struct {
+	UserID     uuid.UUID
+	AccessTime time.Time
+}
+
 // NewAccessLog creates a new access log
 func NewAccessLog(gymID, userID uuid.UUID, accessType AccessLogType, accessMethod AccessLogMethod) *AccessLog {
 	now := time.Now().UTC().Round(0)

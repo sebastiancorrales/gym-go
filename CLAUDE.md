@@ -148,6 +148,27 @@ Permissions: `PermDebtsRead`/`PermDebtsCollect` sit at the same tier as `PermSal
 
 **`ensurePaymentMethodCatalog` (`migrations/backfill_payments.go`) must be called unconditionally in `Migrate()`, not only from inside `backfillPaymentLines`.** That function returns early when there are no pending sales/subscriptions to backfill — which is *always* true on a fresh install or in steady state — so a method added to `defaultCatalog` after the initial rollout (this bit "Otro", then "Fiado") would never actually get seeded outside the one-time backfill window. Caught only by spinning up a clean database and checking `GET /payment-methods` for real.
 
+## Gift cards (tarjetas regalo)
+
+A `GiftCard` (`internal/domain/entities/gift_card.go`) is a prepaid plan someone buys for someone else. **The money is recognized the day it is SOLD**: the card has its own `payment_lines` with `PayableGiftCard`, so it lands in that day's `/payments/summary` (`gift_cards_total`) like any other payment. **Redeeming moves no money**: `GiftCardUseCase.Redeem` creates a subscription with `TotalPaid = 0`, no payment lines, no enrollment fee, and `Subscription.GiftCardID` pointing at the card. If the subscription also carried the price, the same money would be counted twice.
+
+Because a gift subscription has *no* payment lines on purpose, two places must skip it:
+
+- **`backfillPaymentLines` filters `gift_card_id IS NULL`.** It runs on every startup and treats "subscription without lines" as missing data; without the filter it would invent an "Otro" line for every redeemed card.
+- **`AmendPayments` rejects it** (`ErrCannotAmendGiftPayment`) — there is nothing to correct.
+
+Rules agreed with the business: a card is paid in full at sale (a `credit` line is rejected — `Debt` hangs off a `SaleID`), redeemable for `GiftCardSettings.ValidityDays` (default 60), and if the recipient already has a subscription the gift one **starts when the latest non-cancelled one ends** (same chaining as `RenewSubscription`). Only plans with `Plan.GiftEnabled` can be sold; `PlanName`/`Value` are snapshots of the sale, but redemption uses the plan's *current* duration/schedule/members.
+
+- **Double redemption is guarded in the WHERE** (`MarkRedeemed`/`MarkVoided`: `UPDATE ... WHERE status = 'pending'`, 0 rows → `ErrGiftCardNotPending`, 409), same reason as `ApplyStockDelta`. `TestGiftCard_Redimir_DobleRedencionConcurrente` guards it.
+- **"Expired" is derived, never stored** (`StateOn`: pending + today in the gym's timezone > `ExpiresOn`). Redeeming an expired card needs `allow_expired`, which the handler only accepts from `PermGiftCardsManage`.
+- **Voiding mirrors `VoidSale`**: pending (or expired) only, negative lines dated *today*. A redeemed card cannot be voided.
+- **Codes**: `PREFIX-XXXXXX` from `crypto/rand`, alphabet without 0/O/1/I/L. Lookup is by `CodeKey` (alphanumerics only, unique index), so typed/scanned variants match and changing the prefix doesn't orphan old cards; `FindByCode` also retries with the current prefix prepended.
+- `GiftCardSettings` lives as JSON on `Gym` (with `Gym.Instagram`). `SQLiteGymRepository.Update` is raw SQL with an explicit column list, so it serializes that JSON by hand — a new `Gym` field that is not added there is silently never saved.
+
+Permissions: `giftcards:read`/`giftcards:sell` for RECEPCIONISTA and STAFF; `giftcards:redeem` for RECEPCIONISTA (it creates a subscription, and STAFF lacks `subscriptions:write`); `giftcards:manage` (void, accept expired) for admins. `GET /gift-cards` requires `start_date`/`end_date` and goes through `RestrictReportRange`; its `outstanding` block (the balance still owed in cards, any sale date) is only filled for `reports:history`, and `GET /gift-cards/outstanding` needs `reports:accounting`. `GET /gift-cards/config` exists because `GET /gym` needs `gym:settings`, which the front desk doesn't have.
+
+The card image is drawn client-side on a canvas (`frontend/src/utils/giftCardImage.js`, QR via `qrcode-generator`), ported from the original HTML MVP. The logo must be same-origin or the canvas gets tainted and can't be copied/downloaded — that's why Vite also proxies `/uploads` in dev.
+
 ## Hikvision access terminals (ISAPI)
 
 A Hikvision terminal (tested against a **DS-K1T8003MF, firmware V1.4.1**) is registered as a `Device` row with `DeviceType == DeviceTypeHikvisionTerminal`. Its IP lives in the existing `Device.IPAddress`; the port, admin credentials and door number live as JSON in the existing `Device.Configuration` (`entities.HikvisionConfig`) — no new table, no migration. `redactDeviceSecret` strips the password before any device row is serialized, and `applyConnectionFields` *merges* the config so a save that omits the password keeps the stored one.
@@ -194,6 +215,17 @@ Two mechanisms, and the order matters:
 **Write only what changed.** `SyncGym` reads the whole roster once (`ListPersons`) and skips anybody whose window and name already match (`Person.SameWindowAs`). Rewriting every member every hour is pointless traffic against an embedded database, and a burst of it is what collides with the ten-second event poller and comes back as `updateDatabaseError` — the failure that reached the gym as "a veces no registra huellas", since enrollment starts by upserting the person too. In steady state a pass now writes nothing: the log line reports `actualizadas / ya estaban al día / fallidas`.
 
 For the same reason the window given to staff (anyone who is not a `MEMBER`) is two **fixed** dates, not `now ± years`: a window computed from the current time differs on every pass, never matches what the device holds, and would rewrite every staff member hourly — precisely the people at the desk. `TestAccessWindow_PersonalEsEstableEntrePasadas` guards it.
+
+### Plan hours (access schedules)
+
+A plan can restrict *when* its members enter (`Plan.AccessSchedule`, `internal/domain/entities/access_schedule.go`): rules of `{days (0=Sunday), from "HH:MM", to "HH:MM"|"24:00"}` — "Mon–Fri 12:00–15:00", "Fri–Sun all day". nil = unrestricted, which is every plan that predates it. The schedule lives on the plan, not copied onto subscriptions, so editing it moves everyone already holding the plan.
+
+**It is not enforced by toggling members from the hourly job** — that would leave the door open until minute 17 and fail open with the backend down. It is pushed into the device's own mechanism: week plan N → plan template N → `RightPlan.planTemplateNo` on the person. N is `Plan.AccessSlot`, assigned once (from 2; 1 is the device's all-day template) and never renumbered or reused, since running subscriptions point at it.
+
+- `hourRuleAt` (`internal/usecases/access_schedule.go`) is the single computation, shared by the sync, enrollment and the kiosk's `RecordEntry` — same principle as `findActiveSubscription`. Only subscriptions covering the instant count; any unrestricted one wins (template `"1"`); several restricted ones are the union (`"2,3"` — documented ISAPI, **not yet verified on this firmware**).
+- The week plan must reach the device **before** any person pointing at its template: `pushedSchedules.ensure` runs before every `UpsertPerson`. It caches in memory what each slot last received, so steady state writes nothing; a restart rewrites each slot once.
+- `Person.SameWindowAs` compares the template only when the device reported one: treating "not reported" as "different" would rewrite every member every pass.
+- Denial at the door is expected as minor `7` (`MinorOutsideSchedule`), Hikvision's "invalid period" — **unconfirmed** on the DS-K1T8003MF. `TestLiveAccessSchedule` (device tag) is where to confirm it, along with whether search echoes `RightPlan`.
 
 ### Ingesting the door's own log
 

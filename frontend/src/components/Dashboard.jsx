@@ -17,6 +17,7 @@ const AccessManagement = lazy(() => import('./AccessManagement'));
 const ProductsManagement = lazy(() => import('./inventory/ProductsManagement'));
 const SalesTab = lazy(() => import('./inventory/SalesTab'));
 const DebtsTab = lazy(() => import('./DebtsTab'));
+const GiftCards = lazy(() => import('./GiftCards'));
 const SalesHistory = lazy(() => import('./inventory/SalesHistory'));
 const StockMovements = lazy(() => import('./inventory/StockMovements'));
 const ReportsTab = lazy(() => import('./inventory/ReportsTab'));
@@ -29,6 +30,7 @@ const GymSettings = lazy(() => import('./GymSettings'));
 const DevicesManagement = lazy(() => import('./DevicesManagement'));
 const ProfileSettings = lazy(() => import('./ProfileSettings'));
 const DashboardCharts = lazy(() => import('./dashboard/DashboardCharts'));
+const PeakHours = lazy(() => import('./shared/PeakHours'));
 
 const TAB_LOADERS = {
   users: () => import('./UsersManagement'),
@@ -39,6 +41,7 @@ const TAB_LOADERS = {
   products: () => import('./inventory/ProductsManagement'),
   sales: () => import('./inventory/SalesTab'),
   debts: () => import('./DebtsTab'),
+  'gift-cards': () => import('./GiftCards'),
   'sales-history': () => import('./inventory/SalesHistory'),
   'stock-movements': () => import('./inventory/StockMovements'),
   reports: () => import('./inventory/ReportsTab'),
@@ -82,6 +85,7 @@ const ICONS = {
   settings:    'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
   profile:     'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',
   dollar:      'M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6',
+  gift:        'M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7',
   trendUp:     'M23 6l-9.5 9.5-5-5L1 18',
   userPlus:    'M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M20 8v6M23 11h-6M12.5 7a4 4 0 11-8 0 4 4 0 018 0z',
 };
@@ -103,6 +107,7 @@ const NAV_GROUPS = [
       { id: 'users',         label: 'Usuarios',      icon: 'users',  perm: PERMS.USERS_READ },
       { id: 'subscriptions', label: 'Suscripciones', icon: 'subs',   perm: PERMS.SUBSCRIPTIONS_READ },
       { id: 'access',        label: 'Accesos',        icon: 'access', perm: PERMS.ACCESS_READ },
+      { id: 'gift-cards',    label: 'Tarjetas Regalo', icon: 'gift',   perm: PERMS.GIFTCARDS_READ },
     ],
   },
   {
@@ -623,6 +628,13 @@ export default function Dashboard({ user, onLogout }) {
                 <DashboardCharts revenueChart={revenueChart} accessChart={accessChart} />
               </Suspense>
 
+              {/* Horas pico: mismo permiso que la pestaña de Accesos */}
+              {allowedTabs.has('access') && (
+                <Suspense fallback={<div className="mb-6"><SkeletonKpi /></div>}>
+                  <PeakHours />
+                </Suspense>
+              )}
+
               {/* Quick actions — solo los atajos a pestañas que el rol puede abrir */}
               <div className="bg-white rounded-[12px] border border-[#E2E8EF] shadow-[0_1px_3px_rgba(0,0,0,0.05)] p-6 mb-6">
                 <h3 className="text-[14px] font-bold text-[#0F1C35] mb-4">Acciones Rápidas</h3>
@@ -709,6 +721,7 @@ export default function Dashboard({ user, onLogout }) {
           {showTab('products')            && <div className="p-7"><ProductsManagement /></div>}
           {showTab('sales')               && <div className="p-7"><SalesTab user={user} /></div>}
           {showTab('debts')               && <div className="p-7"><DebtsTab /></div>}
+          {showTab('gift-cards')          && <div className="p-7"><GiftCards user={user} /></div>}
           {showTab('stock-movements')     && <div className="p-7"><StockMovements /></div>}
           {showTab('sales-history')       && <div className="p-7"><SalesHistory user={user} /></div>}
           {showTab('reports')             && <div className="p-7"><ReportsTab /></div>}

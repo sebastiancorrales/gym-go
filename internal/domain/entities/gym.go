@@ -30,6 +30,10 @@ type Gym struct {
 	SMTPUsername string `json:"smtp_username,omitempty"`
 	SMTPPassword string `json:"smtp_password,omitempty"`
 	SMTPFrom     string `json:"smtp_from,omitempty"`
+	// Instagram sale impreso en las tarjetas regalo junto al teléfono.
+	Instagram string `json:"instagram,omitempty"`
+	// GiftCardSettings: nil = valores por defecto (ver entities.GiftCardConfig).
+	GiftCardSettings *GiftCardSettings `json:"gift_card_settings,omitempty" gorm:"serializer:json"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }

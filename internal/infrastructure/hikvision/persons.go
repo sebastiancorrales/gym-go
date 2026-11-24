@@ -15,6 +15,20 @@ type Person struct {
 	Name       string
 	ValidFrom  time.Time
 	ValidTo    time.Time
+	// PlanTemplates lists the plan templates that decide the hours this
+	// person may enter, comma-separated as the device writes them ("1", "3",
+	// "3,4"). Empty means the all-day template 1. See schedules.go.
+	PlanTemplates string
+}
+
+// AllDayTemplate is the device's built-in template with no hour restriction.
+const AllDayTemplate = "1"
+
+func (p Person) planTemplates() string {
+	if p.PlanTemplates == "" {
+		return AllDayTemplate
+	}
+	return p.PlanTemplates
 }
 
 // isapiStatus is the plain ack most JSON ISAPI calls return. statusCode 1 is
@@ -71,7 +85,8 @@ func deviceLocalTime(t time.Time) string {
 // without them is stored fine and their fingerprint enrolls fine, but every
 // scan is denied at the door — the terminal reads the finger and then refuses
 // because the person has no access schedule. planTemplateNo "1" is the
-// device's built-in all-day template.
+// device's built-in all-day template; a member of a plan with restricted
+// hours carries that plan's template instead.
 func personPayload(p Person) map[string]any {
 	return map[string]any{
 		"UserInfo": map[string]any{
@@ -86,7 +101,7 @@ func personPayload(p Person) map[string]any {
 			},
 			"doorRight": "1",
 			"RightPlan": []map[string]any{
-				{"doorNo": 1, "planTemplateNo": "1"},
+				{"doorNo": 1, "planTemplateNo": p.planTemplates()},
 			},
 		},
 	}
@@ -231,6 +246,10 @@ func (c *Client) searchPersons(cond map[string]any) ([]Person, int, error) {
 					BeginTime string `json:"beginTime"`
 					EndTime   string `json:"endTime"`
 				} `json:"Valid"`
+				RightPlan []struct {
+					DoorNo         int    `json:"doorNo"`
+					PlanTemplateNo string `json:"planTemplateNo"`
+				} `json:"RightPlan"`
 			} `json:"UserInfo"`
 		} `json:"UserInfoSearch"`
 	}
@@ -240,12 +259,18 @@ func (c *Client) searchPersons(cond map[string]any) ([]Person, int, error) {
 
 	people := make([]Person, 0, len(parsed.UserInfoSearch.UserInfo))
 	for _, row := range parsed.UserInfoSearch.UserInfo {
-		people = append(people, Person{
+		person := Person{
 			EmployeeNo: row.EmployeeNo,
 			Name:       row.Name,
 			ValidFrom:  parseDeviceTime(row.Valid.BeginTime),
 			ValidTo:    parseDeviceTime(row.Valid.EndTime),
-		})
+		}
+		for _, right := range row.RightPlan {
+			if right.DoorNo == 1 {
+				person.PlanTemplates = right.PlanTemplateNo
+			}
+		}
+		people = append(people, person)
 	}
 	return people, parsed.UserInfoSearch.TotalMatches, nil
 }
@@ -268,9 +293,19 @@ func parseDeviceTime(raw string) time.Time {
 }
 
 // SameWindowAs reports whether the device already holds this exact validity
-// window and name, to the second. Comparison is by wall-clock instant so a
-// value read back with an offset still matches the one written without.
+// window, name and hour template, to the second. Comparison is by wall-clock
+// instant so a value read back with an offset still matches the one written
+// without.
+//
+// p is what the device answered. When it did not report a template at all,
+// the template is not compared: treating "not reported" as "different" would
+// rewrite every member on every pass, which is precisely the write burst the
+// comparison exists to prevent. Template changes then still travel with the
+// write-through on the subscription change that causes them.
 func (p Person) SameWindowAs(other Person) bool {
+	if p.PlanTemplates != "" && p.PlanTemplates != other.planTemplates() {
+		return false
+	}
 	return p.Name == other.Name &&
 		p.ValidFrom.Truncate(time.Second).Equal(clampToDeviceRange(other.ValidFrom).Truncate(time.Second)) &&
 		p.ValidTo.Truncate(time.Second).Equal(clampToDeviceRange(other.ValidTo).Truncate(time.Second))

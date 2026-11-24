@@ -34,6 +34,46 @@ const pctChange = (curr, prev) => {
 
 const PM_LABEL = { EFECTIVO: 'Efectivo', TRANSFERENCIA: 'Transferencia', OTRO: 'Otro' };
 const pmLabel = (m) => PM_LABEL[m?.toUpperCase?.()] ?? m ?? 'Otro';
+// ── Columnas del export de suscripciones (Excel y CSV comparten la misma lista) ──
+// El gimnasio usa el reporte para contactar clientes, por eso lleva teléfono y
+// documento. Esta pantalla sólo la ven roles con reports:accounting.
+const SUB_EXPORT_HEADERS = [
+  'Usuario', 'Tipo doc.', 'Documento', 'Teléfono', 'Email', 'Contacto emergencia', 'Tel. emergencia',
+  'Plan', 'Metodo pago', 'Fecha registro', 'Inicio', 'Fin', 'Precio', 'Matricula', 'Descuento', 'Total pagado',
+];
+
+// Los socios sin email reciben uno sintético (member.<doc>@gymgo.internal) para
+// cumplir el índice único; no sirve para contactar a nadie, así que no se exporta.
+const contactEmail = (email) => (!email || /@gymgo\.internal$/i.test(email) ? '' : email);
+
+const subExportRow = (s) => {
+  const u = s.user || {};
+  return [
+    `${u.first_name || ''} ${u.last_name || ''}`.replace(/\s+/g, ' ').trim(),
+    u.document_type || '',
+    u.document_number || '',
+    u.phone || '',
+    contactEmail(u.email),
+    u.emergency_contact_name || '',
+    u.emergency_contact_phone || '',
+    s.plan?.name || '',
+    pmLabel(s.payment_method),
+    (s.created_at || '').split('T')[0],
+    (s.start_date || '').split('T')[0],
+    (s.end_date || '').split('T')[0],
+    s.price_paid ?? 0,
+    s.enrollment_fee_paid ?? 0,
+    s.discount_applied ?? 0,
+    s.total_paid ?? 0,
+  ];
+};
+
+const csvCell = (v) => {
+  if (typeof v === 'number') return String(v);
+  const str = String(v ?? '');
+  return /[",\n\r]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+};
+
 const pmIcon = (m) => {
   const key = m?.toUpperCase?.() ?? '';
   if (key === 'EFECTIVO') return '\uD83D\uDCB5';
@@ -263,9 +303,58 @@ export default function AccountingReports() {
         };
       });
 
-      const grandTotal = subsRevenue + salesRevenue;
-      const prevGrandTotal = prevSubsRevenue + prevSalesRevenue;
-      const totalTransactions = subs.length + (salesReport?.sales_count ?? salesList.length);
+      // ── Tarjetas regalo ───────────────────────────────────────────────────
+      // El dinero de una tarjeta entra el día en que se VENDE (sus propias
+      // payment_lines); la suscripción que nace al redimirla va con total 0.
+      // Sin este sumando, los ingresos y la utilidad quedarían cortos justo
+      // por lo vendido en tarjetas. Sale de /payments/summary, la misma fuente
+      // del Cuadre del Día, así que una anulación ya viene restada.
+      //
+      // El conteo NO sale de ahí: gift_cards_count cuenta líneas de pago (un
+      // pago combinado son dos, una anulación suma su espejo), no tarjetas. Las
+      // tarjetas vendidas y no anuladas las da el listado.
+      const giftOf = async (start, end) => {
+        try {
+          const qs = `start_date=${start}&end_date=${end}`;
+          const [r, l] = await Promise.all([
+            api.get(`/payments/summary?${qs}`),
+            api.get(`/gift-cards?${qs}`),
+          ]);
+          const sm = r.ok ? await r.json() : { methods: [] };
+          const list = l.ok ? await l.json() : null;
+          // Por nombre de método, igual que grandByMethod: así la tabla del
+          // desglose puede sumarlas en la fila de cada método.
+          const byMethod = {};
+          (sm.methods || []).forEach((m) => {
+            if (m.gift_cards_total) byMethod[m.payment_method_name] = (byMethod[m.payment_method_name] || 0) + m.gift_cards_total;
+          });
+          return {
+            total: (sm.methods || []).reduce((acc, m) => acc + (m.gift_cards_total || 0), 0),
+            count: list?.sold_count ?? 0,
+            byMethod,
+          };
+        } catch {
+          return { total: 0, count: 0, byMethod: {} };
+        }
+      };
+      const [gift, prevGift, outstandingRes] = await Promise.all([
+        giftOf(dateRange.s, dateRange.e),
+        giftOf(prev.start, prev.end),
+        api.get('/gift-cards/outstanding', { noCache: true }).catch(() => null),
+      ]);
+      const giftOutstanding = outstandingRes?.ok ? await outstandingRes.json() : null;
+
+      // Sin esto, las filas del desglose por método sumaban menos que su fila de
+      // TOTAL GENERAL, que sí incluye las tarjetas.
+      Object.entries(gift.byMethod || {}).forEach(([m, amount]) => {
+        if (!grandByMethod[m]) grandByMethod[m] = { subsCount: 0, subsTotal: 0, salesCount: 0, salesTotal: 0, total: 0 };
+        grandByMethod[m].giftTotal = (grandByMethod[m].giftTotal || 0) + amount;
+        grandByMethod[m].total += amount;
+      });
+
+      const grandTotal = subsRevenue + salesRevenue + gift.total;
+      const prevGrandTotal = prevSubsRevenue + prevSalesRevenue + prevGift.total;
+      const totalTransactions = subs.length + (salesReport?.sales_count ?? salesList.length) + gift.count;
 
       // ── Egresos ────────────────────────────────────────────────────────────
       // Report() ya neta las anulaciones (el espejo negativo de VoidExpense sale
@@ -295,12 +384,16 @@ export default function AccountingReports() {
         operatingCost: expensesReport?.operating_cost ?? 0,
         expensesByCategory: expensesReport?.by_category ?? [],
         netProfit,
+        giftRevenue: gift.total,
+        giftCount: gift.count,
+        giftOutstanding,
       });
       setPrevData({
         subsRevenue: prevSubsRevenue,
         salesRevenue: prevSalesRevenue,
         grandTotal: prevGrandTotal,
-        totalTransactions: prevSubs.length + (prevSalesReport?.sales_count ?? 0),
+        giftRevenue: prevGift.total,
+        totalTransactions: prevSubs.length + (prevSalesReport?.sales_count ?? 0) + prevGift.count,
         expensesTotal: prevExpensesTotal,
         netProfit: prevNetProfit,
       });
@@ -317,23 +410,15 @@ export default function AccountingReports() {
 
   const handleExportExcel = () => {
     if (!data) return;
-    const headers = ['Usuario', 'Plan', 'Metodo pago', 'Fecha registro', 'Inicio', 'Fin', 'Precio', 'Matricula', 'Descuento', 'Total pagado'];
-    const rows = data.subs.map((s) => [
-      `${s.user?.first_name || ''} ${s.user?.last_name || ''}`.trim(),
-      s.plan?.name || '',
-      pmLabel(s.payment_method),
-      (s.created_at || '').split('T')[0],
-      (s.start_date || '').split('T')[0],
-      (s.end_date || '').split('T')[0],
-      s.price_paid ?? 0,
-      s.enrollment_fee_paid ?? 0,
-      s.discount_applied ?? 0,
-      s.total_paid ?? 0,
-    ]);
-    // Add subtotal
-    rows.push(['', '', '', '', '', 'SUBTOTAL SUSCRIPCIONES', '', '', '', data.subsRevenue]);
+    const headers = SUB_EXPORT_HEADERS;
+    const n = headers.length;
+    // Fila con la etiqueta en la penúltima columna y el valor en la última,
+    // para que los totales queden bajo "Total pagado" sin contar comas a mano.
+    const totalRow = (label, value, first = '') => [first, ...Array(n - 3).fill(''), label, value];
+    const rows = data.subs.map(subExportRow);
+    rows.push(totalRow('SUBTOTAL SUSCRIPCIONES', data.subsRevenue));
     rows.push([]);
-    rows.push(['VENTAS INVENTARIO', '', '', '', '', '', '', '', '', '']);
+    rows.push(['VENTAS INVENTARIO']);
     rows.push(['Transacciones', 'Bruto', 'Descuentos', 'Neto']);
     rows.push([
       data.salesReport?.sales_count ?? data.salesList.length,
@@ -342,53 +427,48 @@ export default function AccountingReports() {
       data.salesRevenue,
     ]);
     rows.push([]);
-    rows.push(['', '', '', '', '', '', '', '', 'INGRESOS BRUTOS', data.grandTotal]);
+    if (data.giftRevenue) {
+      rows.push(totalRow(`${data.giftCount} tarjeta(s)`, data.giftRevenue, 'TARJETAS REGALO VENDIDAS'));
+    }
+    rows.push(totalRow('INGRESOS BRUTOS', data.grandTotal));
     rows.push([]);
-    rows.push(['EGRESOS', '', '', '', '', '', '', '', '', '']);
+    rows.push(['EGRESOS']);
     rows.push(['Compra de mercancía', 'Gasto operativo', 'Total egresos']);
     rows.push([data.inventoryCost, data.operatingCost, data.expensesTotal]);
     rows.push([]);
-    rows.push(['', '', '', '', '', '', '', '', 'UTILIDAD NETA', data.netProfit]);
+    rows.push(totalRow('UTILIDAD NETA', data.netProfit));
     exportExcel(`Reporte ${dateRange.s} a ${dateRange.e}`, headers, rows, `reporte-contable_${dateRange.s}_${dateRange.e}`);
   };
 
   const handleExportCSV = () => {
     if (!data) return;
+    const n = SUB_EXPORT_HEADERS.length;
+    const csvRow = (cells) => cells.map(csvCell).join(',');
+    const totalRow = (label, value, first = '') => csvRow([first, ...Array(n - 3).fill(''), label, value]);
     const lines = [
       `REPORTE CONTABLE CONSOLIDADO`,
       `Periodo: ${dateRange.s} al ${dateRange.e}`,
       ``,
       `SUSCRIPCIONES`,
-      `Usuario,Plan,Metodo,Fecha,Inicio,Fin,Precio,Matricula,Descuento,Total`,
-      ...data.subs.map((s) =>
-        [
-          `"${(s.user?.first_name || '')} ${(s.user?.last_name || '')}".trim()`,
-          `"${s.plan?.name || ''}"`,
-          `"${pmLabel(s.payment_method)}"`,
-          (s.created_at || '').split('T')[0],
-          (s.start_date || '').split('T')[0],
-          (s.end_date || '').split('T')[0],
-          s.price_paid ?? 0,
-          s.enrollment_fee_paid ?? 0,
-          s.discount_applied ?? 0,
-          s.total_paid ?? 0,
-        ].join(',')
-      ),
-      `,,,,,,,,Subtotal Suscripciones,${data.subsRevenue}`,
+      csvRow(SUB_EXPORT_HEADERS),
+      ...data.subs.map((s) => csvRow(subExportRow(s))),
+      totalRow('Subtotal Suscripciones', data.subsRevenue),
       ``,
       `VENTAS INVENTARIO`,
       `Transacciones,Bruto,Descuentos,Neto`,
       `${data.salesReport?.sales_count ?? data.salesList.length},${data.salesReport?.total_sales ?? 0},${data.salesReport?.total_discount ?? 0},${data.salesRevenue}`,
       ``,
-      `,,,,,,,,Ingresos brutos,${data.grandTotal}`,
+      ...(data.giftRevenue ? [totalRow(`${data.giftCount} tarjeta(s)`, data.giftRevenue, 'TARJETAS REGALO VENDIDAS')] : []),
+      totalRow('Ingresos brutos', data.grandTotal),
       ``,
       `EGRESOS`,
       `Compra de mercancia,Gasto operativo,Total egresos`,
       `${data.inventoryCost},${data.operatingCost},${data.expensesTotal}`,
       ``,
-      `,,,,,,,,UTILIDAD NETA,${data.netProfit}`,
+      totalRow('UTILIDAD NETA', data.netProfit),
     ];
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    // BOM para que Excel lea el CSV como UTF-8 (tildes y eñes en los nombres).
+    const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = Object.assign(document.createElement('a'), { href: url, download: `reporte-contable_${dateRange.s}_${dateRange.e}.csv` });
     a.click();
@@ -494,7 +574,7 @@ export default function AccountingReports() {
 
       {/* Content */}
       {!data && !loading && (
-        <EmptyState text="Selecciona un rango de fechas y haz clic en \u00ABGenerar Reporte\u00BB para ver los ingresos del periodo" />
+        <EmptyState text="Selecciona un rango de fechas y haz clic en «Generar Reporte» para ver los ingresos del periodo" />
       )}
 
       {loading && (
@@ -532,7 +612,7 @@ export default function AccountingReports() {
               prevValue={[data.grandTotal, prevData?.grandTotal]}
               icon={'\uD83D\uDCB0'}
               accent="text-purple-600"
-              sub="Suscripciones + Ventas"
+              sub={data.giftRevenue ? 'Suscripciones + Ventas + Tarjetas regalo' : 'Suscripciones + Ventas'}
             />
             <KpiCard
               title="Transacciones"
@@ -556,8 +636,25 @@ export default function AccountingReports() {
               prevValue={[data.netProfit, prevData?.netProfit]}
               icon={'\u2696\uFE0F'}
               accent={data.netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}
-              sub="Ingresos \u2212 egresos"
+              sub={'Ingresos \u2212 egresos'}
             />
+            <KpiCard
+              title="Tarjetas Regalo Vendidas"
+              value={fmt(data.giftRevenue)}
+              prevValue={[data.giftRevenue, prevData?.giftRevenue]}
+              icon={'\ud83c\udf81'}
+              accent="text-amber-600"
+              sub={`${data.giftCount} tarjeta(s) \u00b7 ya incluidas en el total`}
+            />
+            {data.giftOutstanding && (
+              <KpiCard
+                title="Saldo por Redimir (hoy)"
+                value={fmt(data.giftOutstanding.value)}
+                icon={'\u23f3'}
+                accent="text-amber-700"
+                sub={`${data.giftOutstanding.count} tarjeta(s) cobradas sin usar${data.giftOutstanding.expired_count ? ` \u00b7 ${data.giftOutstanding.expired_count} vencida(s) por ${fmt(data.giftOutstanding.expired_value)}` : ''}`}
+              />
+            )}
           </div>
 
           {/* Export buttons */}
@@ -634,7 +731,7 @@ export default function AccountingReports() {
                         </td>
                         <td className="px-5 py-3 text-gray-600">{s.plan?.name || '\u2014'}</td>
                         <td className="px-5 py-3 text-gray-500 text-xs">
-                          {(s.start_date || '').split('T')[0]} \u2192 {(s.end_date || '').split('T')[0]}
+                          {(s.start_date || '').split('T')[0]} → {(s.end_date || '').split('T')[0]}
                         </td>
                         <td className="px-5 py-3 text-gray-500 text-xs">{pmIcon(s.payment_method)} {pmLabel(s.payment_method)}</td>
                         <td className="px-5 py-3 text-right text-gray-600">{fmt(s.price_paid || 0)}</td>
@@ -694,7 +791,7 @@ export default function AccountingReports() {
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-orange-500">{fmt(data.inventoryCost)}</p>
-                    <p className="text-xs text-gray-500 mt-1">Compra de mercanc\u00EDa</p>
+                    <p className="text-xs text-gray-500 mt-1">Compra de mercancía</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-purple-600">{fmt(data.operatingCost)}</p>
@@ -706,7 +803,7 @@ export default function AccountingReports() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-gray-50">
-                          <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Categor\u00EDa</th>
+                          <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Categoría</th>
                           <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Registros</th>
                           <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
                         </tr>
@@ -728,14 +825,15 @@ export default function AccountingReports() {
           </Card>
 
           {/* Payment method breakdown */}
-          <Card title="Desglose por m\u00E9todo de pago">
+          <Card title="Desglose por método de pago">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-50">
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">M\u00E9todo</th>
+                    <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Método</th>
                     <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Suscripciones</th>
                     <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Ventas</th>
+                    {data.giftRevenue !== 0 && <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Tarjetas regalo</th>}
                     <th className="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</th>
                   </tr>
                 </thead>
@@ -749,6 +847,9 @@ export default function AccountingReports() {
                       <td className="px-5 py-3 text-right text-gray-600">
                         {v.salesCount > 0 ? <>{fmt(v.salesTotal)} <span className="text-gray-400 text-xs">({v.salesCount})</span></> : '\u2014'}
                       </td>
+                      {data.giftRevenue !== 0 && (
+                        <td className="px-5 py-3 text-right text-gray-600">{v.giftTotal ? fmt(v.giftTotal) : '\u2014'}</td>
+                      )}
                       <td className="px-5 py-3 text-right font-bold text-gray-900">{fmt(v.total)}</td>
                     </tr>
                   ))}
@@ -758,6 +859,7 @@ export default function AccountingReports() {
                     <td className="px-5 py-4 text-sm font-bold text-white">TOTAL GENERAL</td>
                     <td className="px-5 py-4 text-right text-sm font-bold text-[#5BA8E8]">{fmt(data.subsRevenue)}</td>
                     <td className="px-5 py-4 text-right text-sm font-bold text-blue-300">{fmt(data.salesRevenue)}</td>
+                    {data.giftRevenue !== 0 && <td className="px-5 py-4 text-right text-sm font-bold text-amber-300">{fmt(data.giftRevenue)}</td>}
                     <td className="px-5 py-4 text-right text-lg font-extrabold text-white">{fmt(data.grandTotal)}</td>
                   </tr>
                 </tfoot>

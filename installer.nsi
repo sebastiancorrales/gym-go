@@ -1,5 +1,10 @@
 ; Gym-Go Installer Script
-; NSIS Modern User Interface - Con Servicio Biometrico
+; NSIS Modern User Interface
+;
+; El servicio biometrico de DigitalPersona (BiometricPOC.exe) ya no se instala:
+; la puerta la maneja el terminal Hikvision, que habla ISAPI por la red y no
+; necesita ningun programa local. Construirlo exigia el SDK de .NET 8 y una DLL
+; propietaria que no vive en el repo, y era lo que hacia fallar el build.
 
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
@@ -66,11 +71,12 @@ Section "Gym-Go (requerido)" SecCore
   File /r "frontend\dist\*.*"
   
   ; ================================
-  ; Servicio Biometrico
+  ; Servicio Biometrico (retirado)
   ; ================================
-  SetOutPath "$INSTDIR\biometric"
-  File /r "build\biometric\*.*"
-  
+  ; Una instalacion vieja puede tenerlo; launch-gym.vbs lo arranca si existe,
+  ; asi que se borra para que no siga corriendo sin que nadie lo use.
+  RMDir /r "$INSTDIR\biometric"
+
   ; Los .sql de migraciones NO se instalan: ningun codigo Go los lee. El esquema
   ; lo genera AutoMigrate a partir de las entidades. Se conservan como referencia
   ; historica en docs\historical-schema\.
@@ -93,11 +99,19 @@ Section "Gym-Go (requerido)" SecCore
   ; ================================
   ; Directorio de datos (ProgramData)
   ; ================================
-  CreateDirectory "$PROGRAMDATA\Gym-Go"
-  CreateDirectory "$PROGRAMDATA\Gym-Go\uploads"
-  
-  ; Permisos de escritura para usuarios
-  nsExec::ExecToLog 'icacls "$PROGRAMDATA\Gym-Go" /grant Users:(OI)(CI)M /T'
+  ; NSIS no tiene una constante $PROGRAMDATA: escrita asi quedaba literal, la
+  ; carpeta no se creaba donde la app la busca y el icacls nunca daba permisos.
+  ; Se lee la variable de entorno.
+  ReadEnvStr $0 PROGRAMDATA
+  StrCmp $0 "" 0 +2
+    StrCpy $0 "C:\ProgramData"
+  CreateDirectory "$0\Gym-Go"
+  CreateDirectory "$0\Gym-Go\uploads"
+
+  ; Permisos de escritura para usuarios: si el primer arranque es el de la
+  ; pagina final del instalador (elevado), la base queda a nombre del
+  ; administrador y un usuario normal no podria escribirla despues.
+  nsExec::ExecToLog 'icacls "$0\Gym-Go" /grant *S-1-5-32-545:(OI)(CI)M /T'
   
   ; ================================
   ; Registro de Windows
@@ -143,7 +157,7 @@ SectionEnd
 ; Section Descriptions
 ; --------------------------------
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SecCore} "Archivos principales de Gym-Go con servicio biometrico (requerido)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SecCore} "Archivos principales de Gym-Go (requerido)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SecShortcuts} "Crear accesos directos en el menu inicio"
   !insertmacro MUI_DESCRIPTION_TEXT ${SecAutostart} "Iniciar Gym-Go automaticamente al encender la computadora"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
@@ -188,9 +202,13 @@ Section "Uninstall"
   RMDir "$INSTDIR"
   
   ; Preguntar por la base de datos
-  MessageBox MB_YESNO "¿Desea eliminar tambien la base de datos?$\n(Se perderan todos los datos)$\n$\nUbicacion: $PROGRAMDATA\Gym-Go" IDYES DeleteDB IDNO KeepDB
+  ; "No" es el boton por defecto: un Enter distraido no debe borrar los datos.
+  ReadEnvStr $0 PROGRAMDATA
+  StrCmp $0 "" 0 +2
+    StrCpy $0 "C:\ProgramData"
+  MessageBox MB_YESNO|MB_DEFBUTTON2 "¿Desea eliminar tambien la base de datos?$\n(Se perderan todos los datos)$\n$\nUbicacion: $0\Gym-Go" IDYES DeleteDB IDNO KeepDB
   DeleteDB:
-    RMDir /r "$PROGRAMDATA\Gym-Go"
+    RMDir /r "$0\Gym-Go"
   KeepDB:
   
   ; Eliminar accesos directos
